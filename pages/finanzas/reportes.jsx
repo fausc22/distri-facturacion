@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import useAuth from '../../hooks/useAuth';
 import { ReportesProvider } from '../../context/ReportesContext';
@@ -70,14 +70,14 @@ function ReportesContent() {
   const [isMobile, setIsMobile] = useState(false);
 
   // Detectar si es móvil
-  useState(() => {
+  useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    
+
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
