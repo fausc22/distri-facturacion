@@ -1,4 +1,3 @@
-// pages/inventario/Remitos.jsx - IMPLEMENTACIÓN COMPLETA CON MODAL PDF
 import { useState } from 'react';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';

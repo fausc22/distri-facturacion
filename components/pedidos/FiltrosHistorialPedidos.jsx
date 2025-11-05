@@ -1,6 +1,5 @@
-// components/pedidos/FiltrosHistorialPedidos.jsx - VERSIÓN COMPLETA CON SOLUCIÓN 1
 import { useState, useEffect } from 'react';
-import { MdFilterList, MdClear, MdExpandMore, MdExpandLess } from 'react-icons/md';
+import { MdFilterList, MdClear, MdExpandMore, MdExpandLess, MdSearch } from 'react-icons/md';
 import { axiosAuth } from '../../utils/apiClient';
 
 export default function FiltrosHistorialPedidos({ 
@@ -10,14 +9,14 @@ export default function FiltrosHistorialPedidos({
   user,
   totalPedidos = 0,
   pedidosFiltrados = 0,
-  pedidosOriginales = [] // NUEVA PROP - para extraer empleados
+  pedidosOriginales = []
 }) {
   const [expandido, setExpandido] = useState(false);
 
   // Estados únicos extraídos de los pedidos
   const [ciudadesUnicas, setCiudadesUnicas] = useState([]);
   const [clientesUnicos, setClientesUnicos] = useState([]);
-  const [empleadosUnicos, setEmpleadosUnicos] = useState([]); // EXTRAÍDOS DE PEDIDOS
+  const [empleadosUnicos, setEmpleadosUnicos] = useState([]);
   const [loadingDatos, setLoadingDatos] = useState(false);
 
   const esGerente = user?.rol === 'GERENTE';
@@ -35,7 +34,6 @@ export default function FiltrosHistorialPedidos({
   const cargarDatosUnicos = async () => {
     setLoadingDatos(true);
     try {
-      // Intentar obtener ciudades y clientes desde API
       const response = await axiosAuth.get('/pedidos/datos-filtros');
       if (response.data.success) {
         setCiudadesUnicas(response.data.data.ciudades || []);
@@ -44,7 +42,6 @@ export default function FiltrosHistorialPedidos({
       }
     } catch (error) {
       console.error('Error cargando datos para filtros:', error);
-      // Si falla la API, extraer de pedidosOriginales como fallback
       if (pedidosOriginales.length > 0) {
         extraerDatosDeLocal();
       }
@@ -53,7 +50,6 @@ export default function FiltrosHistorialPedidos({
     }
   };
 
-  // NUEVA FUNCIÓN: Extraer empleados únicos de los pedidos existentes
   const extraerEmpleadosUnicos = () => {
     if (!pedidosOriginales || pedidosOriginales.length === 0) return;
 
@@ -67,7 +63,6 @@ export default function FiltrosHistorialPedidos({
     console.log('👥 Empleados únicos extraídos de pedidos:', empleados);
   };
 
-  // NUEVA FUNCIÓN: Fallback para extraer datos localmente
   const extraerDatosDeLocal = () => {
     const ciudades = [...new Set(
       pedidosOriginales
@@ -153,7 +148,39 @@ export default function FiltrosHistorialPedidos({
         expandido ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
       } overflow-hidden`}>
         <div className="px-4 pb-4 border-t border-gray-200">
-          <div className={`grid gap-4 mt-4 ${
+          
+          {/* ✅ NUEVA FILA: Búsqueda rápida por cliente */}
+          <div className="mt-4 mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              🔍 Búsqueda rápida por cliente
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={filtros.busquedaTexto || ''}
+                onChange={(e) => handleFiltroChange('busquedaTexto', e.target.value)}
+                placeholder="Escriba el nombre del cliente..."
+                className="w-full p-2 pl-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <MdSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              {filtros.busquedaTexto && (
+                <button
+                  onClick={() => handleFiltroChange('busquedaTexto', '')}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  title="Limpiar búsqueda"
+                >
+                  <MdClear size={16} />
+                </button>
+              )}
+            </div>
+            {filtros.busquedaTexto && (
+              <div className="text-xs text-blue-600 mt-1">
+                Buscando: "{filtros.busquedaTexto}"
+              </div>
+            )}
+          </div>
+
+          <div className={`grid gap-4 ${
             esGerente 
               ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5' 
               : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-4'
@@ -176,10 +203,10 @@ export default function FiltrosHistorialPedidos({
               </select>
             </div>
 
-            {/* Filtro por Cliente */}
+            {/* Filtro por Cliente (dropdown) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cliente
+                Cliente (lista)
               </label>
               <input
                 type="text"
@@ -216,7 +243,7 @@ export default function FiltrosHistorialPedidos({
               </datalist>
             </div>
 
-            {/* Filtro por Empleado (solo para gerente) - VERSIÓN CORREGIDA */}
+            {/* Filtro por Empleado (solo para gerente) */}
             {esGerente && (
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -236,9 +263,6 @@ export default function FiltrosHistorialPedidos({
                 </select>
                 {loadingDatos && (
                   <div className="text-xs text-gray-500 mt-1">Cargando empleados...</div>
-                )}
-                {!loadingDatos && empleadosUnicos.length === 0 && pedidosOriginales.length > 0 && (
-                  <div className="text-xs text-gray-500 mt-1">No hay empleados registrados</div>
                 )}
               </div>
             )}
@@ -297,6 +321,7 @@ export default function FiltrosHistorialPedidos({
                     
                     let etiqueta = campo;
                     switch (campo) {
+                      case 'busquedaTexto': etiqueta = 'Búsqueda'; break;
                       case 'fechaDesde': etiqueta = 'Desde'; break;
                       case 'fechaHasta': etiqueta = 'Hasta'; break;
                       case 'cliente': etiqueta = 'Cliente'; break;

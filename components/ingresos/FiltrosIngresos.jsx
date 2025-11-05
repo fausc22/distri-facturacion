@@ -1,4 +1,3 @@
-// components/ingresos/FiltrosIngresos.jsx
 import { MdClearAll } from "react-icons/md";
 
 export default function FiltrosIngresos({ 

@@ -1,4 +1,3 @@
-// components/reportes/DashboardReportes.jsx - VERSIÓN CON BOTÓN PDF
 import { useEffect, useState } from 'react';
 import { useReportesContext } from '../../context/ReportesContext';
 import { MetricsCard, FinancialMetricsCard, MetricsGrid } from '../charts/MetricsCard';

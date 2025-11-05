@@ -1,4 +1,3 @@
-// components/fondos/TablaCuentas.jsx
 import { MdArrowDownward, MdArrowUpward, MdSwapHoriz, MdHistory } from "react-icons/md";
 
 // Formateador de moneda

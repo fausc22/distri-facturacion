@@ -1,4 +1,3 @@
-// components/shared/ModalPDFUniversal.jsx
 import { MdSave, MdShare, MdPictureAsPdf } from "react-icons/md";
 
 export function ModalPDFUniversal({ 

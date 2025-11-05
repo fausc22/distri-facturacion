@@ -1,4 +1,3 @@
-// components/pedidos/TablaPedidos.jsx
 import { useState } from 'react';
 
 
@@ -95,7 +94,7 @@ function TablaEscritorio({
               className="p-3 text-left cursor-pointer hover:bg-gray-300 transition-colors"
               onClick={() => onSort('empleado_nombre')}
             >
-              Usuario {getSortIcon('empleado_nombre')}
+              VENDEDOR {getSortIcon('empleado_nombre')}
             </th>
           </tr>
         </thead>
@@ -303,7 +302,7 @@ function TarjetasMovil({
                 <div className="text-lg font-bold text-blue-600">
                   {pedido.empleado_nombre || 'No especificado'}
                 </div>
-                <div className="text-xs text-blue-800">Usuario</div>
+                <div className="text-xs text-blue-800">VENDEDOR</div>
               </div>
             </div>
 

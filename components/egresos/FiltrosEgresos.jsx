@@ -1,4 +1,3 @@
-// components/egresos/FiltrosEgresos.jsx
 import { MdClearAll } from "react-icons/md";
 
 export default function FiltrosEgresos({ 

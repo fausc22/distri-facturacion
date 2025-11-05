@@ -1,4 +1,3 @@
-// components/ingresos/BarraAccionesIngresos.jsx
 import { MdSearch, MdAdd, MdFilterList, MdAutorenew } from "react-icons/md";
 
 export default function BarraAccionesIngresos({

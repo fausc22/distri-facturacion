@@ -1,4 +1,3 @@
-// components/fondos/FiltrosMovimientos.jsx
 export default function FiltrosMovimientos({ 
   cuentas, 
   filtros, 

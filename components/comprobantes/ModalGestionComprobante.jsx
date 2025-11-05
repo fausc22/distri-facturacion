@@ -1,4 +1,3 @@
-// components/comprobantes/ModalGestionComprobante.jsx
 import { useEffect } from 'react';
 import { MdRemoveRedEye, MdCloudUpload, MdDelete, MdClose } from "react-icons/md";
 import { useComprobantes } from '../../hooks/useComprobantes';

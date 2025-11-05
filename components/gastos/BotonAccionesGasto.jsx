@@ -1,4 +1,3 @@
-// components/gastos/BotonAccionesGasto.jsx
 export function BotonAccionesGasto({ 
   onRegistrarGasto, 
   onLimpiarFormulario, 

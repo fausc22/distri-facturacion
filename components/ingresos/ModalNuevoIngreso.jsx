@@ -1,4 +1,3 @@
-// components/ingresos/ModalNuevoIngreso.jsx
 export default function ModalNuevoIngreso({
   mostrar,
   formData,

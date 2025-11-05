@@ -8,6 +8,7 @@ export function useHistorialPedidos(filtroEmpleado = null) {
   const [selectedPedidos, setSelectedPedidos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtros, setFiltros] = useState({
+    busquedaTexto: '', 
     estado: '',
     cliente: '',
     ciudad: '',
@@ -60,6 +61,14 @@ export function useHistorialPedidos(filtroEmpleado = null) {
     if (!pedidosOriginales.length) return [];
 
     let resultado = [...pedidosOriginales];
+
+    // ✅ NUEVO FILTRO: Búsqueda por texto en nombre de cliente
+    if (filtros.busquedaTexto) {
+      const textoBusqueda = filtros.busquedaTexto.toLowerCase().trim();
+      resultado = resultado.filter(pedido => 
+        pedido.cliente_nombre?.toLowerCase().includes(textoBusqueda)
+      );
+    }
 
     // Filtro por estado
     if (filtros.estado) {
@@ -162,9 +171,9 @@ export function useHistorialPedidos(filtroEmpleado = null) {
     clearSelection();
   };
 
-  // Limpiar filtros
   const limpiarFiltros = () => {
     setFiltros({
+      busquedaTexto: '', 
       estado: '',
       cliente: '',
       ciudad: '',

@@ -1,4 +1,3 @@
-// components/remitos/ModalDetalleRemito.jsx - Sin botón Ver Venta Origen
 import React, { useState } from "react";
 import { toast } from 'react-hot-toast';
 import { MdExpandMore, MdExpandLess } from "react-icons/md";

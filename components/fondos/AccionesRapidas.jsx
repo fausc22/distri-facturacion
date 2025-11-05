@@ -1,4 +1,3 @@
-// components/fondos/AccionesRapidas.jsx
 import { MdArrowDownward, MdArrowUpward, MdSwapHoriz } from "react-icons/md";
 
 export default function AccionesRapidas({ 

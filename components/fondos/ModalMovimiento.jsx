@@ -1,4 +1,3 @@
-// components/fondos/ModalMovimiento.jsx
 export default function ModalMovimiento({ 
   mostrar, 
   cuentas,

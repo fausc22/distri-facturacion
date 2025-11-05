@@ -1,4 +1,3 @@
-// components/charts/CustomCharts.jsx
 import {
   BarChart,
   Bar,

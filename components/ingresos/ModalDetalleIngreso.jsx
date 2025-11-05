@@ -1,5 +1,3 @@
-// components/ingresos/ModalDetalleIngreso.jsx
-
 // Formateadores
 const formatCurrency = (value) => {
   // Manejar valores nulos, undefined o no numéricos

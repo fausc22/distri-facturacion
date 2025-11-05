@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
+// const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 
 // ✅ HELPER FUNCTIONS PARA SSR
@@ -45,6 +46,8 @@ export const axiosAuth = axios.create({
   baseURL: apiUrl,
   withCredentials: false, // ✅ PWA: Sin cookies, solo localStorage
 });
+
+
 
 class ApiClient {
   constructor() {

@@ -1,12 +1,11 @@
 import { useState } from 'react';
-
 import { axiosAuth, fetchAuth } from '../utils/apiClient';
   
 export function useProductoSearch() {
   const [busqueda, setBusqueda] = useState('');
   const [resultados, setResultados] = useState([]);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
-  const [cantidad, setCantidad] = useState(1);
+  const [cantidad, setCantidad] = useState(0.5); // ✅ CAMBIO: Iniciar en 0.5
   const [subtotal, setSubtotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [mostrarModal, setMostrarModal] = useState(false);
@@ -16,10 +15,7 @@ export function useProductoSearch() {
 
     setLoading(true);
     try {
-      const data =  await fetchAuth(`/pedidos/filtrar-producto?search=${encodeURIComponent(busqueda)}`);
-      
-
-      
+      const data = await fetchAuth(`/pedidos/filtrar-producto?search=${encodeURIComponent(busqueda)}`);
       setResultados(data.data);
       setMostrarModal(true);
     } catch (error) {
@@ -32,12 +28,20 @@ export function useProductoSearch() {
 
   const seleccionarProducto = (producto) => {
     setProductoSeleccionado(producto);
-    setCantidad(1);
-    setSubtotal(parseFloat(Number(producto.precio).toFixed(2)));
+    setCantidad(0.5); // ✅ CAMBIO: Resetear a 0.5
+    setSubtotal(parseFloat((Number(producto.precio) * 0.5).toFixed(2))); // ✅ CAMBIO: Calcular con 0.5
   };
 
   const actualizarCantidad = (nuevaCantidad) => {
-    const cantidadValida = Math.max(1, nuevaCantidad);
+    // ✅ CAMBIO: Permitir cantidades desde 0.5
+    let cantidadFloat = parseFloat(nuevaCantidad) || 0.5;
+    
+    // Redondear a medios más cercano
+    cantidadFloat = Math.round(cantidadFloat * 2) / 2;
+    
+    // Mínimo 0.5
+    const cantidadValida = Math.max(0.5, cantidadFloat);
+    
     setCantidad(cantidadValida);
     if (productoSeleccionado) {
       setSubtotal(parseFloat((productoSeleccionado.precio * cantidadValida).toFixed(2)));
@@ -46,7 +50,7 @@ export function useProductoSearch() {
 
   const limpiarSeleccion = () => {
     setProductoSeleccionado(null);
-    setCantidad(1);
+    setCantidad(0.5); // ✅ CAMBIO: Resetear a 0.5
     setSubtotal(0);
     setBusqueda('');
     setMostrarModal(false);
@@ -68,4 +72,3 @@ export function useProductoSearch() {
     limpiarSeleccion
   };
 }
-

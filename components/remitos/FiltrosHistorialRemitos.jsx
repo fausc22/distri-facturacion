@@ -1,4 +1,3 @@
-// components/remitos/FiltrosHistorialRemitos.jsx
 import { useState, useEffect } from 'react';
 import { MdFilterList, MdClear, MdExpandMore, MdExpandLess } from 'react-icons/md';
 

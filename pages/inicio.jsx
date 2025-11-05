@@ -1,4 +1,3 @@
-// pages/inicio.jsx - Modificado con paneles PWA condicionales
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
@@ -336,13 +335,16 @@ export default function Inicio() {
             <div className="space-y-2">
               <LinkGuard href="/ventas/RegistrarPedido" className="block text-blue-600 hover:text-blue-800 text-sm">• Registrar Nota de Pedido</LinkGuard>
               <LinkGuard href="/ventas/HistorialPedidos" className="block text-blue-600 hover:text-blue-800 text-sm">• Historial de Pedidos</LinkGuard>
-              <LinkGuard href="/ventas/comprobantes" className="block text-blue-600 hover:text-blue-800 text-sm">• Gestión de Comprobantes</LinkGuard>
+              
               {empleado?.rol === 'GERENTE' && (
                 <>
+                <LinkGuard href="/ventas/VentaDirecta" className="block text-blue-600 hover:text-blue-800 text-sm">• Venta Directa</LinkGuard>
+                <LinkGuard href="/ventas/Facturacion" className="block text-blue-600 hover:text-blue-800 text-sm">• Facturación</LinkGuard>
                   <LinkGuard href="/ventas/ListaPrecios" className="block text-blue-600 hover:text-blue-800 text-sm">• Lista de Precios</LinkGuard>
-                  <LinkGuard href="/ventas/Facturacion" className="block text-blue-600 hover:text-blue-800 text-sm">• Facturación</LinkGuard>
+                  
                 </>
               )}
+              <LinkGuard href="/ventas/comprobantes" className="block text-blue-600 hover:text-blue-800 text-sm">• Gestión de Comprobantes</LinkGuard>
             </div>
           </div>
         )}
@@ -363,7 +365,7 @@ export default function Inicio() {
               {empleado?.rol === 'GERENTE' && (
                 <>
                   <LinkGuard href="/inventario/Productos" className="block text-blue-600 hover:text-blue-800 text-sm">• Gestión de Productos</LinkGuard>
-                  <LinkGuard href="/compras/RegistrarCompra" className="block text-blue-600 hover:text-blue-800 text-sm">• Compra Proveedores</LinkGuard>
+                  
                 </>
               )}
               <LinkGuard href="/inventario/consultaStock" className="block text-blue-600 hover:text-blue-800 text-sm">• Consulta de Stock</LinkGuard>
@@ -386,7 +388,7 @@ export default function Inicio() {
           <div className="space-y-2">
             {empleado?.rol === 'GERENTE' && (
               <>
-                <LinkGuard href="/compras/RegistrarCompra" className="block text-blue-600 hover:text-blue-800 text-sm">• Registrar Compra</LinkGuard>
+                <LinkGuard href="/compras/RegistrarCompra" className="block text-blue-600 hover:text-blue-800 text-sm">• Registrar Compra Proveedores</LinkGuard>
                 <LinkGuard href="/compras/HistorialCompras" className="block text-blue-600 hover:text-blue-800 text-sm">• Historial de Compras</LinkGuard>
               </>
             )}
@@ -411,8 +413,7 @@ export default function Inicio() {
               <LinkGuard href="/edicion/Empleados" className="block text-blue-600 hover:text-blue-800 text-sm">• Gestión de Empleados</LinkGuard>
               <LinkGuard href="/edicion/Clientes" className="block text-blue-600 hover:text-blue-800 text-sm">• Gestión de Clientes</LinkGuard>
               <LinkGuard href="/edicion/Proveedores" className="block text-blue-600 hover:text-blue-800 text-sm">• Gestión de Proveedores</LinkGuard>
-              <LinkGuard href="/finanzas/fondos" className="block text-blue-600 hover:text-blue-800 text-sm">• Tesorería</LinkGuard>
-              <LinkGuard href="/finanzas/reportes" className="block text-blue-600 hover:text-blue-800 text-sm">• Reportes Financieros</LinkGuard>
+              
               <LinkGuard href="/auditoria/Auditoria" className="block text-blue-600 hover:text-blue-800 text-sm border-t border-gray-200 pt-2 mt-2">•  Auditoría del Sistema</LinkGuard>
 
             </div>
@@ -433,7 +434,7 @@ export default function Inicio() {
             </div>
             <p className="text-gray-600 mb-4">Ingreso de Gastos y Edición de Clientes</p>
             <div className="space-y-2">
-              <LinkGuard href="/compras/RegistrarGasto" className="block text-blue-600 hover:text-blue-800 text-sm">• Registrar Gasto</LinkGuard>
+              
               <LinkGuard href="/edicion/Clientes" className="block text-blue-600 hover:text-blue-800 text-sm">• Gestión de Clientes</LinkGuard>
             </div>
           </div>

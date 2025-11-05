@@ -1,4 +1,3 @@
-// components/fondos/ModalTransferencia.jsx
 export default function ModalTransferencia({ 
   mostrar, 
   cuentas,

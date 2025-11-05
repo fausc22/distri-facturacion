@@ -1,4 +1,3 @@
-// components/reportes/GeografiaAnalytics.jsx - SIMPLIFICADO TEMPORALMENTE
 import React from 'react';
 
 export function GeographicAnalytics() {

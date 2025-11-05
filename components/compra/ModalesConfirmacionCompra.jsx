@@ -1,4 +1,3 @@
-// Formateador de moneda
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('es-AR', {
     style: 'currency',

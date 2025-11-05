@@ -1,4 +1,3 @@
-// components/egresos/ModalNuevoEgreso.jsx
 export default function ModalNuevoEgreso({
   mostrar,
   formData,

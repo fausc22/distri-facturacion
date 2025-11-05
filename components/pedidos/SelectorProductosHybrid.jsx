@@ -1,4 +1,3 @@
-// components/pedidos/SelectorProductosHybrid.jsx - Selector Híbrido PWA/Web para Productos
 import { MdSearch } from "react-icons/md";
 import { toast } from 'react-hot-toast';
 import { usePedidosContext } from '../../context/PedidosContext';

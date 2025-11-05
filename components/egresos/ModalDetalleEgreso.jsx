@@ -1,5 +1,3 @@
-// components/egresos/ModalDetalleEgreso.jsx
-
 // Formateadores
 const formatCurrency = (value) => {
   // Manejar valores nulos, undefined o no numéricos

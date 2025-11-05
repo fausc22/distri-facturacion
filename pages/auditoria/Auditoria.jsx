@@ -1,4 +1,3 @@
-// pages/auditoria/Auditoria.jsx
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';

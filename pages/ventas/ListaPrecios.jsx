@@ -3,17 +3,17 @@ import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import useAuth from '../../hooks/useAuth';
 
-import { VentaProvider, useVenta } from '../../context/VentasContext';
+import { ListaPreciosProvider, useListaPrecios } from '../../context/ListaPreciosContext';
 import { useGenerarPDF } from '../../hooks/ventas/useGenerarPDFListaPrecio';
 import { ModalPDFUniversal, BotonGenerarPDFUniversal } from '../../components/shared/ModalPDFUniversal';
 
-import ClienteSelectorListaPrecios from '../../components/ventas/SelectorClientes';
-import ProductoSelector from '../../components/ventas/SelectorProductos';
+import ClienteSelectorListaPrecios from '../../components/pedidos/SelectorClientesLP';
+import ProductoSelector from '../../components/pedidos/SelectorProductosLP';
 import ProductosCarritoListaPrecios from '../../components/ventas/ProductosCarritoLP';
 import { ModalConfirmacionSalida } from '../../components/ventas/ModalesConfirmacion';
 
 function GenerarListaPreciosContent() {
-  const { cliente, productos, clearVenta } = useVenta();
+  const { cliente, productos, clearLista } = useListaPrecios();
   const { 
     loading, 
     pdfURL, 
@@ -54,6 +54,7 @@ function GenerarListaPreciosContent() {
   };
 
   const handleSalir = () => {
+    clearLista();
     cerrarModalPDF();
     window.location.href = '/';
   };
@@ -114,8 +115,8 @@ function GenerarListaPreciosContent() {
 
 export default function GenerarListaPrecios() {
   return (
-    <VentaProvider>
+    <ListaPreciosProvider>
       <GenerarListaPreciosContent />
-    </VentaProvider>
+    </ListaPreciosProvider>
   );
 }

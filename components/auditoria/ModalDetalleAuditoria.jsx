@@ -1,4 +1,3 @@
-// components/auditoria/ModalDetalleAuditoria.jsx
 import { useState, useEffect } from 'react';
 
 // Función helper para formatear fechas

@@ -1,5 +1,3 @@
-// components/fondos/TablaMovimientos.jsx
-
 // Formateador de moneda
 const formatCurrency = (value) => {
   return new Intl.NumberFormat('es-AR', {

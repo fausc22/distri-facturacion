@@ -1,4 +1,3 @@
-// components/egresos/TablaEgresos.jsx
 import { MdRemoveRedEye, MdPrint } from "react-icons/md";
 
 // Formateadores

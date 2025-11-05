@@ -1,4 +1,3 @@
-// components/fondos/ModalCuenta.jsx
 export default function ModalCuenta({ 
   mostrar, 
   formData, 

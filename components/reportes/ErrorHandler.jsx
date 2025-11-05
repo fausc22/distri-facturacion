@@ -1,4 +1,3 @@
-// components/reportes/ErrorHandler.jsx
 import React from 'react';
 
 export function ReportesErrorBoundary({ children, error, onRetry, filtros }) {

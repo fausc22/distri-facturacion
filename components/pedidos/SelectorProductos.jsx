@@ -4,31 +4,70 @@ import { usePedidosContext } from '../../context/PedidosContext';
 import { useProductoSearch } from '../../hooks/useBusquedaProductos';
 
 function ControlCantidad({ cantidad, onCantidadChange, stockDisponible, className = "" }) {
+  const formatearCantidad = (cantidad) => {
+    const cantidadNum = parseFloat(cantidad);
+    return cantidadNum % 1 === 0 ? cantidadNum.toString() : cantidadNum.toFixed(1);
+  };
+
   const handleCantidadChange = (nuevaCantidad) => {
-    // Limitar la cantidad al stock disponible
-    const cantidadValida = Math.min(Math.max(1, nuevaCantidad), stockDisponible);
+    let cantidadFloat = parseFloat(nuevaCantidad) || 0.5;
+    
+    // Redondear a medios más cercano
+    cantidadFloat = Math.round(cantidadFloat * 2) / 2;
+    
+    // Aplicar límites
+    const cantidadValida = Math.max(0.5, Math.min(stockDisponible, cantidadFloat));
     onCantidadChange(cantidadValida);
+  };
+
+  const incrementar = () => {
+    const nuevaCantidad = cantidad + 0.5;
+    if (nuevaCantidad <= stockDisponible) {
+      handleCantidadChange(nuevaCantidad);
+    }
+  };
+
+  const decrementar = () => {
+    const nuevaCantidad = Math.max(0.5, cantidad - 0.5);
+    handleCantidadChange(nuevaCantidad);
   };
 
   return (
     <div className={`flex items-center space-x-2 ${className}`}>
       <button 
-        className="bg-gray-300 hover:bg-gray-400 text-black w-8 h-8 rounded flex items-center justify-center font-bold"
-        onClick={() => handleCantidadChange(cantidad - 1)}
+        className={`w-8 h-8 rounded flex items-center justify-center font-bold ${
+          cantidad <= 0.5 
+            ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
+            : 'bg-gray-300 hover:bg-gray-400 text-black'
+        }`}
+        onClick={decrementar}
+        disabled={cantidad <= 0.5}
       >
         -
       </button>
       <input
         type="number"
         value={cantidad}
-        onChange={(e) => handleCantidadChange(Number(e.target.value))}
-        min="1"
-        max={stockDisponible} // Limitar el máximo al stock disponible
-        className="w-16 p-2 rounded text-black border border-gray-300 text-center"
+        onChange={(e) => handleCantidadChange(e.target.value)}
+        min="0.5"
+        step="0.5"
+        max={stockDisponible}
+        className="w-20 p-2 rounded text-black border border-gray-300 text-center"
+        onBlur={(e) => {
+          const valor = parseFloat(e.target.value);
+          if (isNaN(valor) || valor < 0.5) {
+            handleCantidadChange(0.5);
+          }
+        }}
       />
       <button 
-        className="bg-gray-300 hover:bg-gray-400 text-black w-8 h-8 rounded flex items-center justify-center font-bold"
-        onClick={() => handleCantidadChange(cantidad + 1)}
+        className={`w-8 h-8 rounded flex items-center justify-center font-bold ${
+          cantidad >= stockDisponible
+            ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+            : 'bg-gray-300 hover:bg-gray-400 text-black'
+        }`}
+        onClick={incrementar}
+        disabled={cantidad >= stockDisponible}
       >
         +
       </button>
@@ -39,13 +78,17 @@ function ControlCantidad({ cantidad, onCantidadChange, stockDisponible, classNam
 function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAgregar }) {
   if (!producto) return null;
 
-  // Verificar si hay stock insuficiente
+  const formatearCantidad = (cantidad) => {
+    const cantidadNum = parseFloat(cantidad);
+    return cantidadNum % 1 === 0 ? cantidadNum.toString() : cantidadNum.toFixed(1);
+  };
+
   const stockInsuficiente = cantidad > producto.stock_actual;
 
   return (
     <div className="mt-4">
       <div className={`mb-2 text-xl font-bold ${producto.stock_actual > 0 ? 'text-green-700' : 'text-red-600'}`}>
-        STOCK DISPONIBLE: {producto.stock_actual}
+        STOCK DISPONIBLE: {formatearCantidad(producto.stock_actual)}
       </div>
       <div className="mb-2 text-black">
         Precio unitario: ${producto.precio}
@@ -58,11 +101,14 @@ function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAg
           onCantidadChange={onCantidadChange}
           stockDisponible={producto.stock_actual}
         />
+        <span className="text-sm text-gray-600">
+          (mínimo 0.5)
+        </span>
       </div>
 
       {stockInsuficiente && (
         <div className="text-red-600 font-semibold mb-2">
-          ⚠️ Stock insuficiente. Máximo disponible: {producto.stock_actual}
+          Stock insuficiente. Máximo disponible: {formatearCantidad(producto.stock_actual)}
         </div>
       )}
 
@@ -79,12 +125,11 @@ function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAg
             : 'bg-green-600 hover:bg-green-800 text-white'
         }`}
       >
-        {producto.stock_actual === 0 ? 'Sin Stock' : 'Agregar Producto'}
+        {producto.stock_actual === 0 ? 'Sin Stock' : `Agregar ${formatearCantidad(cantidad)} unidades`}
       </button>
     </div>
   );
 }
-
 function ModalProductos({ 
   resultados, 
   productoSeleccionado, 

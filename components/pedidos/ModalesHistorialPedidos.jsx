@@ -7,6 +7,7 @@ import { useProductoSearch } from 'hooks/useBusquedaProductos';
 import useAuth from '../../hooks/useAuth';
 import { useFacturacion } from '../../hooks/pedidos/useFacturacion';
 import { ModalPDFUniversal, BotonGenerarPDFUniversal } from '../shared/ModalPDFUniversal';
+import { ModalFacturacion } from './ModalFacturacion';
 
 // ✅ MODAL DE DESCUENTOS CORREGIDO - APLICA % SOBRE SUBTOTAL
 export function ModalDescuentos({
@@ -177,469 +178,98 @@ export function ModalDescuentos({
   );
 }
 
+
+// ✅ FUNCIÓN PARA DETERMINAR TIPO FISCAL SEGÚN CONDICIÓN IVA
+const determinarTipoFiscal = (condicionIva) => {
+  if (!condicionIva || typeof condicionIva !== 'string') {
+    return 'C'; // Por defecto Consumidor Final
+  }
+
+  const condicion = condicionIva.trim();
+  
+  // Mapeo exacto de condiciones IVA a tipos fiscales
+  switch (condicion) {
+    case 'Responsable Inscripto':
+      return 'A';
+    case 'Responsable No Inscripto':
+    case 'Monotributo':
+      return 'B';
+    case 'Consumidor Final':
+    case 'Exento':
+      return 'C';
+    default:
+      return 'C'; // Por defecto
+  }
+};
+
 // ✅ MODAL DE FACTURACIÓN CORREGIDO
-export function ModalFacturacionCompleto({ 
-  mostrar, 
-  onClose, 
-  pedido, 
-  productos,
-  onConfirmarFacturacion 
-}) {
-  const [cuentaSeleccionada, setCuentaSeleccionada] = useState('');
-  const [tipoFiscal, setTipoFiscal] = useState('A');
-  const [subtotalSinIva, setSubtotalSinIva] = useState(0);
-  const [ivaTotal, setIvaTotal] = useState(0);
-  const [totalConIva, setTotalConIva] = useState(0);
-  const [mostrarModalDescuentos, setMostrarModalDescuentos] = useState(false);
-  const [descuentoAplicado, setDescuentoAplicado] = useState(null);
 
-  const { 
-    loading, 
-    cuentas, 
-    loadingCuentas, 
-    cargarCuentasFondos, 
-    facturarPedido 
-  } = useFacturacion();
-
-  // ✅ FUNCIÓN PARA DETERMINAR TIPO FISCAL AUTOMÁTICAMENTE
-  const determinarTipoFiscal = (condicionIva) => {
-    if (!condicionIva || typeof condicionIva !== 'string') {
-      console.log('⚠️ Condición IVA no válida, usando C por defecto');
-      return 'C'; // Por defecto Consumidor Final
-    }
-
-    const condicion = condicionIva.trim();
-    console.log('🧾 Determinando tipo fiscal para condición exacta:', condicion);
-
-    // Mapeo exacto según los datos de tu BD
-    switch (condicion) {
-      case 'Responsable Inscripto':
-        console.log('✅ Tipo fiscal seleccionado: A (Responsable Inscripto)');
-        return 'A';
-      case 'Monotributo':
-        console.log('✅ Tipo fiscal seleccionado: B (Monotributo)');
-        return 'B';
-      case 'Consumidor Final':
-        console.log('✅ Tipo fiscal seleccionado: C (Consumidor Final)');
-        return 'C';
-      default:
-        console.log('⚠️ Condición no reconocida:', condicion, '- usando C por defecto');
-        return 'C';
-    }
-  };
-
-  // ✅ USEEFFECT CORREGIDO CON TIMING PERFECTO PARA TIPO FISCAL
-  useEffect(() => {
-    // ✅ VERIFICAR QUE TENEMOS TODOS LOS DATOS NECESARIOS
-    if (mostrar && productos && productos.length > 0 && pedido?.cliente_condicion !== undefined) {
-      console.log('🧾 Inicializando modal de facturación completo...');
-      console.log('📋 Datos del pedido completos:', {
-        id: pedido?.id,
-        cliente: pedido?.cliente_nombre,
-        condicionIva: pedido?.cliente_condicion,
-        tieneProductos: productos.length > 0
-      });
-      
-      const subtotal = productos.reduce((acc, prod) => acc + (Number(prod.subtotal) || 0), 0);
-      const iva = productos.reduce((acc, prod) => acc + (Number(prod.iva) || 0), 0);
-      const total = subtotal + iva;
-
-      setSubtotalSinIva(subtotal);
-      setIvaTotal(iva);
-      setTotalConIva(total);
-      setDescuentoAplicado(null);
-      
-      // ✅ DETERMINAR TIPO FISCAL AUTOMÁTICAMENTE CON DELAY MÍNIMO
-      setTimeout(() => {
-        const tipoFiscalAuto = determinarTipoFiscal(pedido.cliente_condicion);
-        setTipoFiscal(tipoFiscalAuto);
-        
-        console.log('💰 Montos y tipo fiscal establecidos:', {
-          subtotal: subtotal.toFixed(2),
-          iva: iva.toFixed(2),
-          total: total.toFixed(2),
-          tipoFiscalSeleccionado: tipoFiscalAuto,
-          condicionOriginal: pedido.cliente_condicion
-        });
-      }, 50); // Delay mínimo para asegurar que el estado se actualice
-    }
-  }, [mostrar, productos, pedido?.cliente_condicion]); // ✅ AGREGAR cliente_condicion como dependencia
-
-  useEffect(() => {
-    if (mostrar) {
-      cargarCuentasFondos();
-    }
-  }, [mostrar]);
-
-  const actualizarMontos = (campo, valor) => {
-    const numeroValor = parseFloat(valor) || 0;
-    
-    switch (campo) {
-      case 'subtotal':
-        setSubtotalSinIva(numeroValor);
-        const nuevoIva = numeroValor * 0.21;
-        setIvaTotal(nuevoIva);
-        setTotalConIva(numeroValor + nuevoIva);
-        break;
-      case 'iva':
-        setIvaTotal(numeroValor);
-        setTotalConIva(subtotalSinIva + numeroValor);
-        break;
-      case 'total':
-        setTotalConIva(numeroValor);
-        const proporcionIva = ivaTotal / (subtotalSinIva + ivaTotal) || 0.21;
-        const nuevoIvaCalculado = numeroValor * proporcionIva;
-        const nuevoSubtotal = numeroValor - nuevoIvaCalculado;
-        setSubtotalSinIva(nuevoSubtotal);
-        setIvaTotal(nuevoIvaCalculado);
-        break;
-      default:
-        break;
-    }
-    // Limpiar descuento cuando se editan montos manualmente
-    setDescuentoAplicado(null);
-  };
-
-  const handleAplicarDescuento = (descuento) => {
-    setDescuentoAplicado(descuento);
-    console.log('✅ Descuento aplicado:', descuento);
-  };
-
-  const limpiarDescuento = () => {
-    setDescuentoAplicado(null);
-    console.log('🧹 Descuento eliminado');
-  };
-
-  const handleConfirmar = async () => {
-    if (!cuentaSeleccionada) {
-      toast.error('Debe seleccionar una cuenta de destino');
-      return;
-    }
-
-    // Calcular total final con descuento
-    const totalOriginal = subtotalSinIva + ivaTotal;
-    const descuentoMonto = descuentoAplicado?.descuentoCalculado || 0;
-    const totalFinal = totalOriginal - descuentoMonto;
-
-    const datosFacturacion = {
-      pedidoId: pedido.id,
-      cuentaId: cuentaSeleccionada,
-      tipoFiscal,
-      subtotalSinIva,
-      ivaTotal,
-      totalConIva: totalFinal, // Total con descuento aplicado
-      descuentoAplicado
-    };
-
-    console.log('🧾 Enviando datos de facturación:', datosFacturacion);
-    
-    const resultado = await facturarPedido(datosFacturacion);
-    
-    if (resultado.success) {
-      if (onConfirmarFacturacion) {
-        onConfirmarFacturacion(resultado.data);
-      }
-      limpiarFormulario();
-      onClose();
-    }
-  };
-
-  const limpiarFormulario = () => {
-    setCuentaSeleccionada('');
-    setTipoFiscal('A');
-    setSubtotalSinIva(0);
-    setIvaTotal(0);
-    setTotalConIva(0);
-    setDescuentoAplicado(null);
-  };
-
-  const handleClose = () => {
-    limpiarFormulario();
-    onClose();
-  };
-
-  if (!mostrar) return null;
-
-  // Calcular total final considerando descuento
-  const totalOriginal = subtotalSinIva + ivaTotal;
-  const descuentoMonto = descuentoAplicado?.descuentoCalculado || 0;
-  const totalFinalConDescuento = totalOriginal - descuentoMonto;
-
-  return (
-    <>
-      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-2 sm:p-4">
-        <div className="bg-white rounded-lg w-full max-w-xs sm:max-w-lg lg:max-w-2xl max-h-[95vh] overflow-y-auto">
-          <div className="p-4 sm:p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-800">
-                🧾 Facturar Pedido #{pedido?.id}
-              </h2>
-              <button 
-                onClick={handleClose}
-                className="text-gray-500 hover:text-gray-700 text-xl p-1"
-              >
-                ✕
-              </button>
-            </div>
-            
-            {/* Información del pedido */}
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-              <h3 className="font-semibold text-blue-800 mb-2">Información del Pedido</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
-                <div>
-                  <span className="font-medium">Cliente:</span> {pedido?.cliente_nombre}
-                </div>
-                <div>
-                  <span className="font-medium">Fecha:</span> {pedido?.fecha}
-                </div>
-                <div>
-                  <span className="font-medium">Estado:</span> {pedido?.estado}
-                </div>
-                <div>
-                  <span className="font-medium">Productos:</span> {productos?.length || 0}
-                </div>
-                <div className="sm:col-span-2">
-                  <span className="font-medium">Condición IVA:</span> 
-                  <span className="ml-1 px-2 py-1 bg-yellow-100 text-yellow-800 rounded text-xs">
-                    {pedido?.cliente_condicion || 'No especificada'}
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Selects */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Cuenta de destino *
-                </label>
-                {loadingCuentas ? (
-                  <div className="border p-2 rounded bg-gray-100 text-center text-sm">
-                    Cargando cuentas...
-                  </div>
-                ) : (
-                  <select
-                    value={cuentaSeleccionada}
-                    onChange={(e) => setCuentaSeleccionada(e.target.value)}
-                    className="border p-2 rounded w-full text-sm"
-                    required
-                  >
-                    <option value="">Seleccionar cuenta...</option>
-                    {cuentas.map(cuenta => (
-                      <option key={cuenta.id} value={cuenta.id}>
-                        {cuenta.nombre}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Tipo fiscal *
-                  <span className="text-xs text-green-600 ml-1">
-                    (Auto-seleccionado)
-                  </span>
-                </label>
-                <select
-                  value={tipoFiscal}
-                  onChange={(e) => setTipoFiscal(e.target.value)}
-                  className="border p-2 rounded w-full text-sm font-medium"
-                  required
-                >
-                  <option value="A">A - Responsable Inscripto</option>
-                  <option value="B">B - Responsable No Inscripto (Monotributo)</option>
-                  <option value="C">C - Consumidor Final</option>
-                </select>
-                
-              </div>
-            </div>
-            
-            {/* Campos de montos */}
-            <div className="mb-6">
-              <h3 className="font-semibold text-gray-800 mb-4">Montos de Facturación</h3>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Subtotal (sin IVA)
-                  </label>
-                  <div className="flex items-center">
-                    <span className="mr-2 text-gray-600">$</span>
-                    <input
-                      type="number"
-                      value={subtotalSinIva.toFixed(2)}
-                      onChange={(e) => actualizarMontos('subtotal', e.target.value)}
-                      className="border p-2 rounded w-full text-sm"
-                      step="0.01"
-                      min="0"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    IVA Total
-                  </label>
-                  <div className="flex items-center">
-                    <span className="mr-2 text-gray-600">$</span>
-                    <input
-                      type="number"
-                      value={ivaTotal.toFixed(2)}
-                      onChange={(e) => actualizarMontos('iva', e.target.value)}
-                      className="border p-2 rounded w-full text-sm"
-                      step="0.01"
-                      min="0"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Total (con IVA)
-                  </label>
-                  <div className="flex items-center">
-                    <span className="mr-2 text-gray-600">$</span>
-                    <input
-                      type="number"
-                      value={totalOriginal.toFixed(2)}
-                      onChange={(e) => actualizarMontos('total', e.target.value)}
-                      className="border p-2 rounded w-full text-sm font-semibold"
-                      step="0.01"
-                      min="0"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Sección de descuentos */}
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="font-semibold text-gray-800">Descuentos</h3>
-                <button
-                  onClick={() => setMostrarModalDescuentos(true)}
-                  className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded text-sm transition-colors"
-                >
-                  🏷️ APLICAR DESCUENTO
-                </button>
-              </div>
-              {descuentoAplicado ? (
-                <div className="bg-yellow-100 border border-yellow-300 rounded p-3">
-                  <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-yellow-800">
-                        Descuento aplicado:
-                      </p>
-                      <p className="text-sm text-yellow-700">
-                        {descuentoAplicado.tipo === 'numerico' 
-                          ? `Descuento fijo: $${descuentoAplicado.descuentoCalculado.toFixed(2)}`
-                          : `${descuentoAplicado.valor}% sobre subtotal: $${descuentoAplicado.descuentoCalculado.toFixed(2)}`
-                        }
-                      </p>
-                    </div>
-                    <button
-                      onClick={limpiarDescuento}
-                      className="text-red-600 hover:text-red-800 text-sm ml-2"
-                      title="Quitar descuento"
-                    >
-                      ❌
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-600">No hay descuentos aplicados</p>
-              )}
-            </div>
-            
-            {/* Resumen final */}
-            <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <h3 className="font-semibold text-green-800 mb-2">Resumen Final</h3>
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span>Subtotal:</span>
-                  <span>${subtotalSinIva.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>IVA:</span>
-                  <span>${ivaTotal.toFixed(2)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Total original:</span>
-                  <span>${totalOriginal.toFixed(2)}</span>
-                </div>
-                {descuentoAplicado && (
-                  <div className="flex justify-between text-red-600">
-                    <span>Descuento:</span>
-                    <span>-${descuentoMonto.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between font-bold text-lg border-t pt-1">
-                  <span>Total Final:</span>
-                  <span className="text-green-600">${totalFinalConDescuento.toFixed(2)}</span>
-                </div>
-              </div>
-            </div>
-            
-            {/* Botones de acción */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <button
-                onClick={handleConfirmar}
-                disabled={!cuentaSeleccionada || loading}
-                className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2"
-              >
-                {loading ? (
-                  <div className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Procesando...
-                  </div>
-                ) : (
-                  '✅ CONFIRMAR FACTURACIÓN'
-                )}
-              </button>
-              <button
-                onClick={handleClose}
-                disabled={loading}
-                className="bg-gray-600 hover:bg-gray-700 disabled:opacity-50 text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2"
-              >
-                ❌ CANCELAR
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-       
-      {/* Modal de descuentos */}
-      {mostrarModalDescuentos && (
-        <ModalDescuentos 
-          mostrar={mostrarModalDescuentos} 
-          onClose={() => setMostrarModalDescuentos(false)} 
-          onAplicarDescuento={handleAplicarDescuento}
-          subtotalSinIva={subtotalSinIva}
-          ivaTotal={ivaTotal}
-          totalConIva={totalOriginal}
-        />
-      )}
-    </>
-  );
-}
 
 // ✅ RESTO DE COMPONENTES SIN CAMBIOS (InformacionCliente, etc.)
-export function InformacionCliente({ pedido, expandido, onToggleExpansion, mostrarModalFacturacion, setMostrarModalFacturacion, productos, handleConfirmarFacturacion }) {
+import ModalEditarClientePedido from './ModalEditarClientePedido';
+
+export function InformacionCliente({
+  pedido,
+  expandido,
+  onToggleExpansion,
+  mostrarModalFacturacion,
+  setMostrarModalFacturacion,
+  productos,
+  handleConfirmarFacturacion,
+  cuentas = [],
+  cargandoCuentas = false,
+  onActualizarClientePedido,
+  isPedidoAnulado = false
+}) {
+  const [mostrarModalEditarCliente, setMostrarModalEditarCliente] = useState(false);
+  const [clienteActualizado, setClienteActualizado] = useState(null);
+
+  // Usar cliente actualizado si existe, sino usar el del pedido
+  const clienteMostrar = clienteActualizado || {
+    id: pedido.cliente_id,
+    nombre: pedido.cliente_nombre,
+    direccion: pedido.cliente_direccion,
+    ciudad: pedido.cliente_ciudad,
+    provincia: pedido.cliente_provincia,
+    condicion_iva: pedido.cliente_condicion,
+    cuit: pedido.cliente_cuit,
+    telefono: pedido.cliente_telefono
+  };
+
+  const handleClienteSeleccionado = (nuevoCliente) => {
+    setClienteActualizado(nuevoCliente);
+  };
+
   return (
     <div className="bg-blue-50 rounded-lg overflow-hidden mb-4">
-      <div 
+      <div
         className="p-3 cursor-pointer hover:bg-blue-100 transition-colors flex items-center justify-between"
         onClick={onToggleExpansion}
       >
-        <div>
-          <h3 className="font-bold text-lg text-blue-800">Cliente: {pedido.cliente_nombre}</h3>
+        <div className="flex-1">
+          <h3 className="font-bold text-lg text-blue-800">Cliente: {clienteMostrar.nombre}</h3>
           <p className="text-blue-600 text-sm">
-            {pedido.cliente_ciudad || 'Ciudad no especificadas'}
-            {pedido.cliente_provincia && `, ${pedido.cliente_provincia}`}
+            {clienteMostrar.ciudad || 'Ciudad no especificada'}
+            {clienteMostrar.provincia && `, ${clienteMostrar.provincia}`}
           </p>
         </div>
-        <div className="text-blue-600">
-          {expandido ? <MdExpandLess size={24} /> : <MdExpandMore size={24} />}
+        <div className="flex items-center gap-2">
+          {/* Botón para editar cliente */}
+          {!isPedidoAnulado && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setMostrarModalEditarCliente(true);
+              }}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors flex items-center gap-1"
+              title="Cambiar cliente"
+            >
+              ✏️ <span className="hidden sm:inline">Editar</span>
+            </button>
+          )}
+          <div className="text-blue-600">
+            {expandido ? <MdExpandLess size={24} /> : <MdExpandMore size={24} />}
+          </div>
         </div>
       </div>
       <div className={`transition-all duration-300 ease-in-out ${
@@ -649,29 +279,42 @@ export function InformacionCliente({ pedido, expandido, onToggleExpansion, mostr
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mt-3">
             <div>
               <span className="font-medium text-blue-700">Dirección:</span>
-              <p className="text-gray-700">{pedido.cliente_direccion || 'No especificada'}</p>
+              <p className="text-gray-700">{clienteMostrar.direccion || 'No especificada'}</p>
             </div>
             <div>
               <span className="font-medium text-blue-700">Condición IVA:</span>
-              <p className="text-gray-700">{pedido.cliente_condicion || 'No especificada'}</p>
+              <p className="text-gray-700">{clienteMostrar.condicion_iva || 'No especificada'}</p>
             </div>
             <div>
               <span className="font-medium text-blue-700">CUIT:</span>
-              <p className="text-gray-700">{pedido.cliente_cuit || 'No especificado'}</p>
+              <p className="text-gray-700">{clienteMostrar.cuit || 'No especificado'}</p>
             </div>
             <div>
               <span className="font-medium text-blue-700">Teléfono:</span>
-              <p className="text-gray-700">{pedido.cliente_telefono || 'No especificado'}</p>
+              <p className="text-gray-700">{clienteMostrar.telefono || 'No especificado'}</p>
             </div>
           </div>
         </div>
       </div>
-      <ModalFacturacionCompleto
+
+      {/* ✅ USAR EL MODAL NUEVO SEPARADO */}
+      <ModalFacturacion
         mostrar={mostrarModalFacturacion}
         onClose={() => setMostrarModalFacturacion(false)}
         pedido={pedido}
         productos={productos}
+        cuentas={cuentas}
+        cargandoCuentas={cargandoCuentas}
         onConfirmarFacturacion={handleConfirmarFacturacion}
+      />
+
+      {/* Modal para editar/cambiar cliente */}
+      <ModalEditarClientePedido
+        isOpen={mostrarModalEditarCliente}
+        onClose={() => setMostrarModalEditarCliente(false)}
+        clienteActual={clienteMostrar}
+        onClienteSeleccionado={handleClienteSeleccionado}
+        onActualizarPedido={onActualizarClientePedido}
       />
     </div>
   );
@@ -1905,8 +1548,7 @@ export function ResumenTotales({ productos }) {
 
 
 
-// ModalDetallePedido actualizado
-export function ModalDetallePedido({ 
+export function ModalDetallePedido({
   pedido,
   productos,
   loading,
@@ -1917,12 +1559,12 @@ export function ModalDetallePedido({
   onCambiarEstado,
   onGenerarPDF,
   onActualizarObservaciones,
+  onActualizarClientePedido,
   generandoPDF,
   mostrarModalFacturacion,
   setMostrarModalFacturacion,
   isPedidoFacturado,
   isPedidoAnulado,
-  // Props para el modal PDF
   mostrarModalPDF,
   pdfURL,
   nombreArchivo,
@@ -1930,16 +1572,18 @@ export function ModalDetallePedido({
   subtituloModal,
   onDescargarPDF,
   onCompartirPDF,
-  onCerrarModalPDF
+  onCerrarModalPDF,
+  cuentas = [],           // ✅ AGREGAR PROP
+  cargandoCuentas = false // ✅ AGREGAR PROP
 }) {
   const [clienteExpandido, setClienteExpandido] = useState(false);
+  const [productosExpandidos, setProductosExpandidos] = useState(false);
   
   const { user } = useAuth();
+  const { facturarPedido } = useFacturacion(); // ✅ USAR HOOK DE FACTURACIÓN
 
-  // Función helper para formatear fechas
   const formatearFecha = (fecha) => {
     if (!fecha) return 'Fecha no disponible';
-    
     return new Date(fecha).toLocaleString('es-AR', {
       day: '2-digit',
       month: '2-digit',
@@ -1953,10 +1597,8 @@ export function ModalDetallePedido({
 
   if (!pedido) return null;
   
-  // Control de acceso refinado
   const esGerente = user?.rol === 'GERENTE';
   const canEdit = !isPedidoFacturado && !isPedidoAnulado;
-  const canEditProducts = canEdit && esGerente;
 
   const toggleClienteExpansion = () => {
     setClienteExpandido(!clienteExpandido);
@@ -1966,25 +1608,40 @@ export function ModalDetallePedido({
     setMostrarModalFacturacion(true);
   };
 
+  // ✅ FUNCIÓN PARA CONFIRMAR FACTURACIÓN
   const handleConfirmarFacturacion = async (datosFacturacion) => {
-    onCambiarEstado('Facturado');
-    setMostrarModalFacturacion(false);
-    toast.success(`¡Pedido #${pedido.id} facturado exitosamente! Venta ID: ${datosFacturacion.ventaId}`);
-  };
+  try {
+    // ✅ AGREGAR pedidoId al objeto antes de enviar
+    const datosCompletos = {
+      ...datosFacturacion,
+      pedidoId: pedido.id  // ✅ Usar pedido en lugar de selectedPedido
+    };
+    
+    const resultado = await facturarPedido(datosCompletos); // ✅ Enviar objeto completo
+    
+    if (resultado.success) {
+      await onCambiarEstado('Facturado');
+      setMostrarModalFacturacion(false);
+      toast.success(`Pedido #${pedido.id} facturado exitosamente!`);
+    } else {
+      toast.error(resultado.error || 'Error al facturar pedido');
+    }
+  } catch (error) {
+    console.error('Error facturando:', error);
+    toast.error('Error al procesar facturación');
+  }
+};
 
-  // Función para abrir el modal de agregar producto
   const handleAbrirModalAgregar = () => {
     if (onAgregarProducto) {
       onAgregarProducto();
     }
   };
 
-  // Función para editar producto
   const handleEditarProductoGerente = (producto) => {
     onEditarProducto(producto);
   };
 
-  // Función para eliminar producto
   const handleEliminarProductoGerente = (producto) => {
     onEliminarProducto(producto);
   };
@@ -2006,22 +1663,25 @@ export function ModalDetallePedido({
               </button>
             </div>
             
-            
-            
             <div className="mb-4">
               <h4 className="text-sm sm:text-lg font-semibold text-gray-700">
                 <strong>Fecha:</strong> {formatearFecha(pedido.fecha)}
               </h4>
             </div>
             
-            <InformacionCliente 
-              pedido={pedido} 
+            {/* ✅ PASAR CUENTAS Y CARGANDO AL COMPONENTE */}
+            <InformacionCliente
+              pedido={pedido}
               expandido={clienteExpandido}
               onToggleExpansion={toggleClienteExpansion}
               mostrarModalFacturacion={mostrarModalFacturacion}
               setMostrarModalFacturacion={setMostrarModalFacturacion}
               productos={productos}
               handleConfirmarFacturacion={handleConfirmarFacturacion}
+              cuentas={cuentas}                     // ✅ PASAR CUENTAS
+              cargandoCuentas={cargandoCuentas}     // ✅ PASAR LOADING
+              onActualizarClientePedido={onActualizarClientePedido} // ✅ PASAR HANDLER
+              isPedidoAnulado={isPedidoAnulado}     // ✅ PASAR ESTADO ANULADO
             />
 
             <InformacionAdicional 
@@ -2030,74 +1690,106 @@ export function ModalDetallePedido({
               canEdit={canEdit}
             />
 
+            {/* Resto del código igual... */}
             <div className="mb-4">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">Productos del Pedido</h3>
-              
-              {canEdit && (
-                <button
-                  onClick={handleAbrirModalAgregar}
-                  className="mb-4 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center"
-                >
-                  ➕ AGREGAR PRODUCTO
-                </button>
-              )}
+              <div 
+                className="lg:hidden flex justify-between items-center bg-blue-50 p-3 rounded-lg cursor-pointer border-2 border-blue-200 mb-2"
+                onClick={() => setProductosExpandidos(!productosExpandidos)}
+              >
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">Productos del Pedido</h3>
+                  <p className="text-sm text-gray-600">{productos.length} producto(s)</p>
+                </div>
+                <div className="text-blue-600">
+                  {productosExpandidos ? <MdExpandLess size={28} /> : <MdExpandMore size={28} />}
+                </div>
+              </div>
 
-              <TablaProductos
-                productos={productos}
-                onEditarProducto={handleEditarProductoGerente}
-                onEliminarProducto={handleEliminarProductoGerente}
-                loading={loading}
-                canEdit={canEdit}
-              />
-              <ResumenTotales productos={productos} />
+              <h3 className="hidden lg:block text-xl font-semibold text-gray-800 mb-4">
+                Productos del Pedido
+              </h3>
+              
+              <div className={`${productosExpandidos ? 'block' : 'hidden'} lg:block`}>
+                {canEdit && (
+                  <button
+                    onClick={handleAbrirModalAgregar}
+                    className="mb-4 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center w-full sm:w-auto"
+                  >
+                    ➕ AGREGAR PRODUCTO
+                  </button>
+                )}
+              </div>
+
+              <div className={`lg:hidden transition-all duration-300 ease-in-out ${
+                productosExpandidos ? 'opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
+              }`}>
+                <div className={`${
+                  productosExpandidos ? 'max-h-[50vh] overflow-y-auto' : 'max-h-0'
+                } border rounded-lg mb-3`}>
+                  <TablaProductos
+                    productos={productos}
+                    onEditarProducto={handleEditarProductoGerente}
+                    onEliminarProducto={handleEliminarProductoGerente}
+                    loading={loading}
+                    canEdit={canEdit}
+                  />
+                </div>
+                {productosExpandidos && <ResumenTotales productos={productos} />}
+              </div>
+
+              <div className="hidden lg:block">
+                <TablaProductos
+                  productos={productos}
+                  onEditarProducto={handleEditarProductoGerente}
+                  onEliminarProducto={handleEliminarProductoGerente}
+                  loading={loading}
+                  canEdit={canEdit}
+                />
+                <ResumenTotales productos={productos} />
+              </div>
             </div>
 
-            <div className="mt-6 flex flex-col sm:flex-row gap-4">
-              {esGerente && !isPedidoFacturado && (
-                <button 
-                  onClick={handleFacturar}
-                  className={`bg-green-600 hover:bg-green-700 text-white text-sm sm:text-lg font-semibold px-4 sm:px-6 py-2 sm:py-3 rounded-lg transition-colors w-full ${
-                    esGerente ? 'sm:w-1/3' : ''
-                  }`}
-                >
-                  ✅ FACTURAR
-                </button>
-              )}
-              
-              <BotonGenerarPDFUniversal 
-                onGenerar={onGenerarPDF}
-                loading={generandoPDF}
-                texto="🖨️ IMPRIMIR"
-                className={`bg-blue-600 hover:bg-blue-700 ${
-                  esGerente && !isPedidoFacturado ? 'sm:w-1/3' : (isPedidoFacturado || !esGerente ? 'sm:w-1/2' : '')
-                }`}
-              />
+            <div className="mt-6 flex flex-col gap-3">
+              <div className="flex flex-col sm:flex-row gap-3">
+                {esGerente && !isPedidoFacturado && (
+                  <button 
+                    onClick={handleFacturar}
+                    className="bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base font-semibold px-4 py-3 rounded-lg transition-colors flex items-center justify-center flex-1"
+                  >
+                    ✅ FACTURAR
+                  </button>
+                )}
+                
+                <BotonGenerarPDFUniversal 
+                  onGenerar={onGenerarPDF}
+                  loading={generandoPDF}
+                  texto="🖨️ IMPRIMIR"
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base font-semibold px-4 py-3 rounded-lg transition-colors flex items-center justify-center flex-1"
+                />
+              </div>
 
-              {esGerente && !isPedidoFacturado && (
+              <div className="flex flex-col sm:flex-row gap-3">
+                {esGerente && !isPedidoFacturado && (
+                  <button 
+                    onClick={() => onCambiarEstado('Anulado')}
+                    className="bg-red-600 hover:bg-red-700 text-white text-sm sm:text-base font-semibold px-4 py-3 rounded-lg transition-colors flex items-center justify-center flex-1"
+                  >
+                    🚫 ANULAR
+                  </button>
+                )}
+                
                 <button 
-                  onClick={() => onCambiarEstado('Anulado')}
-                  className={`bg-red-600 hover:bg-red-700 text-white text-sm sm:text-lg font-semibold px-4 sm:px-6 py-2 sm:py-3 rounded-lg transition-colors w-full ${
-                    esGerente ? 'sm:w-1/3' : ''
-                  }`}
+                  onClick={onClose}
+                  className="bg-gray-600 hover:bg-gray-700 text-white text-sm sm:text-base font-semibold px-4 py-3 rounded-lg transition-colors flex items-center justify-center flex-1"
                 >
-                  🚫 ANULAR
+                  CERRAR
                 </button>
-              )}
-              
-              <button 
-                onClick={onClose}
-                className={`bg-gray-600 hover:bg-gray-700 text-white text-sm sm:text-lg font-semibold px-4 sm:px-6 py-2 sm:py-3 rounded-lg transition-colors w-full ${
-                    esGerente && !isPedidoFacturado ? 'sm:w-1/3' : (isPedidoFacturado || !esGerente ? 'sm:w-1/2' : '')
-                }`}
-              >
-                CERRAR
-              </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Modal PDF Unificado con z-index más alto */}
       <ModalPDFUniversal
         mostrar={mostrarModalPDF}
         pdfURL={pdfURL}

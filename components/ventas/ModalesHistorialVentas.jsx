@@ -1,8 +1,8 @@
-// components/ventas/ModalesHistorialVentas.jsx - ACTUALIZADO CON BOTÓN VER COMPROBANTE
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from 'react-hot-toast';
 import { MdDeleteForever, MdExpandMore, MdExpandLess, MdRemoveRedEye } from "react-icons/md";
 import { ModalPDFUniversal, BotonGenerarPDFUniversal } from '../shared/ModalPDFUniversal';
+import { ModalDetalleCAE } from './ModalDetalleCAE';
 
 // Función helper para formatear fechas
 const formatearFecha = (fecha) => {
@@ -19,7 +19,17 @@ const formatearFecha = (fecha) => {
   });
 };
 
-// 🆕 NUEVO COMPONENTE: Botón Ver Comprobante
+const formatearFechaSolo = (fecha) => {
+  if (!fecha) return 'Fecha no disponible';
+  
+  return new Date(fecha).toLocaleDateString('es-AR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+};
+
+// COMPONENTE: Botón Ver Comprobante
 function BotonVerComprobante({ venta, onVerComprobante }) {
   const tieneComprobante = venta?.comprobante_path;
   
@@ -27,15 +37,89 @@ function BotonVerComprobante({ venta, onVerComprobante }) {
     <button
       onClick={tieneComprobante ? onVerComprobante : undefined}
       disabled={!tieneComprobante}
-      className={`text-sm sm:text-lg font-semibold px-4 sm:px-6 py-2 sm:py-3 rounded-lg transition-colors w-full sm:w-1/4 flex items-center justify-center gap-2 ${
+      className={`text-sm sm:text-base font-semibold px-4 rounded-lg transition-colors w-full h-12 flex items-center justify-center gap-2 ${
         tieneComprobante
           ? 'bg-green-600 hover:bg-green-700 text-white cursor-pointer'
           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
       }`}
       title={tieneComprobante ? 'Ver comprobante cargado' : 'No hay comprobante disponible'}
     >
-      <MdRemoveRedEye className="text-lg" />
-      VER COMPROBANTE
+      <MdRemoveRedEye className="text-lg flex-shrink-0" />
+      <span className="hidden sm:inline truncate">VER COMPROBANTE</span>
+      <span className="sm:hidden truncate">COMPROBANTE</span>
+    </button>
+  );
+}
+
+// COMPONENTE: Botón CAE Dinámico
+function BotonCAE({ venta, onSolicitarCAE, onVerDetalleCAE, solicitandoCAE }) {
+  const tieneCAE = venta?.cae_id;
+  
+  // ✅ NUEVA VALIDACIÓN: Verificar si es tipo X
+  const tipoF = (venta?.tipo_f || '').toString().trim().toUpperCase();
+  const esTipoX = tipoF === 'X';
+
+  const handleClick = () => {
+    if (esTipoX) {
+      return; // No hacer nada si es tipo X
+    }
+    
+    if (tieneCAE) {
+      onVerDetalleCAE();
+    } else {
+      onSolicitarCAE(venta.id);
+    }
+  };
+
+  // ✅ Si es tipo X, mostrar botón deshabilitado con mensaje
+  if (esTipoX) {
+    return (
+      <button
+        disabled
+        className="text-sm sm:text-base font-semibold px-4 rounded-lg w-full h-12 flex items-center justify-center gap-2 bg-gray-300 text-gray-500 cursor-not-allowed"
+        title="Las facturas tipo X no requieren CAE de AFIP"
+      >
+        <span className="text-lg flex-shrink-0">🚫</span>
+        <span className="hidden sm:inline truncate">TIPO X - SIN CAE</span>
+        <span className="sm:hidden truncate">SIN CAE</span>
+      </button>
+    );
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={solicitandoCAE}
+      className={`text-sm sm:text-base font-semibold px-4 rounded-lg transition-colors w-full h-12 flex items-center justify-center gap-2 ${
+        solicitandoCAE
+          ? 'bg-gray-400 cursor-not-allowed'
+          : tieneCAE
+          ? 'bg-green-600 hover:bg-green-700 text-white'
+          : 'bg-yellow-600 hover:bg-yellow-700 text-white'
+      }`}
+    >
+      {solicitandoCAE ? (
+        <>
+          <svg className="animate-spin h-5 w-5 text-white flex-shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+          <span className="hidden sm:inline truncate">Solicitando...</span>
+          <span className="sm:hidden truncate">...</span>
+        </>
+      ) : tieneCAE ? (
+        <>
+          <span className="text-lg flex-shrink-0">✅</span>
+          <span className="hidden sm:inline truncate">VER DETALLE CAE</span>
+          <span className="sm:hidden truncate">CAE</span>
+        </>
+      ) : (
+        <>
+          <span className="text-lg flex-shrink-0">📋</span>
+          <span className="hidden sm:inline truncate">SOLICITAR CAE</span>
+          <span className="sm:hidden truncate">SOLICITAR</span>
+        </>
+      )}
     </button>
   );
 }
@@ -43,13 +127,12 @@ function BotonVerComprobante({ venta, onVerComprobante }) {
 function InformacionCliente({ venta, expandido, onToggleExpansion }) {
   return (
     <div className="bg-blue-50 rounded-lg overflow-hidden mb-4">
-      {/* Información básica del cliente (siempre visible) */}
       <div 
         className="p-3 cursor-pointer hover:bg-blue-100 transition-colors flex items-center justify-between"
         onClick={onToggleExpansion}
       >
         <div>
-          <h3 className="font-bold text-lg text-blue-800">Cliente: {venta.cliente_nombre}</h3>
+          <h3 className="font-bold text-lg text-blue-800">{venta.cliente_nombre}</h3>
           <p className="text-blue-600 text-sm">
             {venta.cliente_ciudad || 'Ciudad no especificada'}
             {venta.cliente_provincia && `, ${venta.cliente_provincia}`}
@@ -60,7 +143,6 @@ function InformacionCliente({ venta, expandido, onToggleExpansion }) {
         </div>
       </div>
 
-      {/* Información detallada del cliente (expandible) */}
       <div className={`transition-all duration-300 ease-in-out ${
         expandido ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
       } overflow-hidden`}>
@@ -119,7 +201,16 @@ function InformacionAdicional({ venta, cuenta }) {
   return (
     <div className="bg-gray-100 p-4 rounded-lg mb-4">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {/* Tipo de Documento */}
+
+        {venta.numero_factura && (
+          <div>
+            <h3 className="font-bold text-xl mb-2 text-gray-800">Número de Factura</h3>
+            <span className="inline-block px-3 py-1 rounded bg-blue-100 text-blue-800 text-sm font-mono font-bold">
+              {venta.numero_factura}
+            </span>
+          </div>
+        )}
+
         <div>
           <h3 className="font-bold text-xl mb-2 text-gray-800">Tipo Documento</h3>
           <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium border ${getDocumentoStyle(venta.tipo_doc)}`}>
@@ -127,7 +218,6 @@ function InformacionAdicional({ venta, cuenta }) {
           </span>
         </div>
 
-        {/* Tipo Fiscal */}
         <div>
           <h3 className="font-bold text-xl mb-2 text-gray-800">Tipo Fiscal</h3>
           <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium border ${getTipoFiscalStyle(venta.tipo_f)}`}>
@@ -135,7 +225,6 @@ function InformacionAdicional({ venta, cuenta }) {
           </span>
         </div>
 
-        {/* Estado CAE */}
         <div>
           <h3 className="font-bold text-xl mb-2 text-gray-800">Estado CAE</h3>
           <div className="flex items-center gap-2">
@@ -153,7 +242,6 @@ function InformacionAdicional({ venta, cuenta }) {
           </div>
         </div>
 
-        {/* Empleado */}
         <div>
           <h3 className="font-bold text-xl mb-2 text-gray-800">Usuario</h3>
           <p className="text-lg font-semibold text-blue-600">
@@ -161,7 +249,6 @@ function InformacionAdicional({ venta, cuenta }) {
           </p>
         </div>
 
-        {/* Cuenta Destino */}
         <div>
           <h3 className="font-bold text-xl mb-2 text-gray-800">Cuenta Destino</h3>
           <p className="text-lg font-semibold text-blue-600">
@@ -169,7 +256,6 @@ function InformacionAdicional({ venta, cuenta }) {
           </p>
         </div>
 
-        {/* Observaciones */}
         <div>
           <h3 className="font-bold text-xl mb-2 text-gray-800">Observaciones</h3>
           <p className="text-lg text-gray-700 bg-white p-3 rounded border min-h-[2.5rem] break-words">
@@ -228,57 +314,83 @@ function TablaProductosEscritorio({ productos }) {
   );
 }
 
-function TarjetasProductosMovil({ productos }) {
+// COMPONENTE: Sección de productos colapsable en móvil
+function SeccionProductosMovil({ productos, expandido, onToggle }) {
   return (
-    <div className="lg:hidden space-y-3">
-      {productos.map((producto) => {
-        const precio = Number(producto.precio) || 0;
-        const cantidad = Number(producto.cantidad) || 0;
-        const ivaValue = Number(producto.iva) || 0;
-        const subtotalSinIva = cantidad * precio;
-        
-        return (
-          <div key={producto.id} className="bg-white p-3 rounded shadow border">
-            <div className="flex justify-between items-start mb-2">
-              <div className="flex-1">
-                <h4 className="font-semibold text-gray-800 text-sm">{producto.producto_nombre}</h4>
-                <p className="text-xs text-gray-500">Código: {producto.producto_id}</p>
-              </div>
-            </div>
+    <div className="lg:hidden">
+      {/* Header colapsable */}
+      <div 
+        className="bg-gray-200 p-3 rounded-t-lg cursor-pointer hover:bg-gray-300 transition-colors flex items-center justify-between"
+        onClick={onToggle}
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-lg">📦</span>
+          <h3 className="font-semibold text-gray-800">
+            Productos ({productos.length})
+          </h3>
+        </div>
+        <div className="text-gray-600">
+          {expandido ? <MdExpandLess size={24} /> : <MdExpandMore size={24} />}
+        </div>
+      </div>
+
+      {/* Lista de productos colapsable - SIN MAX-HEIGHT PARA MOSTRAR TODOS */}
+      <div className={`transition-all duration-300 ease-in-out overflow-y-auto ${
+        expandido ? 'max-h-[600px] opacity-100' : 'max-h-0 opacity-0'
+      }`}>
+        <div className="space-y-3 p-3 bg-gray-50 rounded-b-lg">
+          {productos.map((producto) => {
+            const precio = Number(producto.precio) || 0;
+            const cantidad = Number(producto.cantidad) || 0;
+            const ivaValue = Number(producto.iva) || 0;
+            const subtotalSinIva = cantidad * precio;
             
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <span className="text-gray-600 block">UM:</span>
-                <span className="font-medium">{producto.producto_um}</span>
+            return (
+              <div key={producto.id} className="bg-white p-3 rounded shadow border">
+                <div className="flex justify-between items-start mb-2">
+                  <div className="flex-1">
+                    <h4 className="font-semibold text-gray-800 text-sm">{producto.producto_nombre}</h4>
+                    <p className="text-xs text-gray-500">Código: {producto.producto_id}</p>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <span className="text-gray-600 block">UM:</span>
+                    <span className="font-medium">{producto.producto_um}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600 block">Cantidad:</span>
+                    <span className="font-semibold text-blue-600">{cantidad}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600 block">Precio:</span>
+                    <span className="font-medium">${precio.toFixed(2)}</span>
+                  </div>
+                  <div>
+                    <span className="text-gray-600 block">IVA:</span>
+                    <span className="font-medium">${ivaValue.toFixed(2)}</span>
+                  </div>
+                </div>
+                
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 text-xs">Subtotal:</span>
+                    <span className="font-semibold text-green-600">${subtotalSinIva.toFixed(2)}</span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <span className="text-gray-600 block">Cantidad:</span>
-                <span className="font-semibold text-blue-600">{cantidad}</span>
-              </div>
-              <div>
-                <span className="text-gray-600 block">Precio:</span>
-                <span className="font-medium">${precio.toFixed(2)}</span>
-              </div>
-              <div>
-                <span className="text-gray-600 block">IVA:</span>
-                <span className="font-medium">${ivaValue.toFixed(2)}</span>
-              </div>
-            </div>
-            
-            <div className="mt-2 pt-2 border-t border-gray-200">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 text-xs">Subtotal:</span>
-                <span className="font-semibold text-green-600">${subtotalSinIva.toFixed(2)}</span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
 
 function TablaProductos({ productos, loading }) {
+  const [productosExpandidos, setProductosExpandidos] = useState(false);
+
   if (loading) {
     return (
       <div className="flex justify-center items-center h-32">
@@ -300,13 +412,16 @@ function TablaProductos({ productos, loading }) {
   return (
     <>
       <TablaProductosEscritorio productos={productos} />
-      <TarjetasProductosMovil productos={productos} />
+      <SeccionProductosMovil 
+        productos={productos} 
+        expandido={productosExpandidos}
+        onToggle={() => setProductosExpandidos(!productosExpandidos)}
+      />
     </>
   );
 }
 
 function ResumenTotales({ productos, venta }) {
-  // Usar totales de la venta si están disponibles, sino calcular
   const subtotalNeto = venta?.subtotal ? Number(venta.subtotal) : productos.reduce((acc, prod) => {
     const precio = Number(prod.precio) || 0;
     const cantidad = Number(prod.cantidad) || 0;
@@ -361,36 +476,59 @@ export function ModalDetalleVenta({
   onDescargarPDF,
   onCompartirPDF,
   onCerrarModalPDF,
-  // 🆕 NUEVA PROP: Función para ver comprobante
-  onVerComprobante
+  // Función para ver comprobante
+  onVerComprobante,
+  // Props para CAE
+  onSolicitarCAE,
+  solicitandoCAE = false,
+  // NUEVA PROP: Función para recargar venta
+  onRecargarVenta
 }) {
   const [clienteExpandido, setClienteExpandido] = useState(false);
+  const [mostrarModalCAE, setMostrarModalCAE] = useState(false);
+  const [ventaActual, setVentaActual] = useState(venta);
 
-  if (!venta) return null;
+  // Actualizar venta actual cuando cambia la prop
+  useEffect(() => {
+    setVentaActual(venta);
+  }, [venta]);
+
+  if (!ventaActual) return null;
 
   const toggleClienteExpansion = () => {
     setClienteExpandido(!clienteExpandido);
-  };
-
-  const handleSolicitarCAEDetalle = () => {
-    if (venta.cae_id) {
-      toast.error('Esta factura ya tiene CAE asignado.');
-      return;
-    }
-    toast.error('Funcionalidad por implementar.');
   };
 
   const handleCerrarModal = () => {
     onClose();
   };
 
-  // 🆕 HANDLER para ver comprobante
   const handleVerComprobante = () => {
-    if (venta?.comprobante_path && onVerComprobante) {
-      console.log(`👀 Viendo comprobante de venta ${venta.id}: ${venta.comprobante_path}`);
-      onVerComprobante(venta.id, 'venta');
+    if (ventaActual?.comprobante_path && onVerComprobante) {
+      console.log(`Ver comprobante de venta ${ventaActual.id}: ${ventaActual.comprobante_path}`);
+      onVerComprobante(ventaActual.id, 'venta');
     } else {
       toast.error('No hay comprobante disponible para esta venta');
+    }
+  };
+
+  const handleVerDetalleCAE = () => {
+    setMostrarModalCAE(true);
+  };
+
+  // Handler mejorado para solicitar CAE con recarga
+  const handleSolicitarCAE = async (ventaId) => {
+    if (onSolicitarCAE) {
+      await onSolicitarCAE(ventaId);
+      
+      // Recargar la venta después de solicitar CAE
+      if (onRecargarVenta) {
+        const ventaActualizada = await onRecargarVenta(ventaId);
+        if (ventaActualizada) {
+          setVentaActual(ventaActualizada);
+          toast.success('Datos actualizados con información del CAE');
+        }
+      }
     }
   };
 
@@ -402,7 +540,7 @@ export function ModalDetalleVenta({
             {/* Header */}
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">
-                Venta #{venta.id}
+                Venta #{ventaActual.id}
               </h2>
               <button 
                 onClick={onClose}
@@ -415,19 +553,19 @@ export function ModalDetalleVenta({
             {/* Fecha y Estado */}
             <div className="mb-4">
               <h4 className="text-sm sm:text-lg font-semibold text-gray-700">
-                <strong>Fecha:</strong> {formatearFecha(venta.fecha)}
+                <strong>Fecha:</strong> {formatearFecha(ventaActual.fecha)}
               </h4>
             </div>
             
             {/* Información del Cliente (colapsable) */}
             <InformacionCliente 
-              venta={venta} 
+              venta={ventaActual} 
               expandido={clienteExpandido}
               onToggleExpansion={toggleClienteExpansion}
             />
 
             {/* Información Adicional */}
-            <InformacionAdicional venta={venta} cuenta={cuenta} />
+            <InformacionAdicional venta={ventaActual} cuenta={cuenta} />
             
             {/* Sección de productos */}
             <div className="mb-4">
@@ -438,38 +576,43 @@ export function ModalDetalleVenta({
                 loading={loading}
               />
 
-              <ResumenTotales productos={productos} venta={venta} />
+              <ResumenTotales productos={productos} venta={ventaActual} />
             </div>
               
-            {/* ✅ BOTONES DE ACCIÓN ACTUALIZADOS CON EL NUEVO BOTÓN */}
-            <div className="mt-6 flex flex-col sm:flex-row gap-4">
+            {/* BOTONES DE ACCIÓN MEJORADOS - Todos del mismo tamaño */}
+            <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <BotonGenerarPDFUniversal
                 onGenerar={onImprimirFacturaIndividual}
                 loading={generandoPDF}
-                texto="🖨️ IMPRIMIR FACTURA"
-                className="bg-blue-600 hover:bg-blue-700 w-full sm:w-1/4"
+                texto={
+                  <>
+                    <span className="hidden sm:inline">IMPRIMIR FACTURA</span>
+                    <span className="sm:hidden">IMPRIMIR</span>
+                  </>
+                }
+                icono="🖨️"
+                className="bg-blue-600 hover:bg-blue-700 w-full h-12"
               />
               
-              {!venta.cae_id && (
-                <button
-                  onClick={handleSolicitarCAEDetalle}
-                  className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm sm:text-lg font-semibold px-4 sm:px-6 py-2 sm:py-3 rounded-lg transition-colors w-full sm:w-1/4"
-                >
-                  📋 SOLICITAR CAE
-                </button>
-              )}
+              <BotonCAE
+                venta={ventaActual}
+                onSolicitarCAE={handleSolicitarCAE}
+                onVerDetalleCAE={handleVerDetalleCAE}
+                solicitandoCAE={solicitandoCAE}
+              />
               
-              {/* 🆕 NUEVO BOTÓN VER COMPROBANTE */}
               <BotonVerComprobante 
-                venta={venta}
+                venta={ventaActual}
                 onVerComprobante={handleVerComprobante}
               />
               
               <button
                 onClick={handleCerrarModal}
-                className="bg-gray-600 hover:bg-gray-700 text-white text-sm sm:text-lg font-semibold px-4 sm:px-6 py-2 sm:py-3 rounded-lg transition-colors w-full sm:w-1/4"
+                className="bg-gray-600 hover:bg-gray-700 text-white text-sm sm:text-base font-semibold px-4 py-3 rounded-lg transition-colors w-full flex items-center justify-center gap-2 h-12"
               >
-                ❌ CERRAR
+                <span>❌</span>
+                <span className="hidden sm:inline">CERRAR</span>
+                <span className="sm:hidden">SALIR</span>
               </button>
             </div>
           </div>
@@ -487,6 +630,13 @@ export function ModalDetalleVenta({
         onCompartir={onCompartirPDF}
         onCerrar={onCerrarModalPDF}
         zIndex={70}
+      />
+
+      {/* Modal Detalle CAE */}
+      <ModalDetalleCAE
+        mostrar={mostrarModalCAE}
+        venta={ventaActual}
+        onCerrar={() => setMostrarModalCAE(false)}
       />
     </>
   );

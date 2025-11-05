@@ -1,4 +1,3 @@
-// components/egresos/BarraAccionesEgresos.jsx
 import { MdSearch, MdAdd, MdFilterList, MdAutorenew } from "react-icons/md";
 
 export default function BarraAccionesEgresos({

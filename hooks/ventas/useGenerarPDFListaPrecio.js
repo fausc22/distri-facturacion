@@ -26,22 +26,28 @@ export function useGenerarPDF() {
       return false;
     }
 
-    // Preparar datos para enviar al servidor
+    // Preparar datos para enviar al servidor con IVA incluido
     const datosListaPrecios = {
       cliente: {
         nombre: cliente.nombre,
         cuit: cliente.cuit || '',
         condicion_iva: cliente.condicion_iva || ''
       },
-      productos: productos.map(p => ({
-        id: p.id,
-        nombre: p.nombre,
-        unidad_medida: p.unidad_medida || 'Unidad',
-        cantidad: p.cantidad,
-        precio: parseFloat(p.precio),
-        iva: parseFloat(p.iva || 0),
-        subtotal: parseFloat(p.subtotal)
-      }))
+      productos: productos.map(p => {
+        // Calcular precio con IVA incluido
+        const precioSinIva = parseFloat(p.precio);
+        const precioConIva = precioSinIva * 1.21;
+        const subtotalConIva = precioConIva * parseFloat(p.cantidad);
+        
+        return {
+          id: p.id,
+          nombre: p.nombre,
+          unidad_medida: p.unidad_medida || 'Unidad',
+          cantidad: parseFloat(p.cantidad),
+          precio_venta: precioConIva, // Precio con IVA incluido
+          subtotal: subtotalConIva // Subtotal con IVA incluido
+        };
+      })
     };
 
     // Función que realizará la llamada a la API

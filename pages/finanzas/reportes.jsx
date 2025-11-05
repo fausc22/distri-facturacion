@@ -1,4 +1,3 @@
-// pages/finanzas/reportes.jsx
 import { useState } from 'react';
 import Head from 'next/head';
 import useAuth from '../../hooks/useAuth';

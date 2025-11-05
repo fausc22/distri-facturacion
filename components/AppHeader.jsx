@@ -298,15 +298,23 @@ function AppHeader() {
                   >
                     Modificar Nota de Pedido
                   </MenuLink>
-                  <MenuLink 
-                    href="/ventas/comprobantes" 
-                    className="block py-2 px-4 text-sm whitespace-nowrap"
-                    requiresOnline={true}
-                  >
-                    Gestión de Comprobantes
-                  </MenuLink>
+                  
                   {(role === 'GERENTE') && (
                     <>
+                    <MenuLink 
+                        href="/ventas/VentaDirecta" 
+                        className="block py-2 px-4 text-sm whitespace-nowrap"
+                        requiresOnline={true}
+                      >
+                        Venta Directa
+                      </MenuLink>
+                      <MenuLink 
+                        href="/ventas/Facturacion" 
+                        className="block py-2 px-4 text-sm whitespace-nowrap mt-1 border-b border-black-200"
+                        requiresOnline={true}
+                      >
+                        Facturación
+                      </MenuLink>
                       <MenuLink 
                         href="/ventas/ListaPrecios" 
                         className="block py-2 px-4 text-sm whitespace-nowrap"
@@ -314,15 +322,16 @@ function AppHeader() {
                       >
                         Generar Lista de Precios
                       </MenuLink>
-                      <MenuLink 
-                        href="/ventas/Facturacion" 
-                        className="block py-2 px-4 text-sm whitespace-nowrap mt-1"
-                        requiresOnline={true}
-                      >
-                        Facturación
-                      </MenuLink>
+                      
                     </>
                   )}
+                  <MenuLink 
+                    href="/ventas/comprobantes" 
+                    className="block py-2 px-4 text-sm whitespace-nowrap"
+                    requiresOnline={true}
+                  >
+                    Gestión de Comprobantes
+                  </MenuLink>
                 </motion.div>
               </motion.div>
             )}
@@ -614,21 +623,15 @@ function AppHeader() {
                       >
                         Modificar Nota de Pedido
                       </MenuLink>
-                      <MenuLink 
-                        href="/ventas/comprobantes" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
-                        requiresOnline={true}
-                      >
-                        Gestión de Comprobantes
-                      </MenuLink>
+                      
                       {(role === 'GERENTE') && (
                         <>
-                          <MenuLink 
-                            href="/ventas/ListaPrecios" 
+                        <MenuLink 
+                            href="/ventas/VentaDirecta" 
                             className="block py-2 px-4 hover:bg-blue-600 text-white"
                             requiresOnline={true}
                           >
-                            Generar Lista de Precios
+                             Venta Directa
                           </MenuLink>
                           <MenuLink 
                             href="/ventas/Facturacion" 
@@ -637,8 +640,23 @@ function AppHeader() {
                           >
                             Facturación
                           </MenuLink>
+                          <MenuLink 
+                            href="/ventas/ListaPrecios" 
+                            className="block py-2 px-4 hover:bg-blue-600 text-white"
+                            requiresOnline={true}
+                          >
+                            Generar Lista de Precios
+                          </MenuLink>
+                          
                         </>
                       )}
+                      <MenuLink 
+                        href="/ventas/comprobantes" 
+                        className="block py-2 px-4 hover:bg-blue-600 text-white"
+                        requiresOnline={true}
+                      >
+                        Gestión de Comprobantes
+                      </MenuLink>
                     </>
                   )}
                 </motion.div>

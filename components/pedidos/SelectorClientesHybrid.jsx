@@ -1,8 +1,9 @@
 // components/pedidos/SelectorClientesHybrid.jsx - Selector Híbrido PWA/Web
 import { useState, useEffect } from 'react';
-import { MdSearch, MdDeleteForever, MdKeyboardArrowDown, MdKeyboardArrowUp, MdWifi, MdWifiOff } from "react-icons/md";
+import { MdSearch, MdDeleteForever, MdKeyboardArrowDown, MdKeyboardArrowUp, MdWifi, MdWifiOff, MdPersonAdd } from "react-icons/md";
 import { usePedidosContext } from '../../context/PedidosContext';
 import { useClienteSearchHybrid } from '../../hooks/useBusquedaHybrid';
+import ModalCrearClienteRapido from './ModalCrearClienteRapido';
 
 function ModalClientes({ resultados, onSeleccionar, onCerrar, loading, isPWA, isOnline }) {
   return (
@@ -127,18 +128,19 @@ export default function ClienteSelectorHybrid() {
 
   // ✅ ESTADO DE CONEXIÓN PARA PWA
   const [isOnline, setIsOnline] = useState(true);
+  const [mostrarModalCrear, setMostrarModalCrear] = useState(false);
 
   // ✅ MONITOREAR CONECTIVIDAD SOLO EN PWA
   useEffect(() => {
     if (isPWA) {
       const handleOnline = () => setIsOnline(true);
       const handleOffline = () => setIsOnline(false);
-      
+
       setIsOnline(navigator.onLine);
-      
+
       window.addEventListener('online', handleOnline);
       window.addEventListener('offline', handleOffline);
-      
+
       return () => {
         window.removeEventListener('online', handleOnline);
         window.removeEventListener('offline', handleOffline);
@@ -155,6 +157,12 @@ export default function ClienteSelectorHybrid() {
   const handleLimpiarCliente = () => {
     clearCliente();
     limpiarBusqueda();
+  };
+
+  const handleClienteCreado = (nuevoCliente) => {
+    // Seleccionar el cliente recién creado automáticamente
+    setCliente(nuevoCliente);
+    setMostrarModalCrear(false);
   };
 
   // ✅ FUNCIÓN PARA OBTENER PLACEHOLDER DINÁMICO
@@ -213,14 +221,14 @@ export default function ClienteSelectorHybrid() {
             className={`p-2 rounded transition ${
               !!cliente || loading
                 ? 'bg-gray-400 cursor-not-allowed text-gray-600'
-                : isOnline 
+                : isOnline
                   ? 'bg-white text-blue-900 hover:bg-sky-300'
                   : 'bg-orange-200 text-orange-800 hover:bg-orange-300'
             }`}
             title={
-              isPWA 
-                ? isOnline 
-                  ? "Buscar cliente online" 
+              isPWA
+                ? isOnline
+                  ? "Buscar cliente online"
                   : "Buscar cliente en datos offline"
                 : "Buscar cliente"
             }
@@ -242,7 +250,21 @@ export default function ClienteSelectorHybrid() {
           )}
         </div>
 
-        
+        {/* Botón para crear nuevo cliente */}
+        {!cliente && (
+          <button
+            onClick={() => setMostrarModalCrear(true)}
+            className={`w-full py-2 px-4 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
+              isPWA && !isOnline
+                ? 'bg-orange-600 hover:bg-orange-700'
+                : 'bg-green-600 hover:bg-green-700'
+            }`}
+            title={isPWA && !isOnline ? "Crear cliente requiere conexión" : "Crear nuevo cliente"}
+          >
+            <MdPersonAdd size={20} />
+            Crear Nuevo Cliente
+          </button>
+        )}
       </div>
 
       <DetallesClienteListaPrecios 
@@ -261,6 +283,13 @@ export default function ClienteSelectorHybrid() {
           isOnline={isOnline}
         />
       )}
+
+      {/* Modal para crear cliente */}
+      <ModalCrearClienteRapido
+        isOpen={mostrarModalCrear}
+        onClose={() => setMostrarModalCrear(false)}
+        onClienteCreado={handleClienteCreado}
+      />
     </div>
   );
 }

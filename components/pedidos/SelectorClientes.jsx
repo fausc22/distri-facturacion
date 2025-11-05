@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { MdSearch, MdDeleteForever, MdKeyboardArrowDown, MdKeyboardArrowUp} from "react-icons/md";
+import { MdSearch, MdDeleteForever, MdKeyboardArrowDown, MdKeyboardArrowUp, MdPersonAdd} from "react-icons/md";
 import { usePedidosContext } from '../../context/PedidosContext';
 import { useClienteSearch } from '../../hooks/useBusquedaClientes';
+import ModalCrearClienteRapido from './ModalCrearClienteRapido';
 
 function ModalClientes({ resultados, onSeleccionar, onCerrar, loading }) {
   return (
@@ -83,6 +84,8 @@ export default function ClienteSelectorListaPrecios() {
     limpiarBusqueda
   } = useClienteSearch();
 
+  const [mostrarModalCrear, setMostrarModalCrear] = useState(false);
+
   const handleSeleccionarCliente = (clienteSeleccionado) => {
     setCliente(clienteSeleccionado);
     setMostrarModal(false);
@@ -94,10 +97,16 @@ export default function ClienteSelectorListaPrecios() {
     limpiarBusqueda();
   };
 
+  const handleClienteCreado = (nuevoCliente) => {
+    // Seleccionar el cliente recién creado automáticamente
+    setCliente(nuevoCliente);
+    setMostrarModalCrear(false);
+  };
+
   return (
     <div className="bg-blue-900 text-white p-6 rounded-lg flex-1 min-w-[300px]">
       <h2 className="text-2xl font-semibold mb-4 text-center">Cliente</h2>
-      
+
       <div className="space-y-4">
         <div className="flex items-center gap-2">
           <input
@@ -126,6 +135,17 @@ export default function ClienteSelectorListaPrecios() {
             </button>
           )}
         </div>
+
+        {/* Botón para crear nuevo cliente */}
+        {!cliente && (
+          <button
+            onClick={() => setMostrarModalCrear(true)}
+            className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <MdPersonAdd size={20} />
+            Crear Nuevo Cliente
+          </button>
+        )}
       </div>
 
       <DetallesClienteListaPrecios cliente={cliente} />
@@ -138,6 +158,13 @@ export default function ClienteSelectorListaPrecios() {
           loading={loading}
         />
       )}
+
+      {/* Modal para crear cliente */}
+      <ModalCrearClienteRapido
+        isOpen={mostrarModalCrear}
+        onClose={() => setMostrarModalCrear(false)}
+        onClienteCreado={handleClienteCreado}
+      />
     </div>
   );
 }

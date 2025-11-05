@@ -1,5 +1,3 @@
-// components/PublicLayout.jsx - Layout para páginas públicas
-
 import Head from 'next/head';
 import { Toaster } from 'react-hot-toast';
 

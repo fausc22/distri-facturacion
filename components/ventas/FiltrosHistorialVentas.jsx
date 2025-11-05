@@ -1,18 +1,19 @@
-// components/ventas/FiltrosHistorialVentas.jsx
 import { useState, useEffect } from 'react';
-import { MdFilterList, MdClear, MdExpandMore, MdExpandLess } from 'react-icons/md';
+import { MdFilterList, MdClear, MdExpandMore, MdExpandLess, MdSearch } from 'react-icons/md';
 import { axiosAuth } from '../../utils/apiClient';
 
 export default function FiltrosHistorialVentas({ 
   filtros, 
   onFiltrosChange, 
   onLimpiarFiltros,
+  onBusquedaCliente, // ✅ NUEVA PROP para búsqueda en backend
   user,
   totalVentas = 0,
   ventasFiltradas = 0,
   ventasOriginales = []
 }) {
   const [expandido, setExpandido] = useState(false);
+  const [buscandoCliente, setBuscandoCliente] = useState(false);
 
   // Estados únicos extraídos de las ventas
   const [ciudadesUnicas, setCiudadesUnicas] = useState([]);
@@ -35,8 +36,6 @@ export default function FiltrosHistorialVentas({
   const cargarDatosUnicos = async () => {
     setLoadingDatos(true);
     try {
-      // Intentar obtener datos desde API (si existe endpoint)
-      // Si falla, extraer de ventasOriginales como fallback
       if (ventasOriginales.length > 0) {
         extraerDatosDeLocal();
       }
@@ -50,7 +49,6 @@ export default function FiltrosHistorialVentas({
     }
   };
 
-  // Extraer empleados únicos de las ventas existentes
   const extraerEmpleadosUnicos = () => {
     if (!ventasOriginales || ventasOriginales.length === 0) return;
 
@@ -61,10 +59,9 @@ export default function FiltrosHistorialVentas({
     )].sort();
 
     setEmpleadosUnicos(empleados);
-    console.log('👥 Empleados únicos extraídos de ventas:', empleados);
+    console.log('👥 Empleados únicos extraídos:', empleados);
   };
 
-  // Extraer datos localmente de las ventas
   const extraerDatosDeLocal = () => {
     const ciudades = [...new Set(
       ventasOriginales
@@ -80,7 +77,7 @@ export default function FiltrosHistorialVentas({
 
     setCiudadesUnicas(ciudades);
     setClientesUnicos(clientes);
-    console.log('📊 Datos extraídos localmente:', { ciudades: ciudades.length, clientes: clientes.length });
+    console.log('📊 Datos extraídos:', { ciudades: ciudades.length, clientes: clientes.length });
   };
 
   const handleFiltroChange = (campo, valor) => {
@@ -89,6 +86,44 @@ export default function FiltrosHistorialVentas({
       [campo]: valor
     });
   };
+
+  // ✅ NUEVA FUNCIÓN: Búsqueda de cliente con debounce
+  const buscarClienteEnBackend = async (textoBusqueda) => {
+    if (!textoBusqueda || textoBusqueda.trim().length < 2) {
+      return;
+    }
+
+    setBuscandoCliente(true);
+    try {
+      const response = await axiosAuth.get('/ventas/buscar-por-cliente', {
+        params: { busqueda: textoBusqueda }
+      });
+
+      if (response.data.success) {
+        console.log(`🔍 Encontradas ${response.data.count} ventas para "${textoBusqueda}"`);
+        
+        // Llamar callback con resultados
+        if (onBusquedaCliente) {
+          onBusquedaCliente(response.data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error buscando cliente:', error);
+    } finally {
+      setBuscandoCliente(false);
+    }
+  };
+
+  // ✅ DEBOUNCE para búsqueda
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (filtros.cliente && filtros.cliente.trim().length >= 2) {
+        buscarClienteEnBackend(filtros.cliente);
+      }
+    }, 500); // Espera 500ms después de que el usuario deja de escribir
+
+    return () => clearTimeout(timer);
+  }, [filtros.cliente]);
 
   const limpiarTodosFiltros = () => {
     onLimpiarFiltros();
@@ -120,6 +155,12 @@ export default function FiltrosHistorialVentas({
               {hayFiltrosActivos() && (
                 <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
                   {contarFiltrosActivos()} filtro{contarFiltrosActivos() !== 1 ? 's' : ''} activo{contarFiltrosActivos() !== 1 ? 's' : ''}
+                </span>
+              )}
+              {buscandoCliente && (
+                <span className="text-xs text-blue-600 flex items-center gap-1">
+                  <MdSearch className="animate-pulse" />
+                  Buscando...
                 </span>
               )}
             </div>
@@ -156,24 +197,37 @@ export default function FiltrosHistorialVentas({
               : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'
           }`}>
             
-            {/* Filtro por Cliente */}
+            {/* ✅ FILTRO POR CLIENTE MEJORADO - Con búsqueda en tiempo real */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cliente
+                Cliente {buscandoCliente && <span className="text-blue-600 text-xs">(buscando...)</span>}
               </label>
-              <input
-                type="text"
-                value={filtros.cliente || ''}
-                onChange={(e) => handleFiltroChange('cliente', e.target.value)}
-                placeholder="Buscar cliente..."
-                list="clientes-list"
-                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+              <div className="relative">
+                <input
+                  type="text"
+                  value={filtros.cliente || ''}
+                  onChange={(e) => handleFiltroChange('cliente', e.target.value)}
+                  placeholder="Buscar cliente..."
+                  list="clientes-list"
+                  className="w-full p-2 pr-8 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <MdSearch 
+                  className={`absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 ${
+                    buscandoCliente ? 'animate-pulse text-blue-600' : ''
+                  }`}
+                  size={20}
+                />
+              </div>
               <datalist id="clientes-list">
                 {clientesUnicos.map((cliente, index) => (
                   <option key={index} value={cliente} />
                 ))}
               </datalist>
+              {filtros.cliente && filtros.cliente.length < 2 && (
+                <p className="text-xs text-gray-500 mt-1">
+                  Escribe al menos 2 caracteres para buscar
+                </p>
+              )}
             </div>
 
             {/* Filtro por Ciudad */}
@@ -278,7 +332,7 @@ export default function FiltrosHistorialVentas({
             </div>
           </div>
 
-          {/* Botones de acción para móvil */}
+          {/* Botones de acción */}
           <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:justify-end">
             {hayFiltrosActivos() && (
               <button

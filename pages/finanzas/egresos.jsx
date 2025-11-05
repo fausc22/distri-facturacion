@@ -1,4 +1,3 @@
-// pages/finanzas/egresos.jsx - Versión Refactorizada
 import { useEffect } from 'react';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';

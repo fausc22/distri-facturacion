@@ -1,43 +1,9 @@
-// components/OfflineGuard.jsx - ULTRA SIMPLIFICADO: NUNCA redirige automáticamente
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useConnection } from '../utils/ConnectionManager';
 import { getAppMode } from '../utils/offlineManager';
 
 export default function OfflineGuard({ children }) {
-  const router = useRouter();
-  const { isOnline, eventType } = useConnection();
-  
-  const isPWA = getAppMode() === 'pwa';
-
-  // ✅ COMPONENTE COMPLETAMENTE PASIVO - NUNCA REDIRIGE
-  useEffect(() => {
-    if (!isPWA || !eventType) return;
-
-    const currentPath = router.pathname;
-
-    // ✅ SOLO LOGGING PASIVO - NUNCA ACCIONES AUTOMÁTICAS
-    switch (eventType) {
-      case 'connection_lost':
-        console.log(`📴 [OfflineGuard] Conexión perdida detectada en: ${currentPath} - SIN ACCIÓN`);
-        break;
-        
-      case 'connection_restored':
-        console.log(`🌐 [OfflineGuard] Conexión restaurada detectada en: ${currentPath} - SIN ACCIÓN`);
-        break;
-        
-      default:
-        break;
-    }
-  }, [eventType, router.pathname, isPWA]);
-
-  // ✅ NO HAY VERIFICACIONES INICIALES
-  // ✅ NO HAY REDIRECCIONES AUTOMÁTICAS
-  // ✅ NO HAY LÓGICA DE PROTECCIÓN AUTOMÁTICA
-  
-  // El componente simplemente pasa los children sin modificaciones
-  console.log('🛡️ [OfflineGuard] Modo pasivo - sin redirecciones automáticas');
-  
   return children;
 }
 

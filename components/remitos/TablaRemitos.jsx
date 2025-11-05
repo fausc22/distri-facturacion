@@ -1,4 +1,3 @@
-// components/remitos/TablaRemitos.jsx - Versión responsiva con cards
 import { useState } from 'react';
 
 // Función helper para formatear fechas

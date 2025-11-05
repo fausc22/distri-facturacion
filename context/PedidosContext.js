@@ -7,34 +7,59 @@ const PedidosContext = createContext();
 function pedidosReducer(state, action) {
   switch (action.type) {
     case 'SET_CLIENTE':
-      return { ...state, cliente: action.payload };
+      // ✅ VERIFICAR SI EL NUEVO CLIENTE ES EXENTO
+      const esNuevoClienteExento = action.payload?.condicion_iva?.toUpperCase() === 'EXENTO';
+
+      // ✅ RECALCULAR IVA DE TODOS LOS PRODUCTOS EN EL CARRITO
+      const productosRecalculados = state.productos.map(producto => {
+        const nuevoIvaCalculado = esNuevoClienteExento
+          ? 0
+          : parseFloat((producto.subtotal * (producto.porcentaje_iva / 100)).toFixed(2));
+
+        return {
+          ...producto,
+          iva_calculado: nuevoIvaCalculado
+        };
+      });
+
+      return {
+        ...state,
+        cliente: action.payload,
+        productos: productosRecalculados
+      };
     
     case 'CLEAR_CLIENTE':
       return { ...state, cliente: null };
     
     case 'ADD_PRODUCTO':
   const cantidadNueva = parseFloat(action.payload.cantidad) || 0.5;
-  
+
+      // ✅ VERIFICAR SI EL CLIENTE ES EXENTO DE IVA
+      const esClienteExento = state.cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
+
       // ✅ VERIFICAR SI EL PRODUCTO YA EXISTE
       const productoExistenteIndex = state.productos.findIndex(p => p.id === action.payload.id);
-      
+
       if (productoExistenteIndex !== -1) {
         // Si existe, actualizar la cantidad
         const productosActualizados = [...state.productos];
         const productoExistente = productosActualizados[productoExistenteIndex];
         const nuevaCantidadTotal = parseFloat(productoExistente.cantidad) + cantidadNueva;
-        
+
         // Recalcular subtotal e IVA con la nueva cantidad total
         const nuevoSubtotal = parseFloat((productoExistente.precio * nuevaCantidadTotal).toFixed(2));
-        const nuevoIvaCalculado = parseFloat((nuevoSubtotal * (productoExistente.porcentaje_iva / 100)).toFixed(2));
-        
+        // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
+        const nuevoIvaCalculado = esClienteExento
+          ? 0
+          : parseFloat((nuevoSubtotal * (productoExistente.porcentaje_iva / 100)).toFixed(2));
+
         productosActualizados[productoExistenteIndex] = {
           ...productoExistente,
           cantidad: nuevaCantidadTotal,
           subtotal: nuevoSubtotal,
           iva_calculado: nuevoIvaCalculado
         };
-        
+
         return {
           ...state,
           productos: productosActualizados
@@ -43,8 +68,11 @@ function pedidosReducer(state, action) {
         // Si no existe, agregarlo como antes
         const subtotalSinIva = parseFloat((cantidadNueva * action.payload.precio).toFixed(2));
         const porcentajeIva = action.payload.iva || 21;
-        const ivaCalculado = parseFloat((subtotalSinIva * (porcentajeIva / 100)).toFixed(2));
-        
+        // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
+        const ivaCalculado = esClienteExento
+          ? 0
+          : parseFloat((subtotalSinIva * (porcentajeIva / 100)).toFixed(2));
+
         const nuevoProducto = {
           id: action.payload.id,
           nombre: action.payload.nombre,
@@ -55,7 +83,7 @@ function pedidosReducer(state, action) {
           iva_calculado: ivaCalculado,
           subtotal: subtotalSinIva
         };
-        
+
         return {
           ...state,
           productos: [...state.productos, nuevoProducto]
@@ -64,11 +92,17 @@ function pedidosReducer(state, action) {
     
     // ✅ NUEVA ACCIÓN PARA MÚLTIPLES PRODUCTOS
     case 'ADD_MULTIPLE_PRODUCTOS':
+      // ✅ VERIFICAR SI EL CLIENTE ES EXENTO DE IVA
+      const esClienteExentoMultiple = state.cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
+
       const nuevosProductos = action.payload.map(producto => {
         const subtotalSinIva = parseFloat((producto.cantidad * producto.precio).toFixed(2));
         const porcentajeIva = producto.iva || producto.porcentaje_iva || 21;
-        const ivaCalculado = parseFloat((subtotalSinIva * (porcentajeIva / 100)).toFixed(2));
-        
+        // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
+        const ivaCalculado = esClienteExentoMultiple
+          ? 0
+          : parseFloat((subtotalSinIva * (porcentajeIva / 100)).toFixed(2));
+
         return {
           id: producto.id,
           nombre: producto.nombre,
@@ -80,7 +114,7 @@ function pedidosReducer(state, action) {
           subtotal: subtotalSinIva
         };
       });
-      
+
       return {
         ...state,
         productos: [...state.productos, ...nuevosProductos]
@@ -93,33 +127,47 @@ function pedidosReducer(state, action) {
       };
     
     case 'UPDATE_CANTIDAD':
+      // ✅ VERIFICAR SI EL CLIENTE ES EXENTO DE IVA
+      const esClienteExentoCantidad = state.cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
+
       const productosActualizados = [...state.productos];
       const producto = productosActualizados[action.payload.index];
-      
+
       // ✅ ASEGURAR QUE CANTIDAD SEA PARSEADA COMO FLOAT
       const nuevaCantidad = parseFloat(action.payload.cantidad);
-      
+
       // Recalcular subtotal e IVA con la nueva cantidad
       const nuevoSubtotal = parseFloat((producto.precio * nuevaCantidad).toFixed(2));
-      const nuevoIvaCalculado = parseFloat((nuevoSubtotal * (producto.porcentaje_iva / 100)).toFixed(2));
-      
+      // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
+      const nuevoIvaCalculado = esClienteExentoCantidad
+        ? 0
+        : parseFloat((nuevoSubtotal * (producto.porcentaje_iva / 100)).toFixed(2));
+
       productosActualizados[action.payload.index] = {
         ...producto,
         cantidad: nuevaCantidad, // ✅ USAR LA CANTIDAD PARSEADA
         subtotal: nuevoSubtotal,
         iva_calculado: nuevoIvaCalculado
       };
-      
+
       return {
         ...state,
         productos: productosActualizados
       };
-      
+
+    case 'UPDATE_PRODUCTO':
+      // ✅ ACTUALIZAR PRODUCTO COMPLETO (con descuentos, precio, cantidad, etc.)
+      const productosActualizadosCompleto = [...state.productos];
+      productosActualizadosCompleto[action.payload.index] = {
+        ...productosActualizadosCompleto[action.payload.index],
+        ...action.payload.producto
+      };
+
       return {
         ...state,
-        productos: productosActualizados
+        productos: productosActualizadosCompleto
       };
-    
+
     case 'SET_OBSERVACIONES':
       return { ...state, observaciones: action.payload };
     
@@ -177,7 +225,11 @@ export function PedidosProvider({ children }) {
       const cantidadValida = Math.max(0.5, parseFloat(cantidad));
       dispatch({ type: 'UPDATE_CANTIDAD', payload: { index, cantidad: cantidadValida } });
     },
-    
+
+    updateProducto: (index, producto) => {
+      dispatch({ type: 'UPDATE_PRODUCTO', payload: { index, producto } });
+    },
+
     // Acciones de observaciones
     setObservaciones: (observaciones) => dispatch({ type: 'SET_OBSERVACIONES', payload: observaciones }),
     

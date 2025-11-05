@@ -1,4 +1,3 @@
-
 import { MdSearch } from "react-icons/md";
 import { useVenta } from '../../context/VentasContext';
 import { useProductoSearch } from '../../hooks/useBusquedaProductos';
@@ -8,20 +7,21 @@ function ControlCantidad({ cantidad, onCantidadChange, className = "" }) {
     <div className={`flex items-center space-x-2 ${className}`}>
       <button 
         className="bg-gray-300 hover:bg-gray-400 text-black w-8 h-8 rounded flex items-center justify-center font-bold"
-        onClick={() => onCantidadChange(cantidad - 1)}
+        onClick={() => onCantidadChange(Math.max(0.5, cantidad - 0.5))}
       >
         -
       </button>
       <input
         type="number"
         value={cantidad}
-        onChange={(e) => onCantidadChange(Number(e.target.value))}
-        min="1"
+        onChange={(e) => onCantidadChange(Math.max(0.5, Number(e.target.value)))}
+        min="0.5"
+        step="0.5"
         className="w-16 p-2 rounded text-black border border-gray-300 text-center"
       />
       <button 
         className="bg-gray-300 hover:bg-gray-400 text-black w-8 h-8 rounded flex items-center justify-center font-bold"
-        onClick={() => onCantidadChange(cantidad + 1)}
+        onClick={() => onCantidadChange(cantidad + 0.5)}
       >
         +
       </button>
@@ -32,13 +32,16 @@ function ControlCantidad({ cantidad, onCantidadChange, className = "" }) {
 function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAgregar }) {
   if (!producto) return null;
 
+  // Calcular precio con IVA incluido
+  const precioConIva = parseFloat(producto.precio) * 1.21;
+
   return (
     <div className="mt-4">
       <div className="mb-2 text-xl font-bold text-green-700">
         STOCK DISPONIBLE: {producto.stock_actual}
       </div>
       <div className="mb-2 text-black">
-        Precio unitario: ${producto.precio}
+        Precio unitario (IVA incluido): ${precioConIva.toFixed(2)}
       </div>
       
       <div className="flex items-center gap-4 mb-4">
@@ -50,7 +53,7 @@ function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAg
       </div>
 
       <div className="text-black font-semibold mb-4">
-        Subtotal: ${Number(subtotal).toFixed(2)}
+        Subtotal (IVA incluido): ${(precioConIva * cantidad).toFixed(2)}
       </div>
 
       <button
@@ -77,20 +80,23 @@ function ModalProductos({
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
       <div className="bg-white rounded-lg p-4 max-w-md w-full">
-        <h3 className="text-lg font-semibold mb-4 text-black ">Seleccionar Producto</h3>
+        <h3 className="text-lg font-semibold mb-4 text-black">Seleccionar Producto</h3>
         <ul className="max-h-60 overflow-y-auto">
           {loading ? (
             <li className="text-gray-500 text-center">Buscando...</li>
           ) : resultados.length > 0 ? (
-            resultados.map((producto, idx) => (
-              <li
-                key={idx}
-                className="p-2 border-b hover:bg-gray-100 cursor-pointer text-black"
-                onClick={() => onSeleccionar(producto)}
-              >
-                {producto.nombre} - ${producto.precio}
-              </li>
-            ))
+            resultados.map((producto, idx) => {
+              const precioConIva = parseFloat(producto.precio) * 1.21;
+              return (
+                <li
+                  key={idx}
+                  className="p-2 border-b hover:bg-gray-100 cursor-pointer text-black"
+                  onClick={() => onSeleccionar(producto)}
+                >
+                  {producto.nombre} - ${precioConIva.toFixed(2)} (IVA incl.)
+                </li>
+              );
+            })
           ) : (
             <li className="text-gray-500">No se encontraron resultados.</li>
           )}

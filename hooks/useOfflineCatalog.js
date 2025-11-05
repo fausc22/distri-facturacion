@@ -1,4 +1,3 @@
-// hooks/useOfflineCatalog.js - VERSIÓN MEJORADA con auto-actualización post-pedidos
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { offlineManager, getAppMode } from '../utils/offlineManager';

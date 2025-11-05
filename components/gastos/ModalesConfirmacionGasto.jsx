@@ -1,5 +1,3 @@
-// components/gastos/ModalesConfirmacionGasto.jsx
-
 export function ModalConfirmacionGasto({ 
   mostrar, 
   resumen, 

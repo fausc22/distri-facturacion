@@ -1,7 +1,6 @@
-// components/ventas/TablaVentas.jsx - Versión responsiva con cards
+// components/ventas/TablaVentas.jsx
 import { useState } from 'react';
 
-// Función helper para formatear fechas
 const formatearFecha = (fecha) => {
   if (!fecha) return 'Fecha no disponible';
   
@@ -11,9 +10,39 @@ const formatearFecha = (fecha) => {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
-    hour12: true
+    hour12: false
   });
+};
+
+// ✅ NUEVA FUNCIÓN: Desglosar numero_factura
+const desglosarNumeroFactura = (numeroCompleto) => {
+  if (!numeroCompleto || typeof numeroCompleto !== 'string') {
+    return {
+      tipoFactura: '-',
+      puntoVenta: '-',
+      numeroComprobante: '-',
+      numeroCompleto: '-'
+    };
+  }
+
+  const regex = /^([A-Z]+)\s+(\d{4})-(\d{8})$/;
+  const match = numeroCompleto.trim().match(regex);
+
+  if (!match) {
+    return {
+      tipoFactura: '-',
+      puntoVenta: '-',
+      numeroComprobante: '-',
+      numeroCompleto: numeroCompleto
+    };
+  }
+
+  return {
+    tipoFactura: match[1],
+    puntoVenta: match[2],
+    numeroComprobante: match[3],
+    numeroCompleto: numeroCompleto
+  };
 };
 
 // Componente para tabla en escritorio
@@ -52,6 +81,7 @@ function TablaEscritorio({
       case 'B':
         return 'bg-indigo-100 text-indigo-800 border-indigo-200';
       case 'C':
+      case 'X':
         return 'bg-pink-100 text-pink-800 border-pink-200';
       default:
         return 'bg-gray-100 text-gray-800 border-gray-200';
@@ -71,12 +101,7 @@ function TablaEscritorio({
                 className="w-4 h-4"
               />
             </th>
-            <th 
-              className="p-3 text-left cursor-pointer hover:bg-gray-300 transition-colors"
-              onClick={() => onSort('id')}
-            >
-              ID {getSortIcon('id')}
-            </th>
+            {/* ✅ NUEVO ORDEN: FECHA, CLIENTE, NUMERO_FACTURA, DOCUMENTO, TIPO FISCAL, TOTAL, ESTADO CAE, VENDEDOR */}
             <th 
               className="p-3 text-left cursor-pointer hover:bg-gray-300 transition-colors"
               onClick={() => onSort('fecha')}
@@ -88,6 +113,12 @@ function TablaEscritorio({
               onClick={() => onSort('cliente_nombre')}
             >
               Cliente {getSortIcon('cliente_nombre')}
+            </th>
+            <th 
+              className="p-3 text-center cursor-pointer hover:bg-gray-300 transition-colors"
+              onClick={() => onSort('numero_factura')}
+            >
+              Número Factura {getSortIcon('numero_factura')}
             </th>
             <th className="p-3 text-center">
               Documento
@@ -108,91 +139,114 @@ function TablaEscritorio({
               className="p-3 text-left cursor-pointer hover:bg-gray-300 transition-colors"
               onClick={() => onSort('empleado_nombre')}
             >
-              Usuario {getSortIcon('empleado_nombre')}
+              Vendedor {getSortIcon('empleado_nombre')}
             </th>
           </tr>
         </thead>
         <tbody>
-          {ventas.map((venta) => (
-            <tr
-              key={venta.id}
-              className={`border-b hover:bg-gray-50 cursor-pointer transition-colors ${
-                selectedVentas.includes(venta.id) ? 'bg-blue-50' : ''
-              }`}
-              onDoubleClick={() => onRowDoubleClick(venta)}
-            >
-              <td className="p-3 text-center">
-                <input
-                  type="checkbox"
-                  checked={selectedVentas.includes(venta.id)}
-                  onChange={() => onSelectVenta(venta.id)}
-                  className="w-4 h-4"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </td>
-              <td className="p-3 font-mono text-sm font-semibold text-blue-600">
-                #{venta.id}
-              </td>
-              <td className="p-3 text-sm">
-                {formatearFecha(venta.fecha)}
-              </td>
-              <td className="p-3 font-medium">
-                <div>
-                  <div className="font-semibold">{venta.cliente_nombre || 'Cliente no especificado'}</div>
-                  {venta.cliente_ciudad && (
-                    <div className="text-xs text-gray-500">{venta.cliente_ciudad}</div>
-                  )}
-                </div>
-              </td>
-              <td className="p-3 text-center">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getDocumentoStyle(venta.tipo_doc)}`}>
-                  {venta.tipo_doc || 'N/A'}
-                </span>
-              </td>
-              <td className="p-3 text-center">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getTipoFiscalStyle(venta.tipo_f)}`}>
-                  {venta.tipo_f || 'N/A'}
-                </span>
-              </td>
-              <td className="p-3 text-right">
-                <div className="font-semibold text-green-600">
-                  ${Number(venta.total || 0).toFixed(2)}
-                </div>
-                {venta.subtotal && (
-                  <div className="text-xs text-gray-500">
-                    Subtotal: ${Number(venta.subtotal || 0).toFixed(2)}
+          {ventas.map((venta) => {
+            const numeroFacturaDesglosado = desglosarNumeroFactura(venta.numero_factura);
+            
+            return (
+              <tr
+                key={venta.id}
+                className={`border-b hover:bg-gray-50 cursor-pointer transition-colors ${
+                  selectedVentas.includes(venta.id) ? 'bg-blue-50' : ''
+                }`}
+                onDoubleClick={() => onRowDoubleClick(venta)}
+              >
+                <td className="p-3 text-center">
+                  <input
+                    type="checkbox"
+                    checked={selectedVentas.includes(venta.id)}
+                    onChange={() => onSelectVenta(venta.id)}
+                    className="w-4 h-4"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </td>
+                {/* FECHA */}
+                <td className="p-3 text-sm">
+                  {formatearFecha(venta.fecha)}
+                </td>
+                {/* CLIENTE */}
+                <td className="p-3 font-medium">
+                  <div>
+                    <div className="font-semibold">{venta.cliente_nombre || 'Cliente no especificado'}</div>
+                    {venta.cliente_ciudad && (
+                      <div className="text-xs text-gray-500">{venta.cliente_ciudad}</div>
+                    )}
                   </div>
-                )}
-              </td>
-              <td className="p-3 text-center">
-                <div className="flex items-center justify-center gap-1">
-                  {venta.cae_id ? (
-                    <>
-                      <span className="text-green-600 text-lg">✅</span>
-                      <span className="text-xs text-green-600 font-medium">Aprobado</span>
-                    </>
+                </td>
+                {/* ✅ NUMERO_FACTURA */}
+                <td className="p-3 text-center">
+                  {numeroFacturaDesglosado.numeroCompleto !== '-' ? (
+                    <div className="font-mono text-sm">
+                      <div className="font-bold text-blue-600">
+                        {numeroFacturaDesglosado.tipoFactura}
+                      </div>
+                      <div className="text-xs text-gray-600">
+                        {numeroFacturaDesglosado.puntoVenta}-{numeroFacturaDesglosado.numeroComprobante}
+                      </div>
+                    </div>
                   ) : (
-                    <>
-                      <span className="text-red-600 text-lg">❌</span>
-                      <span className="text-xs text-red-600 font-medium">Pendiente</span>
-                    </>
+                    <span className="text-gray-400 text-xs">Sin número</span>
                   )}
-                </div>
-              </td>
-              <td className="p-3">
-                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm">
-                  {venta.empleado_nombre || 'No especificado'}
-                </span>
-              </td>
-            </tr>
-          ))}
+                </td>
+                {/* DOCUMENTO */}
+                <td className="p-3 text-center">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getDocumentoStyle(venta.tipo_doc)}`}>
+                    {venta.tipo_doc || 'N/A'}
+                  </span>
+                </td>
+                {/* TIPO FISCAL */}
+                <td className="p-3 text-center">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getTipoFiscalStyle(venta.tipo_f)}`}>
+                    {venta.tipo_f || 'N/A'}
+                  </span>
+                </td>
+                {/* TOTAL */}
+                <td className="p-3 text-right">
+                  <div className="font-semibold text-green-600">
+                    ${Number(venta.total || 0).toFixed(2)}
+                  </div>
+                  {venta.subtotal && (
+                    <div className="text-xs text-gray-500">
+                      Subtotal: ${Number(venta.subtotal || 0).toFixed(2)}
+                    </div>
+                  )}
+                </td>
+                {/* ESTADO CAE */}
+                <td className="p-3 text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    {venta.cae_id ? (
+                      <>
+                        <span className="text-green-600 text-lg">✅</span>
+                        <span className="text-xs text-green-600 font-medium">Aprobado</span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="text-red-600 text-lg">❌</span>
+                        <span className="text-xs text-red-600 font-medium">Pendiente</span>
+                      </>
+                    )}
+                  </div>
+                </td>
+                {/* VENDEDOR */}
+                <td className="p-3">
+                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm">
+                    {venta.empleado_nombre || 'No especificado'}
+                  </span>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
   );
 }
 
-// Componente para tarjetas en móvil
+// ✅ Componente para tarjetas en móvil - ACTUALIZADO
 function TarjetasMovil({
   ventas,
   selectedVentas,
@@ -200,32 +254,8 @@ function TarjetasMovil({
   onSelectAll,
   onRowDoubleClick
 }) {
-  const getDocumentoStyle = (tipoDoc) => {
-    switch (tipoDoc) {
-      case 'FACTURA':
-        return 'bg-blue-100 text-blue-800 border-blue-300';
-      case 'NOTA_DEBITO':
-        return 'bg-orange-100 text-orange-800 border-orange-300';
-      case 'NOTA_CREDITO':
-        return 'bg-green-100 text-green-800 border-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
-  };
-
-  const getTipoFiscalStyle = (tipoF) => {
-    switch (tipoF) {
-      case 'A':
-        return 'bg-purple-100 text-purple-800 border-purple-300';
-      case 'B':
-        return 'bg-indigo-100 text-indigo-800 border-indigo-300';
-      case 'C':
-        return 'bg-pink-100 text-pink-800 border-pink-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
-  };
-
+  // ... (mantener estilos)
+  
   const getDocumentoIcon = (tipoDoc) => {
     switch (tipoDoc) {
       case 'FACTURA': return '📄';
@@ -239,19 +269,8 @@ function TarjetasMovil({
     return caeId ? '✅' : '❌';
   };
 
-  const handleCardDoubleClick = (venta) => {
-    console.log('📱 Doble click en tarjeta móvil, venta:', venta.id);
-    onRowDoubleClick(venta);
-  };
-
-  const handleCardClick = (venta) => {
-    console.log('📱 Click simple en tarjeta móvil, venta:', venta.id);
-    onRowDoubleClick(venta); // En móvil, un solo toque abre el modal
-  };
-
   return (
     <div className="lg:hidden">
-      {/* Header con seleccionar todos */}
       <div className="bg-gray-100 p-3 rounded-t-lg flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <input
@@ -271,120 +290,98 @@ function TarjetasMovil({
         )}
       </div>
 
-      {/* Tarjetas de ventas */}
       <div className="space-y-3">
-        {ventas.map((venta) => (
-          <div
-            key={venta.id}
-            className={`bg-white rounded-lg border-2 p-4 transition-all duration-200 cursor-pointer relative ${
-              selectedVentas.includes(venta.id) 
-                ? 'border-blue-300 bg-blue-50 shadow-md' 
-                : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
-            }`}
-            onClick={() => handleCardClick(venta)}
-            onDoubleClick={() => handleCardDoubleClick(venta)}
-          >
-            {/* Header de la tarjeta */}
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={selectedVentas.includes(venta.id)}
-                  onChange={() => onSelectVenta(venta.id)}
-                  className="w-4 h-4 mt-1"
-                  onClick={(e) => e.stopPropagation()}
-                />
-                <div>
-                  <h3 className="text-lg font-bold text-blue-600">#{venta.id}</h3>
-                  <p className="text-xs text-gray-500">
-                    {formatearFecha(venta.fecha)}
-                  </p>
-                </div>
-              </div>
-              
-              {/* Estado CAE */}
-              <div className="flex items-center gap-1">
-                <span className="text-lg">{getCAEIcon(venta.cae_id)}</span>
-                <span className={`text-xs font-medium ${
-                  venta.cae_id ? 'text-green-600' : 'text-red-600'
-                }`}>
-                  {venta.cae_id ? 'CAE' : 'Pendiente'}
-                </span>
-              </div>
-            </div>
-
-            {/* Información del cliente */}
-            <div className="mb-3 p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h4 className="font-semibold text-gray-800">
-                    👤 {venta.cliente_nombre || 'Cliente no especificado'}
-                  </h4>
-                  {venta.cliente_ciudad && (
-                    <p className="text-sm text-gray-600">
-                      📍 {venta.cliente_ciudad}
+        {ventas.map((venta) => {
+          const numeroFacturaDesglosado = desglosarNumeroFactura(venta.numero_factura);
+          
+          return (
+            <div
+              key={venta.id}
+              className={`bg-white rounded-lg border-2 p-4 transition-all duration-200 cursor-pointer ${
+                selectedVentas.includes(venta.id) 
+                  ? 'border-blue-300 bg-blue-50 shadow-md' 
+                  : 'border-gray-200 hover:border-gray-300'
+              }`}
+              onClick={() => onRowDoubleClick(venta)}
+            >
+              {/* Header */}
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={selectedVentas.includes(venta.id)}
+                    onChange={() => onSelectVenta(venta.id)}
+                    className="w-4 h-4 mt-1"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                  <div>
+                    {/* ✅ NUMERO_FACTURA en lugar de ID */}
+                    {numeroFacturaDesglosado.numeroCompleto !== '-' ? (
+                      <div className="font-mono text-sm font-bold text-blue-600">
+                        {numeroFacturaDesglosado.numeroCompleto}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-400">Sin número de factura</div>
+                    )}
+                    <p className="text-xs text-gray-500">
+                      {formatearFecha(venta.fecha)}
                     </p>
-                  )}
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-1">
+                  <span className="text-lg">{getCAEIcon(venta.cae_id)}</span>
+                  <span className={`text-xs font-medium ${
+                    venta.cae_id ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {venta.cae_id ? 'CAE' : 'Pendiente'}
+                  </span>
                 </div>
               </div>
-            </div>
 
-            {/* Información de tipos y totales */}
-            <div className="grid grid-cols-2 gap-4 mb-3">
-              <div className="text-center p-2 bg-green-50 rounded">
-                <div className="text-lg font-bold text-green-600">
-                  ${Number(venta.total || 0).toFixed(2)}
-                </div>
-                <div className="text-xs text-green-800">Total</div>
-                {venta.subtotal && (
-                  <div className="text-xs text-gray-500">
-                    Subtotal: ${Number(venta.subtotal || 0).toFixed(2)}
-                  </div>
+              {/* Cliente */}
+              <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+                <h4 className="font-semibold text-gray-800">
+                  👤 {venta.cliente_nombre || 'Cliente no especificado'}
+                </h4>
+                {venta.cliente_ciudad && (
+                  <p className="text-sm text-gray-600">
+                    📍 {venta.cliente_ciudad}
+                  </p>
                 )}
               </div>
-              <div className="text-center p-2 bg-blue-50 rounded">
-                <div className="text-lg font-bold text-blue-600">
-                  {venta.empleado_nombre || 'No especificado'}
-                </div>
-                <div className="text-xs text-blue-800">Usuario</div>
-              </div>
-            </div>
 
-            {/* Información de documento y tipo fiscal */}
-            <div className="grid grid-cols-2 gap-2 mb-3">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 mb-1">
-                  <span className="text-lg">{getDocumentoIcon(venta.tipo_doc)}</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getDocumentoStyle(venta.tipo_doc)}`}>
-                    {venta.tipo_doc || 'N/A'}
-                  </span>
+              {/* Total y Vendedor */}
+              <div className="grid grid-cols-2 gap-4 mb-3">
+                <div className="text-center p-2 bg-green-50 rounded">
+                  <div className="text-lg font-bold text-green-600">
+                    ${Number(venta.total || 0).toFixed(2)}
+                  </div>
+                  <div className="text-xs text-green-800">Total</div>
                 </div>
-                <div className="text-xs text-gray-600">Documento</div>
-              </div>
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-1 mb-1">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getTipoFiscalStyle(venta.tipo_f)}`}>
-                    Tipo {venta.tipo_f || 'N/A'}
-                  </span>
+                <div className="text-center p-2 bg-blue-50 rounded">
+                  <div className="text-sm font-bold text-blue-600 truncate">
+                    {venta.empleado_nombre || 'No especificado'}
+                  </div>
+                  <div className="text-xs text-blue-800">Vendedor</div>
                 </div>
-                <div className="text-xs text-gray-600">Tipo Fiscal</div>
               </div>
-            </div>
 
-            {/* Footer con acción */}
-            <div className="mt-3 pt-3 border-t border-gray-200 text-center">
-              <p className="text-xs text-gray-500">
-                💡 Toca para ver detalles
-              </p>
+              {/* Footer */}
+              <div className="mt-3 pt-3 border-t border-gray-200 text-center">
+                <p className="text-xs text-gray-500">
+                  💡 Toca para ver detalles
+                </p>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-// Componente principal
+// Componente principal (mantener igual, ya incluye TablaEscritorio y TarjetasMovil)
 export default function TablaVentas({
   ventas,
   selectedVentas,
@@ -411,19 +408,16 @@ export default function TablaVentas({
     let aValue = a[sortField];
     let bValue = b[sortField];
     
-    // Manejar campos numéricos
-    if (sortField === 'id' || sortField === 'total') {
+    if (sortField === 'total') {
       aValue = Number(aValue) || 0;
       bValue = Number(bValue) || 0;
     }
     
-    // Manejar fechas
     if (sortField === 'fecha') {
       aValue = new Date(aValue);
       bValue = new Date(bValue);
     }
     
-    // Manejar texto
     if (typeof aValue === 'string') {
       aValue = aValue.toLowerCase();
       bValue = bValue.toLowerCase();
@@ -455,7 +449,6 @@ export default function TablaVentas({
 
   return (
     <div>
-      {/* Tabla para escritorio */}
       <TablaEscritorio
         ventas={sortedVentas}
         selectedVentas={selectedVentas}
@@ -467,7 +460,6 @@ export default function TablaVentas({
         onSort={handleSort}
       />
 
-      {/* Tarjetas para móvil */}
       <TarjetasMovil
         ventas={sortedVentas}
         selectedVentas={selectedVentas}
@@ -476,7 +468,6 @@ export default function TablaVentas({
         onRowDoubleClick={onRowDoubleClick}
       />
       
-      {/* Footer con estadísticas */}
       <div className="bg-gray-50 px-4 py-3 border-t rounded-b-lg mt-4">
         <div className="flex flex-col sm:flex-row justify-between items-center text-sm text-gray-600 gap-2">
           <span>
