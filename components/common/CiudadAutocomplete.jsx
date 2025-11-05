@@ -149,7 +149,7 @@ export default function CiudadAutocomplete({
       {mostrarResultados && hasInteracted && busqueda.length >= 2 && ciudades.length === 0 && !loading && (
         <div className="absolute z-[100] w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-3">
           <p className="text-sm text-gray-500 text-center">
-            No se encontraron ciudades con "{busqueda}"
+            No se encontraron ciudades con &quot;{busqueda}&quot;
           </p>
         </div>
       )}

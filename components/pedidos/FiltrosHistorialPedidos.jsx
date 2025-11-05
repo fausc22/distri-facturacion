@@ -175,7 +175,7 @@ export default function FiltrosHistorialPedidos({
             </div>
             {filtros.busquedaTexto && (
               <div className="text-xs text-blue-600 mt-1">
-                Buscando: "{filtros.busquedaTexto}"
+                Buscando: &quot;{filtros.busquedaTexto}&quot;
               </div>
             )}
           </div>
