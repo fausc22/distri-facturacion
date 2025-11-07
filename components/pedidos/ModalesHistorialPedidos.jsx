@@ -219,7 +219,8 @@ export function InformacionCliente({
   cuentas = [],
   cargandoCuentas = false,
   onActualizarClientePedido,
-  isPedidoAnulado = false
+  isPedidoAnulado = false,
+  isPedidoFacturado = false // ✅ AGREGAR PROP
 }) {
   const [mostrarModalEditarCliente, setMostrarModalEditarCliente] = useState(false);
   const [clienteActualizado, setClienteActualizado] = useState(null);
@@ -240,6 +241,9 @@ export function InformacionCliente({
     setClienteActualizado(nuevoCliente);
   };
 
+  // ✅ Determinar si se puede editar
+  const puedeEditar = !isPedidoAnulado && !isPedidoFacturado;
+
   return (
     <div className="bg-blue-50 rounded-lg overflow-hidden mb-4">
       <div
@@ -254,19 +258,30 @@ export function InformacionCliente({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {/* Botón para editar cliente */}
-          {!isPedidoAnulado && (
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
+          {/* Botón para editar cliente - ✅ BLOQUEADO SI ESTÁ FACTURADO */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (puedeEditar) {
                 setMostrarModalEditarCliente(true);
-              }}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors flex items-center gap-1"
-              title="Cambiar cliente"
-            >
-              ✏️ <span className="hidden sm:inline">Editar</span>
-            </button>
-          )}
+              }
+            }}
+            disabled={!puedeEditar}
+            className={`px-3 py-1 rounded text-sm transition-colors flex items-center gap-1 ${
+              puedeEditar 
+                ? 'bg-blue-600 hover:bg-blue-700 text-white cursor-pointer' 
+                : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+            }`}
+            title={
+              isPedidoFacturado 
+                ? '🔒 No editable - Pedido facturado' 
+                : isPedidoAnulado
+                  ? '🔒 No editable - Pedido anulado'
+                  : 'Cambiar cliente'
+            }
+          >
+            {puedeEditar ? '✏️' : '🔒'} <span className="hidden sm:inline">{puedeEditar ? 'Editar' : 'Bloqueado'}</span>
+          </button>
           <div className="text-blue-600">
             {expandido ? <MdExpandLess size={24} /> : <MdExpandMore size={24} />}
           </div>
@@ -405,6 +420,11 @@ export function InformacionAdicional({
               >
                 ✏️ <span className="hidden sm:inline">Editar</span>
               </button>
+            )}
+            {!canEdit && (
+              <span className="bg-gray-300 text-gray-500 px-2 py-1 rounded text-xs flex items-center gap-1 cursor-not-allowed" title="No editable - Pedido facturado">
+                🔒 <span className="hidden sm:inline">Bloqueado</span>
+              </span>
             )}
           </div>
 
@@ -1682,6 +1702,7 @@ export function ModalDetallePedido({
               cargandoCuentas={cargandoCuentas}     // ✅ PASAR LOADING
               onActualizarClientePedido={onActualizarClientePedido} // ✅ PASAR HANDLER
               isPedidoAnulado={isPedidoAnulado}     // ✅ PASAR ESTADO ANULADO
+              isPedidoFacturado={isPedidoFacturado} // ✅ PASAR ESTADO FACTURADO
             />
 
             <InformacionAdicional 

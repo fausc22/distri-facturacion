@@ -127,7 +127,8 @@ export function usePedidosHybrid() {
         cantidad: p.cantidad,
         precio: parseFloat(p.precio),
         iva: parseFloat(p.iva_calculado),
-        subtotal: parseFloat(p.subtotal)
+        subtotal: parseFloat(p.subtotal),
+        descuento_porcentaje: parseFloat(p.descuento_porcentaje || 0) // ✅ INCLUIR DESCUENTO
       }))
     };
 

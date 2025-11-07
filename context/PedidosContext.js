@@ -46,8 +46,12 @@ function pedidosReducer(state, action) {
         const productoExistente = productosActualizados[productoExistenteIndex];
         const nuevaCantidadTotal = parseFloat(productoExistente.cantidad) + cantidadNueva;
 
-        // Recalcular subtotal e IVA con la nueva cantidad total
-        const nuevoSubtotal = parseFloat((productoExistente.precio * nuevaCantidadTotal).toFixed(2));
+        // ✅ RECALCULAR SUBTOTAL CONSIDERANDO DESCUENTO
+        const descuentoPorcentaje = productoExistente.descuento_porcentaje || 0;
+        const subtotalBase = productoExistente.precio * nuevaCantidadTotal;
+        const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
+        const nuevoSubtotal = parseFloat((subtotalBase - montoDescuento).toFixed(2));
+        
         // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
         const nuevoIvaCalculado = esClienteExento
           ? 0
@@ -58,6 +62,7 @@ function pedidosReducer(state, action) {
           cantidad: nuevaCantidadTotal,
           subtotal: nuevoSubtotal,
           iva_calculado: nuevoIvaCalculado
+          // descuento_porcentaje se mantiene
         };
 
         return {
@@ -81,7 +86,8 @@ function pedidosReducer(state, action) {
           precio: parseFloat(action.payload.precio),
           porcentaje_iva: porcentajeIva,
           iva_calculado: ivaCalculado,
-          subtotal: subtotalSinIva
+          subtotal: subtotalSinIva,
+          descuento_porcentaje: parseFloat(action.payload.descuento_porcentaje || 0) // ✅ INICIALIZAR DESCUENTO
         };
 
         return {
@@ -111,7 +117,8 @@ function pedidosReducer(state, action) {
           precio: parseFloat(producto.precio),
           porcentaje_iva: porcentajeIva,
           iva_calculado: ivaCalculado,
-          subtotal: subtotalSinIva
+          subtotal: subtotalSinIva,
+          descuento_porcentaje: producto.descuento_porcentaje || 0 // ✅ INICIALIZAR DESCUENTO
         };
       });
 
@@ -136,8 +143,12 @@ function pedidosReducer(state, action) {
       // ✅ ASEGURAR QUE CANTIDAD SEA PARSEADA COMO FLOAT
       const nuevaCantidad = parseFloat(action.payload.cantidad);
 
-      // Recalcular subtotal e IVA con la nueva cantidad
-      const nuevoSubtotal = parseFloat((producto.precio * nuevaCantidad).toFixed(2));
+      // ✅ RECALCULAR SUBTOTAL CONSIDERANDO DESCUENTO
+      const descuentoPorcentaje = producto.descuento_porcentaje || 0;
+      const subtotalBase = producto.precio * nuevaCantidad;
+      const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
+      const nuevoSubtotal = parseFloat((subtotalBase - montoDescuento).toFixed(2));
+      
       // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
       const nuevoIvaCalculado = esClienteExentoCantidad
         ? 0
@@ -148,6 +159,7 @@ function pedidosReducer(state, action) {
         cantidad: nuevaCantidad, // ✅ USAR LA CANTIDAD PARSEADA
         subtotal: nuevoSubtotal,
         iva_calculado: nuevoIvaCalculado
+        // descuento_porcentaje se mantiene del producto original
       };
 
       return {
@@ -166,6 +178,36 @@ function pedidosReducer(state, action) {
       return {
         ...state,
         productos: productosActualizadosCompleto
+      };
+
+    case 'UPDATE_DESCUENTO':
+      // ✅ ACTUALIZAR SOLO EL DESCUENTO Y RECALCULAR
+      const esClienteExentoDescuento = state.cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
+      const productosConDescuento = [...state.productos];
+      const productoDesc = productosConDescuento[action.payload.index];
+
+      const nuevoDescuento = Math.max(0, Math.min(100, parseFloat(action.payload.descuento) || 0));
+
+      // Recalcular subtotal con el nuevo descuento
+      const subtotalBaseDesc = productoDesc.precio * productoDesc.cantidad;
+      const montoDescuentoNuevo = (subtotalBaseDesc * nuevoDescuento) / 100;
+      const subtotalConDescuento = parseFloat((subtotalBaseDesc - montoDescuentoNuevo).toFixed(2));
+
+      // Recalcular IVA
+      const ivaCalculadoDesc = esClienteExentoDescuento
+        ? 0
+        : parseFloat((subtotalConDescuento * (productoDesc.porcentaje_iva / 100)).toFixed(2));
+
+      productosConDescuento[action.payload.index] = {
+        ...productoDesc,
+        descuento_porcentaje: nuevoDescuento,
+        subtotal: subtotalConDescuento,
+        iva_calculado: ivaCalculadoDesc
+      };
+
+      return {
+        ...state,
+        productos: productosConDescuento
       };
 
     case 'SET_OBSERVACIONES':
@@ -228,6 +270,10 @@ export function PedidosProvider({ children }) {
 
     updateProducto: (index, producto) => {
       dispatch({ type: 'UPDATE_PRODUCTO', payload: { index, producto } });
+    },
+
+    updateDescuento: (index, descuento) => {
+      dispatch({ type: 'UPDATE_DESCUENTO', payload: { index, descuento } });
     },
 
     // Acciones de observaciones

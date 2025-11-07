@@ -1,6 +1,4 @@
-import { useState } from 'react';
 import { usePedidosContext } from '../../context/PedidosContext';
-import { ModalEditarProductoVentaDirecta } from '../ventas/ModalEditarProductoVentaDirecta';
 
 function ControlCantidad({ cantidad, onCantidadChange }) {
   const formatearCantidad = (cantidad) => {
@@ -44,7 +42,7 @@ function ControlCantidad({ cantidad, onCantidadChange }) {
   );
 }
 
-function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onEditarProducto }) {
+function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActualizarDescuento }) {
   const formatearCantidad = (cantidad) => {
     const cantidadNum = parseFloat(cantidad);
     return cantidadNum % 1 === 0 ? cantidadNum.toString() : cantidadNum.toFixed(1);
@@ -62,7 +60,7 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onEditar
             <th className="p-3 text-center">Desc. %</th>
             <th className="p-3 text-center">IVA %</th>
             <th className="p-3 text-center">Subtotal</th>
-            <th className="p-3 text-center">Acciones</th>
+            <th className="p-3 text-center">Eliminar</th>
           </tr>
         </thead>
         <tbody>
@@ -75,8 +73,7 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onEditar
               return (
                 <tr
                   key={idx}
-                  className="border-b hover:bg-gray-50 cursor-pointer"
-                  onDoubleClick={() => onEditarProducto(idx)}
+                  className="border-b hover:bg-gray-50"
                 >
                   <td className="p-3">
                     <div>
@@ -97,13 +94,24 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onEditar
                   </td>
                   <td className="p-3 text-center font-medium">${Number(prod.precio).toFixed(2)}</td>
                   <td className="p-3 text-center">
-                    {descuentoPorcentaje > 0 ? (
-                      <div>
-                        <div className="text-orange-600 font-bold">{descuentoPorcentaje}%</div>
-                        <div className="text-xs text-red-600">-${montoDescuento.toFixed(2)}</div>
-                      </div>
-                    ) : (
-                      <span className="text-gray-400">0%</span>
+                    {/* ✅ INPUT EDITABLE PARA DESCUENTO */}
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value={descuentoPorcentaje}
+                      onChange={(e) => {
+                        const valor = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                        onActualizarDescuento(idx, valor);
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      className="w-16 p-1 text-center border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      placeholder="0"
+                    />
+                    <span className="text-xs ml-1">%</span>
+                    {descuentoPorcentaje > 0 && (
+                      <div className="text-xs text-red-600">-${montoDescuento.toFixed(2)}</div>
                     )}
                   </td>
                   <td className="p-3 text-center">{prod.porcentaje_iva}%</td>
@@ -114,28 +122,16 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onEditar
                     )}
                   </td>
                   <td className="p-3 text-center">
-                    <div className="flex gap-2 justify-center">
-                      <button
-                        className="bg-blue-500 hover:bg-blue-700 text-white px-3 py-1 rounded transition-colors text-sm"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEditarProducto(idx);
-                        }}
-                        title="Editar producto"
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded transition-colors"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onEliminar(idx);
-                        }}
-                        title="Eliminar producto"
-                      >
-                        ✕
-                      </button>
-                    </div>
+                    <button
+                      className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onEliminar(idx);
+                      }}
+                      title="Eliminar producto"
+                    >
+                      ✕
+                    </button>
                   </td>
                 </tr>
               );
@@ -153,7 +149,7 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onEditar
   );
 }
 
-function TarjetasMovil({ productos, onActualizarCantidad, onEliminar, onEditarProducto }) {
+function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento, onEliminar }) {
   const formatearCantidad = (cantidad) => {
     const cantidadNum = parseFloat(cantidad);
     return cantidadNum % 1 === 0 ? cantidadNum.toString() : cantidadNum.toFixed(1);
@@ -212,6 +208,29 @@ function TarjetasMovil({ productos, onActualizarCantidad, onEliminar, onEditarPr
                 </div>
 
                 <div className="space-y-2">
+                  {/* ✅ CAMPO EDITABLE DE DESCUENTO EN MÓVIL */}
+                  <div>
+                    <span className="text-gray-600 text-sm">Descuento:</span>
+                    <div className="flex items-center mt-1">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="1"
+                        value={descuentoPorcentaje}
+                        onChange={(e) => {
+                          const valor = Math.max(0, Math.min(100, parseFloat(e.target.value) || 0));
+                          onActualizarDescuento(idx, valor);
+                        }}
+                        className="w-16 p-1 text-center border border-gray-300 rounded focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        placeholder="0"
+                      />
+                      <span className="text-sm ml-1">%</span>
+                    </div>
+                    {descuentoPorcentaje > 0 && (
+                      <div className="text-xs text-red-600 mt-1">-${montoDescuento.toFixed(2)}</div>
+                    )}
+                  </div>
                   <div>
                     <span className="text-gray-600 text-sm">Subtotal:</span>
                     <div className="font-bold text-green-600 text-lg">${prod.subtotal.toFixed(2)}</div>
@@ -221,13 +240,6 @@ function TarjetasMovil({ productos, onActualizarCantidad, onEliminar, onEditarPr
                   </div>
                 </div>
               </div>
-
-              <button
-                onClick={() => onEditarProducto(idx)}
-                className="mt-2 w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-2 rounded text-sm transition-colors"
-              >
-                {descuentoPorcentaje > 0 ? 'Editar (con desc.)' : 'Editar producto'}
-              </button>
             </div>
           );
         })
@@ -242,10 +254,7 @@ function TarjetasMovil({ productos, onActualizarCantidad, onEliminar, onEditarPr
 }
 
 export default function ProductosCarrito() {
-  const { productos, updateCantidad, updateProducto, removeProducto, subtotal, totalIva, total } = usePedidosContext();
-  const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
-  const [productoEditando, setProductoEditando] = useState(null);
-  const [indiceEditando, setIndiceEditando] = useState(null);
+  const { productos, updateCantidad, updateDescuento, removeProducto, subtotal, totalIva, total } = usePedidosContext();
 
   const handleActualizarCantidad = (index, nuevaCantidad) => {
     // Convertir a float y redondear a medios
@@ -261,23 +270,8 @@ export default function ProductosCarrito() {
     updateCantidad(index, cantidadValida);
   };
 
-  const handleEditarProducto = (index) => {
-    setProductoEditando(productos[index]);
-    setIndiceEditando(index);
-    setMostrarModalEditar(true);
-  };
-
-  const handleGuardarEdicion = (index, productoActualizado) => {
-    updateProducto(index, productoActualizado);
-    setMostrarModalEditar(false);
-    setProductoEditando(null);
-    setIndiceEditando(null);
-  };
-
-  const handleCerrarModal = () => {
-    setMostrarModalEditar(false);
-    setProductoEditando(null);
-    setIndiceEditando(null);
+  const handleActualizarDescuento = (index, descuento) => {
+    updateDescuento(index, descuento);
   };
 
   return (
@@ -288,15 +282,15 @@ export default function ProductosCarrito() {
         <TablaEscritorio
           productos={productos}
           onActualizarCantidad={handleActualizarCantidad}
+          onActualizarDescuento={handleActualizarDescuento}
           onEliminar={removeProducto}
-          onEditarProducto={handleEditarProducto}
         />
 
         <TarjetasMovil
           productos={productos}
           onActualizarCantidad={handleActualizarCantidad}
+          onActualizarDescuento={handleActualizarDescuento}
           onEliminar={removeProducto}
-          onEditarProducto={handleEditarProducto}
         />
       
         {/* Resumen de totales */}
@@ -321,16 +315,6 @@ export default function ProductosCarrito() {
           </div>
         )}
       </div>
-
-      {/* Modal de edición */}
-      {mostrarModalEditar && (
-        <ModalEditarProductoVentaDirecta
-          producto={productoEditando}
-          onClose={handleCerrarModal}
-          onGuardar={handleGuardarEdicion}
-          index={indiceEditando}
-        />
-      )}
     </>
   );
 }

@@ -285,6 +285,7 @@ function TablaProductosEscritorio({ productos }) {
             <th className="p-2 text-center">UM</th>
             <th className="p-2 text-center">Cant.</th>
             <th className="p-2 text-right">Precio</th>
+            <th className="p-2 text-center">Desc %</th>
             <th className="p-2 text-right">IVA</th>
             <th className="p-2 text-right">Subtotal</th>
           </tr>
@@ -294,8 +295,9 @@ function TablaProductosEscritorio({ productos }) {
             const precio = Number(producto.precio) || 0;
             const cantidad = Number(producto.cantidad) || 0;
             const ivaValue = Number(producto.iva) || 0;
+            const descuentoPorcentaje = Number(producto.descuento_porcentaje) || 0;
             const subtotalSinIva = cantidad * precio;
-            
+
             return (
               <tr key={producto.id} className="hover:bg-gray-100 border-b">
                 <td className="p-2 font-mono text-xs">{producto.producto_id}</td>
@@ -303,6 +305,13 @@ function TablaProductosEscritorio({ productos }) {
                 <td className="p-2 text-center">{producto.producto_um}</td>
                 <td className="p-2 text-center font-semibold">{cantidad}</td>
                 <td className="p-2 text-right">${precio.toFixed(2)}</td>
+                <td className="p-2 text-center">
+                  {descuentoPorcentaje > 0 ? (
+                    <span className="text-orange-600 font-semibold">{descuentoPorcentaje}%</span>
+                  ) : (
+                    <span className="text-gray-400">0%</span>
+                  )}
+                </td>
                 <td className="p-2 text-right">${ivaValue.toFixed(2)}</td>
                 <td className="p-2 text-right font-semibold text-green-600">${subtotalSinIva.toFixed(2)}</td>
               </tr>
@@ -343,8 +352,9 @@ function SeccionProductosMovil({ productos, expandido, onToggle }) {
             const precio = Number(producto.precio) || 0;
             const cantidad = Number(producto.cantidad) || 0;
             const ivaValue = Number(producto.iva) || 0;
+            const descuentoPorcentaje = Number(producto.descuento_porcentaje) || 0;
             const subtotalSinIva = cantidad * precio;
-            
+
             return (
               <div key={producto.id} className="bg-white p-3 rounded shadow border">
                 <div className="flex justify-between items-start mb-2">
@@ -353,7 +363,7 @@ function SeccionProductosMovil({ productos, expandido, onToggle }) {
                     <p className="text-xs text-gray-500">Código: {producto.producto_id}</p>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
                     <span className="text-gray-600 block">UM:</span>
@@ -368,11 +378,19 @@ function SeccionProductosMovil({ productos, expandido, onToggle }) {
                     <span className="font-medium">${precio.toFixed(2)}</span>
                   </div>
                   <div>
+                    <span className="text-gray-600 block">Descuento:</span>
+                    {descuentoPorcentaje > 0 ? (
+                      <span className="font-semibold text-orange-600">{descuentoPorcentaje}%</span>
+                    ) : (
+                      <span className="text-gray-400">0%</span>
+                    )}
+                  </div>
+                  <div>
                     <span className="text-gray-600 block">IVA:</span>
                     <span className="font-medium">${ivaValue.toFixed(2)}</span>
                   </div>
                 </div>
-                
+
                 <div className="mt-2 pt-2 border-t border-gray-200">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600 text-xs">Subtotal:</span>

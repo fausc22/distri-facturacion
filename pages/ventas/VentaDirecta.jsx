@@ -111,7 +111,8 @@ function VentaDirectaContent() {
         cantidad: p.cantidad,
         precio: parseFloat(p.precio),
         iva: parseFloat(p.iva_calculado),
-        subtotal: parseFloat(p.subtotal)
+        subtotal: parseFloat(p.subtotal),
+        descuento_porcentaje: parseFloat(p.descuento_porcentaje || 0) // ✅ AGREGAR DESCUENTO
       })),
       
       // Datos de facturación
@@ -123,7 +124,7 @@ function VentaDirectaContent() {
       descuentoAplicado: datosFacturacion.descuentoAplicado,
       
       // Observaciones y empleado
-      observaciones: observaciones || 'Venta directa',
+      observaciones: observaciones || 'sin observaciones',
       empleado_id: user?.id || 1,
       empleado_nombre: user?.nombre || 'Usuario'
     };
