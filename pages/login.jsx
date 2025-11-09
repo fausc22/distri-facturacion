@@ -271,7 +271,7 @@ export default function Login() {
 
             {/* Información de debugging en desarrollo */}
             {process.env.NODE_ENV === 'development' && (
-              
+
               <div className="text-xs text-gray-500 space-y-1 p-2 bg-gray-50 rounded">
                 <p><strong>API URL:</strong> {process.env.NEXT_PUBLIC_API_URL}</p>
                 <p><strong>Usuario de prueba:</strong> admin / password</p>
@@ -280,10 +280,26 @@ export default function Login() {
               </div>
             )}
           </form>
+
+          {/* Panel de bienvenida para móvil */}
+          <div className="md:hidden mt-8 bg-blue-600 text-white rounded-lg p-6 text-center relative overflow-hidden">
+            <img
+              src="/login-bg.jpg"
+              alt="Login background"
+              className="absolute inset-0 object-cover w-full h-full opacity-20 rounded-lg"
+            />
+            <div className="relative z-10">
+              <h3 className="text-xl font-semibold mb-2">¡Bienvenido!</h3>
+              <h2 className="text-2xl md:text-3xl font-bold">DISTRIBUIDORA VERTIMAR SRL</h2>
+              <p className="mt-3 text-blue-100 text-sm">
+                Sistema de gestión empresarial con autenticación segura
+              </p>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Right Image Container */}
+      {/* Right Image Container - Solo desktop */}
       <div className="hidden md:flex w-1/2 bg-blue-600 text-white items-center justify-center relative">
         <img
           src="/login-bg.jpg"

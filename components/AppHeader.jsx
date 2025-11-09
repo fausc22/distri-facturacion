@@ -485,6 +485,13 @@ function AppHeader() {
                     >
                       Reportes Financieros
                     </MenuLink>
+                    <MenuLink 
+                      href="/finanzas/Listados" 
+                      className="block py-2 px-4 text-sm whitespace-nowrap"
+                      requiresOnline={true}
+                    >
+                      Listados
+                    </MenuLink>
                   </motion.div>
                 )}
               </motion.div>

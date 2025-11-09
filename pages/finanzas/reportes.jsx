@@ -113,7 +113,7 @@ function ReportesContent() {
           </div>
         </div>
 
-        {/* Filtros - Compactos en móvil, completos en desktop */}
+        {/* Filtros - Siempre visibles y aplican a todas las pestañas */}
         <div className="mb-6">
           {isMobile ? (
             <FiltrosCompactos />

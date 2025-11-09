@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useReportesContext } from '../../context/ReportesContext';
 import { MetricsCard, FinancialMetricsCard, MetricsGrid } from '../charts/MetricsCard';
+import { axiosAuth } from '../../utils/apiClient';
+import { toast } from 'react-hot-toast';
 
 export function DashboardReportes() {
   const {
@@ -14,6 +16,8 @@ export function DashboardReportes() {
     finanzasApi,
     filtros
   } = useReportesContext();
+
+  const [generandoPDF, setGenerandoPDF] = useState(false);
 
   const [topProductosTabla, setTopProductosTabla] = useState(null);
   const [loadingTopProductos, setLoadingTopProductos] = useState(false);
@@ -73,21 +77,40 @@ export function DashboardReportes() {
       }
   }, [dashboardData, filtros]);
 
-  // ✅ FUNCIÓN PARA MOSTRAR TOAST
-  const mostrarToast = (mensaje) => {
-    // Si tienes una librería de toast como react-hot-toast, react-toastify, etc.
-    // toast.info(mensaje);
-    
-    // Si no tienes una librería, puedes usar alert temporalmente
-    alert(mensaje);
-    
-    // O crear un toast personalizado simple
-    console.log('Toast:', mensaje);
-  };
-
   // ✅ FUNCIÓN PARA GENERAR REPORTE PDF
-  const generarReportePDF = () => {
-    mostrarToast("Funcionalidad en proceso..");
+  const generarReportePDF = async () => {
+    if (!filtros?.desde || !filtros?.hasta) {
+      toast.error('Por favor selecciona un período válido');
+      return;
+    }
+
+    setGenerandoPDF(true);
+    try {
+      const response = await axiosAuth.get('/finanzas/generar-pdf-reporte', {
+        params: {
+          desde: filtros.desde,
+          hasta: filtros.hasta
+        },
+        responseType: 'blob'
+      });
+
+      // Crear link de descarga
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `reporte_financiero_${new Date().toISOString().split('T')[0]}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+
+      toast.success('¡PDF generado exitosamente!');
+    } catch (error) {
+      console.error('Error generando PDF:', error);
+      toast.error('Error al generar el PDF. Verifica que haya datos en el período seleccionado.');
+    } finally {
+      setGenerandoPDF(false);
+    }
   };
 
   if (error && !dashboardData) {
@@ -144,27 +167,27 @@ export function DashboardReportes() {
 
           <button
             onClick={generarReportePDF}
-            disabled={isAnyLoading}
+            disabled={isAnyLoading || generandoPDF}
             className="flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <svg 
-              className="w-4 h-4" 
+              className={`w-4 h-4 ${generandoPDF ? 'animate-pulse' : ''}`}
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
-            <span>GENERAR REPORTE PDF</span>
+            <span>{generandoPDF ? 'Generando PDF...' : 'GENERAR REPORTE PDF'}</span>
           </button>
         </div>
       </div>
 
-      {/* ✅ KPIs Principales */}
+      {/* ✅ KPIs Principales - Estructura corregida */}
       <MetricsGrid columns={4}>
         <FinancialMetricsCard
           title="Ingresos Totales"
-          value={resumen?.ventas?.ingresos_totales || 0}
+          value={resumen?.ventas?.monto_total || resumen?.ventas?.ingresos_totales || 0}
           formatCurrency={formatCurrency}
           color="green"
           loading={isAnyLoading}
@@ -176,8 +199,8 @@ export function DashboardReportes() {
         />
 
         <FinancialMetricsCard
-          title="Ganancia Estimada"
-          value={resumen?.ganancias?.ganancia_estimada || 0}
+          title="Ganancia Bruta"
+          value={resumen?.ganancias?.ganancia_bruta || resumen?.ganancias?.ganancia_estimada || 0}
           formatCurrency={formatCurrency}
           color="blue"
           loading={isAnyLoading}

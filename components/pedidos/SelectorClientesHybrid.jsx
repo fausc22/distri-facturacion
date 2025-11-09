@@ -250,20 +250,23 @@ export default function ClienteSelectorHybrid() {
           )}
         </div>
 
-        {/* Botón para crear nuevo cliente */}
-        {!cliente && (
+        {/* Botón para crear nuevo cliente - Solo si hay conexión */}
+        {!cliente && isOnline && (
           <button
             onClick={() => setMostrarModalCrear(true)}
-            className={`w-full py-2 px-4 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 ${
-              isPWA && !isOnline
-                ? 'bg-orange-600 hover:bg-orange-700'
-                : 'bg-green-600 hover:bg-green-700'
-            }`}
-            title={isPWA && !isOnline ? "Crear cliente requiere conexión" : "Crear nuevo cliente"}
+            className="w-full py-2 px-4 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700"
+            title="Crear nuevo cliente"
           >
             <MdPersonAdd size={20} />
             Crear Nuevo Cliente
           </button>
+        )}
+
+        {/* Mensaje informativo cuando está offline */}
+        {!cliente && isPWA && !isOnline && (
+          <div className="w-full py-2 px-4 bg-orange-100 border border-orange-300 rounded-lg text-orange-800 text-sm text-center">
+            ⚠️ Crear cliente requiere conexión a internet
+          </div>
         )}
       </div>
 
