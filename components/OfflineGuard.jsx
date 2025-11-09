@@ -2,63 +2,62 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useConnection } from '../utils/ConnectionManager';
 import { getAppMode } from '../utils/offlineManager';
+import { toast } from 'react-hot-toast';
+import Link from 'next/link';
 
 export default function OfflineGuard({ children }) {
   return children;
 }
 
-// ✅ COMPONENTE SIMPLIFICADO PARA NAVBAR
+// COMPONENTE SIMPLIFICADO PARA NAVBAR
 export function NavbarGuard({ children }) {
   // El navbar siempre se muestra sin restricciones
   return children;
 }
 
-// ✅ COMPONENTE SIMPLIFICADO PARA ENLACES
+// COMPONENTE PARA ENLACES CON VERIFICACIÓN
 export function LinkGuard({ href, children, className, ...props }) {
+  const router = useRouter();
   const { checkOnDemand } = useConnection();
   const isPWA = getAppMode() === 'pwa';
-  
+
   const handleClick = async (e) => {
-    // ✅ Solo verificar para rutas que requieren conexión estricta
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Rutas que requieren conexión estricta
     const routesRequireOnline = [
       '/inventario',
-      '/compras', 
+      '/compras',
       '/finanzas',
       '/edicion'
     ];
-    
+
     const requiresOnline = routesRequireOnline.some(route => href.includes(route));
-    
+
     if (isPWA && requiresOnline) {
-      e.preventDefault();
-      
       console.log(`🔍 [LinkGuard] Verificando conexión para: ${href}`);
-      
+
       // Verificar conexión bajo demanda
       const hayConexion = await checkOnDemand();
-      
+
       if (hayConexion) {
         console.log(`🌐 [LinkGuard] Conexión confirmada, navegando a: ${href}`);
-        // Hay conexión, permitir navegación
-        window.location.href = href;
+        // Usar router de Next.js en lugar de window.location
+        await router.push(href);
       } else {
         console.log(`📴 [LinkGuard] Sin conexión, bloqueando navegación a: ${href}`);
-        // Sin conexión, mostrar advertencia
-        if (typeof toast !== 'undefined') {
-          toast.error('📴 Esta sección requiere conexión a internet', {
-            duration: 3000,
-            icon: '📴'
-          });
-        }
+        toast.error('📴 Esta sección requiere conexión a internet', {
+          duration: 3000,
+          icon: '📴'
+        });
       }
       return false;
     }
-    
+
     // Navegación normal para rutas siempre disponibles
     console.log(`✅ [LinkGuard] Navegación libre a: ${href}`);
-    if (props.onClick) {
-      props.onClick(e);
-    }
+    await router.push(href);
   };
 
   return (
