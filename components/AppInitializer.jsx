@@ -1,3 +1,4 @@
+// components/AppInitializer.jsx - VERSIÓN ULTRA ESTABLE sin redirecciones automáticas
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useOfflineCatalog } from '../hooks/useOfflineCatalog';

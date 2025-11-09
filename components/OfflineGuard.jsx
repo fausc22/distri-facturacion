@@ -1,44 +1,76 @@
+// components/OfflineGuard.jsx - ULTRA SIMPLIFICADO: NUNCA redirige automáticamente
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { useConnection } from '../utils/ConnectionManager';
 import { getAppMode } from '../utils/offlineManager';
-import { toast } from 'react-hot-toast';
-import Link from 'next/link';
 
 export default function OfflineGuard({ children }) {
+  const router = useRouter();
+  const { isOnline, eventType } = useConnection();
+  
+  const isPWA = getAppMode() === 'pwa';
+
+  // ✅ COMPONENTE COMPLETAMENTE PASIVO - NUNCA REDIRIGE
+  useEffect(() => {
+    if (!isPWA || !eventType) return;
+
+    const currentPath = router.pathname;
+
+    // ✅ SOLO LOGGING PASIVO - NUNCA ACCIONES AUTOMÁTICAS
+    switch (eventType) {
+      case 'connection_lost':
+        console.log(`📴 [OfflineGuard] Conexión perdida detectada en: ${currentPath} - SIN ACCIÓN`);
+        break;
+        
+      case 'connection_restored':
+        console.log(`🌐 [OfflineGuard] Conexión restaurada detectada en: ${currentPath} - SIN ACCIÓN`);
+        break;
+        
+      default:
+        break;
+    }
+  }, [eventType, router.pathname, isPWA]);
+
+  // ✅ NO HAY VERIFICACIONES INICIALES
+  // ✅ NO HAY REDIRECCIONES AUTOMÁTICAS
+  // ✅ NO HAY LÓGICA DE PROTECCIÓN AUTOMÁTICA
+  
+  // El componente simplemente pasa los children sin modificaciones
+  console.log('🛡️ [OfflineGuard] Modo pasivo - sin redirecciones automáticas');
+  
   return children;
 }
 
-// COMPONENTE SIMPLIFICADO PARA NAVBAR
+// ✅ COMPONENTE SIMPLIFICADO PARA NAVBAR
 export function NavbarGuard({ children }) {
   // El navbar siempre se muestra sin restricciones
   return children;
 }
 
-// COMPONENTE SIMPLIFICADO PARA ENLACES
+// ✅ COMPONENTE SIMPLIFICADO PARA ENLACES
 export function LinkGuard({ href, children, className, ...props }) {
   const { checkOnDemand } = useConnection();
   const isPWA = getAppMode() === 'pwa';
-
+  
   const handleClick = async (e) => {
-    // Rutas que requieren conexión estricta
+    // ✅ Solo verificar para rutas que requieren conexión estricta
     const routesRequireOnline = [
       '/inventario',
-      '/compras',
+      '/compras', 
       '/finanzas',
       '/edicion'
     ];
-
+    
     const requiresOnline = routesRequireOnline.some(route => href.includes(route));
-
+    
     if (isPWA && requiresOnline) {
       e.preventDefault();
-
+      
       console.log(`🔍 [LinkGuard] Verificando conexión para: ${href}`);
-
+      
       // Verificar conexión bajo demanda
       const hayConexion = await checkOnDemand();
-
+      
       if (hayConexion) {
         console.log(`🌐 [LinkGuard] Conexión confirmada, navegando a: ${href}`);
         // Hay conexión, permitir navegación
@@ -46,14 +78,16 @@ export function LinkGuard({ href, children, className, ...props }) {
       } else {
         console.log(`📴 [LinkGuard] Sin conexión, bloqueando navegación a: ${href}`);
         // Sin conexión, mostrar advertencia
-        toast.error('📴 Esta sección requiere conexión a internet', {
-          duration: 3000,
-          icon: '📴'
-        });
+        if (typeof toast !== 'undefined') {
+          toast.error('📴 Esta sección requiere conexión a internet', {
+            duration: 3000,
+            icon: '📴'
+          });
+        }
       }
       return false;
     }
-
+    
     // Navegación normal para rutas siempre disponibles
     console.log(`✅ [LinkGuard] Navegación libre a: ${href}`);
     if (props.onClick) {

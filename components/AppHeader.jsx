@@ -93,7 +93,7 @@ function AppHeader() {
     const handleClick = (e) => {
       e.preventDefault();
       e.stopPropagation();
-
+      
       handleNavigationWithCheck(href);
     };
 
@@ -101,14 +101,15 @@ function AppHeader() {
     const shouldDisable = isPWA && requiresOnline && !isOnline;
 
     return (
-      <a
-        href={href}
+      <a 
+        href="#" 
         className={`${className} ${
-          shouldDisable
-            ? 'opacity-60 cursor-not-allowed text-gray-400'
+          shouldDisable 
+            ? 'opacity-60 cursor-not-allowed text-gray-400' 
             : 'hover:bg-gray-100'
         }`}
         onClick={shouldDisable ? (e) => e.preventDefault() : handleClick}
+        onTouchStart={(e) => e.preventDefault()}
         title={shouldDisable ? "Requiere conexión a internet" : ""}
       >
         <span className="flex items-center gap-2">
