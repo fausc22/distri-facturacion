@@ -47,50 +47,29 @@ export function NavbarGuard({ children }) {
   return children;
 }
 
-// ✅ COMPONENTE SIMPLIFICADO PARA ENLACES
+// ✅ COMPONENTE SIMPLIFICADO PARA ENLACES - SIN RESTRICCIONES EN PWA
 export function LinkGuard({ href, children, className, ...props }) {
   const router = useRouter();
-  const { checkOnDemand } = useConnection();
   const isPWA = getAppMode() === 'pwa';
   
   const handleClick = async (e) => {
-    // ✅ Solo verificar para rutas que requieren conexión estricta
-    const routesRequireOnline = [
-      '/inventario',
-      '/compras', 
-      '/finanzas',
-      '/edicion'
-    ];
-    
-    const requiresOnline = routesRequireOnline.some(route => href.includes(route));
-    
-    if (isPWA && requiresOnline) {
+    // ✅ EN PWA: NAVEGACIÓN LIBRE SIN RESTRICCIONES
+    // El modo offline ya maneja bien las conexiones
+    if (isPWA) {
       e.preventDefault();
+      console.log(`✅ [LinkGuard PWA] Navegación libre a: ${href}`);
       
-      console.log(`🔍 [LinkGuard] Verificando conexión para: ${href}`);
-      
-      // Verificar conexión bajo demanda
-      const hayConexion = await checkOnDemand();
-      
-      if (hayConexion) {
-        console.log(`🌐 [LinkGuard] Conexión confirmada, navegando a: ${href}`);
-        // Hay conexión, usar router de Next.js para navegación correcta
-        router.push(href);
-      } else {
-        console.log(`📴 [LinkGuard] Sin conexión, bloqueando navegación a: ${href}`);
-        // Sin conexión, mostrar advertencia
-        if (typeof toast !== 'undefined') {
-          toast.error('📴 Esta sección requiere conexión a internet', {
-            duration: 3000,
-            icon: '📴'
-          });
-        }
+      try {
+        await router.push(href);
+      } catch (error) {
+        console.log('⚠️ Router falló, usando navegación directa');
+        window.location.href = href;
       }
       return false;
     }
     
-    // Navegación normal para rutas siempre disponibles
-    console.log(`✅ [LinkGuard] Navegación libre a: ${href}`);
+    // Navegación normal para web browser
+    console.log(`✅ [LinkGuard Web] Navegación a: ${href}`);
     if (props.onClick) {
       props.onClick(e);
     }

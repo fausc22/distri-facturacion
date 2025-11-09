@@ -18,73 +18,24 @@ function AppHeader() {
   const router = useRouter();
 
   // ✅ CONNECTION MANAGER (solo para indicadores visuales)
-  const { isOnline, checkOnDemand } = useConnection();
+  const { isOnline } = useConnection();
 
-  // ✅ NAVEGACIÓN CON VERIFICACIÓN DE CONEXIÓN MEJORADA
+  // ✅ NAVEGACIÓN SIMPLIFICADA - SIN RESTRICCIONES EN PWA
   const handleNavigationWithCheck = async (href) => {
-    // ✅ Rutas que siempre están disponibles (registrar pedido funciona offline)
-    const alwaysAvailableRoutes = [
-      '/ventas/RegistrarPedido',
-      '/inicio',
-      '/login',
-      '/'
-    ];
-    
-    // ✅ Rutas que requieren conexión estricta
-    const onlineRequiredRoutes = [
-      '/ventas/HistorialPedidos',
-      '/ventas/ListaPrecios', 
-      '/ventas/Facturacion',
-      '/inventario',
-      '/compras',
-      '/finanzas',
-      '/edicion'
-    ];
-    
     // ✅ CERRAR MENÚS INMEDIATAMENTE
     setShowMenu(false);
     setOpenSubMenu(null);
     
-    if (alwaysAvailableRoutes.includes(href)) {
-      // ✅ Navegación directa para rutas siempre disponibles
-      console.log(`🔄 Navegación directa a: ${href}`);
-      
-      try {
-        await router.push(href);
-        console.log('✅ Navegación exitosa');
-      } catch (error) {
-        console.log('⚠️ Router falló, forzando navegación directa...');
-        window.location.href = href;
-      }
-      
-    } else if (onlineRequiredRoutes.some(route => href.includes(route))) {
-      // ✅ Verificar conexión para rutas que la requieren
-      console.log(`🔍 Verificando conexión para: ${href}`);
-      
-      const hayConexion = await checkOnDemand();
-      
-      if (hayConexion) {
-        console.log(`🌐 Conexión confirmada, navegando a: ${href}`);
-        try {
-          await router.push(href);
-        } catch (error) {
-          window.location.href = href;
-        }
-      } else {
-        console.log(`📴 Sin conexión, bloqueando navegación a: ${href}`);
-        toast.warning('📴 Esta sección requiere conexión a internet', {
-          duration: 3000,
-          icon: '📴'
-        });
-      }
-      
-    } else {
-      // ✅ Navegación normal para otras rutas
-      try {
-        await router.push(href);
-      } catch (error) {
-        window.location.href = href;
-      }
+    // ✅ EN PWA: NAVEGACIÓN LIBRE SIN VERIFICACIONES
+    // El modo offline ya maneja bien las conexiones
+    console.log(`🔄 ${isPWA ? '[PWA]' : '[WEB]'} Navegando a: ${href}`);
+    
+    try {
+      await router.push(href);
+      console.log('✅ Navegación exitosa');
+    } catch (error) {
+      console.log('⚠️ Router falló, usando navegación directa...');
+      window.location.href = href;
     }
   };
 
