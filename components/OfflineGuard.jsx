@@ -49,6 +49,7 @@ export function NavbarGuard({ children }) {
 
 // ✅ COMPONENTE SIMPLIFICADO PARA ENLACES
 export function LinkGuard({ href, children, className, ...props }) {
+  const router = useRouter();
   const { checkOnDemand } = useConnection();
   const isPWA = getAppMode() === 'pwa';
   
@@ -73,8 +74,8 @@ export function LinkGuard({ href, children, className, ...props }) {
       
       if (hayConexion) {
         console.log(`🌐 [LinkGuard] Conexión confirmada, navegando a: ${href}`);
-        // Hay conexión, permitir navegación
-        window.location.href = href;
+        // Hay conexión, usar router de Next.js para navegación correcta
+        router.push(href);
       } else {
         console.log(`📴 [LinkGuard] Sin conexión, bloqueando navegación a: ${href}`);
         // Sin conexión, mostrar advertencia
