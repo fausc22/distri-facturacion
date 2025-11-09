@@ -15,16 +15,12 @@ export function NavbarGuard({ children }) {
   return children;
 }
 
-// COMPONENTE PARA ENLACES CON VERIFICACIÓN
+// COMPONENTE SIMPLIFICADO PARA ENLACES
 export function LinkGuard({ href, children, className, ...props }) {
-  const router = useRouter();
   const { checkOnDemand } = useConnection();
   const isPWA = getAppMode() === 'pwa';
 
   const handleClick = async (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-
     // Rutas que requieren conexión estricta
     const routesRequireOnline = [
       '/inventario',
@@ -36,6 +32,8 @@ export function LinkGuard({ href, children, className, ...props }) {
     const requiresOnline = routesRequireOnline.some(route => href.includes(route));
 
     if (isPWA && requiresOnline) {
+      e.preventDefault();
+
       console.log(`🔍 [LinkGuard] Verificando conexión para: ${href}`);
 
       // Verificar conexión bajo demanda
@@ -43,10 +41,11 @@ export function LinkGuard({ href, children, className, ...props }) {
 
       if (hayConexion) {
         console.log(`🌐 [LinkGuard] Conexión confirmada, navegando a: ${href}`);
-        // Usar router de Next.js en lugar de window.location
-        await router.push(href);
+        // Hay conexión, permitir navegación
+        window.location.href = href;
       } else {
         console.log(`📴 [LinkGuard] Sin conexión, bloqueando navegación a: ${href}`);
+        // Sin conexión, mostrar advertencia
         toast.error('📴 Esta sección requiere conexión a internet', {
           duration: 3000,
           icon: '📴'
@@ -57,7 +56,9 @@ export function LinkGuard({ href, children, className, ...props }) {
 
     // Navegación normal para rutas siempre disponibles
     console.log(`✅ [LinkGuard] Navegación libre a: ${href}`);
-    await router.push(href);
+    if (props.onClick) {
+      props.onClick(e);
+    }
   };
 
   return (
