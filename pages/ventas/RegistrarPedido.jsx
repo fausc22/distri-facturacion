@@ -161,43 +161,29 @@ function RegistrarPedidoContent() {
     if (inicializacionCompletada.current) return;
 
     console.log('🚀 [RegistrarPedido] Inicialización única comenzando...');
-    console.log(`🔍 [RegistrarPedido] Estado inicial - isPWA: ${isPWA}, isOnline: ${isOnline}`);
 
     // Restaurar estado antes de detectar modo
     const estadoRestaurado = restaurarEstadoCompleto();
 
-    // Esperar a que ConnectionManager verifique la conexión antes de decidir el modo
-    const inicializarConVerificacion = async () => {
-      // Dar tiempo al ConnectionManager para verificar conexión real
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Verificar conexión real
-      const conexionReal = await checkOnDemand();
-
-      console.log(`🔍 [RegistrarPedido] Conexión verificada: ${conexionReal}`);
-
-      // Detectar modo inicial SOLO si realmente no hay conexión
-      if (isPWA && !conexionReal) {
-        console.log('📱 [RegistrarPedido] Inicialización OFFLINE confirmada - Activando modo offline estable');
-        setModoForzadoOffline(true);
-        setInterfazLocked(true);
-      } else if (isPWA && conexionReal) {
-        console.log('🌐 [RegistrarPedido] Inicialización ONLINE confirmada - Modo online disponible');
-        // Solo si no hay estado restaurado que indique modo forzado
-        if (!estadoRestaurado) {
-          setModoForzadoOffline(false);
-          setInterfazLocked(false);
-        }
+    // Detectar modo inicial
+    if (isPWA && !isOnline) {
+      console.log('📱 [RegistrarPedido] Inicialización OFFLINE - Activando modo offline estable');
+      setModoForzadoOffline(true);
+      setInterfazLocked(true);
+    } else if (isPWA && isOnline) {
+      console.log('🌐 [RegistrarPedido] Inicialización ONLINE - Modo online disponible');
+      // Solo si no hay estado restaurado que indique modo forzado
+      if (!estadoRestaurado) {
+        setModoForzadoOffline(false);
+        setInterfazLocked(false);
       }
+    }
 
-      setUltimoEstadoConexion(conexionReal);
-      setEstadoInicializado(true);
-      inicializacionCompletada.current = true;
+    setUltimoEstadoConexion(isOnline);
+    setEstadoInicializado(true);
+    inicializacionCompletada.current = true;
 
-      console.log('✅ [RegistrarPedido] Inicialización única completada');
-    };
-
-    inicializarConVerificacion();
+    console.log('✅ [RegistrarPedido] Inicialización única completada');
   }, []); // ✅ Solo ejecutar UNA VEZ
 
   // ✅ CARGAR ESTADÍSTICAS PWA
