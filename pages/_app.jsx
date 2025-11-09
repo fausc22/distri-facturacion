@@ -4,6 +4,7 @@ import { useRouter } from 'next/router'
 import { AuthProvider } from '../components/AuthProvider';
 import DefaultLayout from '../components/DefaultLayout';
 import PublicLayout from '../components/PublicLayout';
+import ServiceWorkerManager from '../components/ServiceWorkerManager';
 
 function MyApp({ Component, pageProps }) {
   const router = useRouter();
@@ -17,6 +18,7 @@ function MyApp({ Component, pageProps }) {
 
   return (
     <AuthProvider>
+      <ServiceWorkerManager />
       {isPublicRoute ? (
         <PublicLayout>
           <Component {...pageProps} />
