@@ -47,7 +47,7 @@ export function NavbarGuard({ children }) {
   return children;
 }
 
-// ✅ COMPONENTE SIMPLIFICADO PARA ENLACES - SIN RESTRICCIONES EN PWA
+// ✅ COMPONENTE SIMPLIFICADO PARA ENLACES
 export function LinkGuard({ href, children, className, ...props }) {
   const router = useRouter();
   const isPWA = getAppMode() === 'pwa';
