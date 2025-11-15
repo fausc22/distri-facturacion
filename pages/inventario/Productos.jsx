@@ -3,7 +3,6 @@ import { toast } from 'react-hot-toast';
 import Head from 'next/head';
 import useAuth from '../../hooks/useAuth';
 import { useProductos } from '../../hooks/useProductos';
-import SearchBar from '../../components/common/SearchBar';
 import TableHeader from '../../components/common/TableHeader';
 import Pagination from '../../components/common/Pagination';
 import ModalProducto from '../../components/productos/ModalProducto';
@@ -14,7 +13,8 @@ export default function GestionProductos() {
   const { buscarProductos, loading } = useProductos();
 
   const [productos, setProductos] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTermInput, setSearchTermInput] = useState(''); // Término en el input (temporal)
+  const [searchTerm, setSearchTerm] = useState(''); // Término de búsqueda activo
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modoModal, setModoModal] = useState('crear');
@@ -37,17 +37,27 @@ export default function GestionProductos() {
 
   useEffect(() => {
     cargarProductos();
-  }, []);
-
-  // Búsqueda con debounce
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      cargarProductos();
-      setCurrentPage(1);
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
   }, [searchTerm]);
+
+  // Función para ejecutar búsqueda
+  const handleBuscar = () => {
+    setSearchTerm(searchTermInput);
+    setCurrentPage(1);
+  };
+
+  // Función para limpiar búsqueda
+  const handleLimpiar = () => {
+    setSearchTermInput('');
+    setSearchTerm('');
+    setCurrentPage(1);
+  };
+
+  // Permitir buscar con Enter
+  const handleKeyPress = (e) => {
+    if (e.key === 'Enter') {
+      handleBuscar();
+    }
+  };
 
   // Ordenamiento
   const handleSort = (key) => {
@@ -132,24 +142,76 @@ export default function GestionProductos() {
             Gestión de Productos
           </h1>
 
-          <SearchBar
-            value={searchTerm}
-            onChange={setSearchTerm}
-            onClear={() => setSearchTerm('')}
-            placeholder="Buscar por nombre, categoría, ID..."
-            loading={loading}
-            extraButtons={
-              <button
-                onClick={handleNuevoProducto}
-                className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center gap-2"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+          {/* Barra de búsqueda con botón */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-4">
+            <div className="flex-1 flex gap-2">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  value={searchTermInput}
+                  onChange={(e) => setSearchTermInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  placeholder="Buscar por nombre, categoría, ID..."
+                  className="w-full p-2.5 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
+                  disabled={loading}
+                />
+                <svg
+                  className="absolute left-3 top-3 h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
                 </svg>
-                Nuevo Producto
+              </div>
+              <button
+                onClick={handleBuscar}
+                disabled={loading}
+                className="px-4 sm:px-6 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base font-medium whitespace-nowrap"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span className="hidden sm:inline">Buscando...</span>
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <span>Buscar</span>
+                  </>
+                )}
               </button>
-            }
-          />
+              {(searchTermInput || searchTerm) && (
+                <button
+                  onClick={handleLimpiar}
+                  disabled={loading}
+                  className="px-3 sm:px-4 py-2.5 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 text-sm sm:text-base whitespace-nowrap"
+                >
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  <span>Limpiar</span>
+                </button>
+              )}
+            </div>
+            <button
+              onClick={handleNuevoProducto}
+              className="px-4 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base font-medium whitespace-nowrap"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              <span className="hidden sm:inline">Nuevo Producto</span>
+              <span className="sm:hidden">Nuevo</span>
+            </button>
+          </div>
 
           {/* Contador */}
           <div className="mt-4 text-sm text-gray-600">

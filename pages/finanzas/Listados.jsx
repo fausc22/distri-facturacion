@@ -4,260 +4,152 @@ import { toast } from 'react-hot-toast';
 import useAuth from '../../hooks/useAuth';
 import { useGenerarListados } from '../../hooks/listados/useGenerarListados';
 import { ModalPDFUniversal } from '../../components/shared/ModalPDFUniversal';
-import { axiosAuth } from '../../utils/apiClient';
+import { ControlStockProvider } from '../../context/ControlStockContext';
+import LibroIvaVentas from '../../components/listados/LibroIvaVentas';
+import ListaPrecios from '../../components/listados/ListaPrecios';
+import ControlStock from '../../components/listados/ControlStock';
 
-export default function Listados() {
-  useAuth();
+// Configuración de pestañas
+const TABS = [
+  {
+    id: 'libro-iva',
+    name: 'Libro IVA Ventas',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    )
+  },
+  {
+    id: 'lista-precios',
+    name: 'Lista de Precios',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+      </svg>
+    )
+  },
+  {
+    id: 'control-stock',
+    name: 'Control de Stock',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      </svg>
+    )
+  }
+];
 
-  const {
-    loading,
-    pdfURL,
-    mostrarModalPDF,
-    nombreArchivo,
-    tituloModal,
-    subtituloModal,
-    generarPdfLibroIva,
-    generarPdfListaPrecios,
-    descargarPDF,
-    compartirPDF,
-    cerrarModalPDF
-  } = useGenerarListados();
+function ListadosContent() {
+  const [tabActiva, setTabActiva] = useState('libro-iva');
+  const [isMobile, setIsMobile] = useState(false);
 
-  // Estados para Libro IVA
-  const [mesSeleccionado, setMesSeleccionado] = useState('');
-  const [anioSeleccionado, setAnioSeleccionado] = useState('');
-
-  // Estados para Lista de Precios
-  const [categorias, setCategorias] = useState([]);
-  const [categoriasSeleccionadas, setCategoriasSeleccionadas] = useState([]);
-  const [loadingCategorias, setLoadingCategorias] = useState(false);
-
-  // Cargar categorías al montar el componente
+  // Detectar si es móvil
   useEffect(() => {
-    cargarCategorias();
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const cargarCategorias = async () => {
-    setLoadingCategorias(true);
-    try {
-      const response = await axiosAuth.get('/productos/categorias');
-      const categoriasData = response.data.data || response.data;
-      setCategorias(categoriasData);
-    } catch (error) {
-      console.error('Error al cargar categorías:', error);
-      toast.error('Error al cargar categorías');
-    } finally {
-      setLoadingCategorias(false);
-    }
-  };
-
-  // Handler para generar Libro IVA
-  const handleGenerarLibroIva = () => {
-    if (!mesSeleccionado || !anioSeleccionado) {
-      toast.error('Debe seleccionar mes y año');
-      return;
-    }
-    generarPdfLibroIva(parseInt(mesSeleccionado), parseInt(anioSeleccionado));
-  };
-
-  // Handler para generar Lista de Precios
-  const handleGenerarListaPrecios = () => {
-    generarPdfListaPrecios(categoriasSeleccionadas);
-  };
-
-  // Handler para cambiar selección de categorías
-  const handleToggleCategoria = (categoriaId) => {
-    setCategoriasSeleccionadas(prev => {
-      if (prev.includes(categoriaId)) {
-        return prev.filter(id => id !== categoriaId);
-      } else {
-        return [...prev, categoriaId];
-      }
-    });
-  };
-
-  // Handler para seleccionar/deseleccionar todas las categorías
-  const handleToggleTodasCategorias = () => {
-    if (categoriasSeleccionadas.length === categorias.length) {
-      setCategoriasSeleccionadas([]);
-    } else {
-      setCategoriasSeleccionadas(categorias.map(c => c.id));
-    }
-  };
-
-  const meses = [
-    { value: 1, label: 'Enero' },
-    { value: 2, label: 'Febrero' },
-    { value: 3, label: 'Marzo' },
-    { value: 4, label: 'Abril' },
-    { value: 5, label: 'Mayo' },
-    { value: 6, label: 'Junio' },
-    { value: 7, label: 'Julio' },
-    { value: 8, label: 'Agosto' },
-    { value: 9, label: 'Septiembre' },
-    { value: 10, label: 'Octubre' },
-    { value: 11, label: 'Noviembre' },
-    { value: 12, label: 'Diciembre' }
-  ];
-
-  const anioActual = new Date().getFullYear();
-  const anios = Array.from({ length: 5 }, (_, i) => anioActual - i);
+  const tabActual = TABS.find(tab => tab.id === tabActiva);
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-2 sm:p-4">
       <Head>
         <title>VERTIMAR | LISTADOS</title>
         <meta name="description" content="Generador de listados gerenciales" />
       </Head>
 
-      <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-6xl">
-        <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">LISTADOS GERENCIALES</h1>
+      <div className="bg-white shadow-lg rounded-lg p-4 sm:p-6 w-full max-w-6xl">
+        <h1 className="text-2xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center text-gray-800">
+          LISTADOS GERENCIALES
+        </h1>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* SECCIÓN LIBRO IVA */}
-          <div className="border border-gray-300 rounded-lg p-6 bg-gray-50">
-            <h2 className="text-xl font-semibold mb-4 text-gray-700 border-b pb-2">
-              LIBRO IVA VENTAS
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Genera el libro de IVA con las ventas tipo A y B del mes seleccionado.
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Mes
-                </label>
-                <select
-                  value={mesSeleccionado}
-                  onChange={(e) => setMesSeleccionado(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        {/* Navegación por pestañas */}
+        <div className="mb-4 sm:mb-6">
+          {/* Tabs para Desktop */}
+          <div className="hidden md:block">
+            <nav className="flex space-x-4 border-b border-gray-200">
+              {TABS.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setTabActiva(tab.id)}
+                  className={`flex items-center space-x-2 py-3 px-4 border-b-2 font-medium text-sm transition-colors ${
+                    tabActiva === tab.id
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
                 >
-                  <option value="">Seleccione un mes</option>
-                  {meses.map(mes => (
-                    <option key={mes.value} value={mes.value}>
-                      {mes.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Año
-                </label>
-                <select
-                  value={anioSeleccionado}
-                  onChange={(e) => setAnioSeleccionado(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Seleccione un año</option>
-                  {anios.map(anio => (
-                    <option key={anio} value={anio}>
-                      {anio}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <button
-                onClick={handleGenerarLibroIva}
-                disabled={loading}
-                className={`w-full py-3 rounded-md font-semibold text-white transition-colors ${
-                  loading
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-700'
-                }`}
-              >
-                {loading ? 'Generando...' : 'Generar Libro IVA'}
-              </button>
-            </div>
+                  {tab.icon}
+                  <span>{tab.name}</span>
+                </button>
+              ))}
+            </nav>
           </div>
 
-          {/* SECCIÓN LISTA DE PRECIOS */}
-          <div className="border border-gray-300 rounded-lg p-6 bg-gray-50">
-            <h2 className="text-xl font-semibold mb-4 text-gray-700 border-b pb-2">
-              LISTA DE PRECIOS
-            </h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Genera la lista de precios por categoría. Puedes filtrar por categorías específicas.
-            </p>
-
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between items-center mb-3">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Categorías
-                  </label>
-                  <button
-                    onClick={handleToggleTodasCategorias}
-                    className="text-sm text-blue-600 hover:text-blue-800 font-medium"
-                  >
-                    {categoriasSeleccionadas.length === categorias.length
-                      ? 'Deseleccionar todas'
-                      : 'Seleccionar todas'}
-                  </button>
-                </div>
-
-                <div className="border border-gray-300 rounded-md p-3 max-h-48 overflow-y-auto bg-white">
-                  {loadingCategorias ? (
-                    <p className="text-sm text-gray-500">Cargando categorías...</p>
-                  ) : categorias.length === 0 ? (
-                    <p className="text-sm text-gray-500">No hay categorías disponibles</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {categorias.map(categoria => (
-                        <label
-                          key={categoria.id}
-                          className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={categoriasSeleccionadas.includes(categoria.id)}
-                            onChange={() => handleToggleCategoria(categoria.id)}
-                            className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-                          />
-                          <span className="text-sm text-gray-700">{categoria.nombre}</span>
-                        </label>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <p className="text-xs text-gray-500 mt-2">
-                  {categoriasSeleccionadas.length === 0
-                    ? 'Se incluirán todas las categorías'
-                    : `${categoriasSeleccionadas.length} categoría(s) seleccionada(s)`}
-                </p>
-              </div>
-
-              <button
-                onClick={handleGenerarListaPrecios}
-                disabled={loading || loadingCategorias}
-                className={`w-full py-3 rounded-md font-semibold text-white transition-colors ${
-                  loading || loadingCategorias
-                    ? 'bg-gray-400 cursor-not-allowed'
-                    : 'bg-green-600 hover:bg-green-700'
-                }`}
+          {/* Tabs para Móvil - Dropdown */}
+          <div className="md:hidden">
+            <div className="bg-gray-50 rounded-lg border border-gray-200 p-3">
+              <select
+                value={tabActiva}
+                onChange={(e) => setTabActiva(e.target.value)}
+                className="w-full text-base border-0 bg-transparent focus:ring-2 focus:ring-blue-500 focus:outline-none rounded-md"
               >
-                {loading ? 'Generando...' : 'Generar Lista de Precios'}
-              </button>
+                {TABS.map((tab) => (
+                  <option key={tab.id} value={tab.id}>
+                    {tab.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
 
+        {/* Contenido del Tab Activo */}
+        <div className="transition-all duration-300">
+          {tabActiva === 'libro-iva' && <LibroIvaVentas />}
+          {tabActiva === 'lista-precios' && <ListaPrecios />}
+          {tabActiva === 'control-stock' && <ControlStock />}
+        </div>
+
         {/* Botón Volver */}
-        <div className="flex justify-center mt-8">
+        <div className="flex justify-center mt-6 sm:mt-8">
           <button
             onClick={() => (window.location.href = '/inicio')}
-            className="bg-red-600 hover:bg-red-700 px-8 py-3 rounded-md text-white font-semibold transition-colors"
+            className="bg-red-600 hover:bg-red-700 px-6 sm:px-8 py-2 sm:py-3 rounded-md text-white font-semibold transition-colors w-full sm:w-auto"
           >
             Volver al Menú
           </button>
         </div>
       </div>
+    </div>
+  );
+}
 
-      {/* Modal PDF Unificado */}
+export default function Listados() {
+  useAuth();
+
+  const {
+    pdfURL,
+    mostrarModalPDF,
+    nombreArchivo,
+    tituloModal,
+    subtituloModal,
+    descargarPDF,
+    compartirPDF,
+    cerrarModalPDF
+  } = useGenerarListados();
+
+  return (
+    <ControlStockProvider>
+      <ListadosContent />
+      
+      {/* Modal PDF Unificado - Compartido entre todos los listados */}
       <ModalPDFUniversal
         mostrar={mostrarModalPDF}
         pdfURL={pdfURL}
@@ -269,6 +161,6 @@ export default function Listados() {
         onCerrar={cerrarModalPDF}
         zIndex={70}
       />
-    </div>
+    </ControlStockProvider>
   );
 }
