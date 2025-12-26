@@ -1,6 +1,6 @@
 import { MdSearch } from "react-icons/md";
 import { toast } from 'react-hot-toast'; // Importar toast
-import { usePedidosContext } from '../../context/PedidosContext';
+import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
 import { useProductoSearch } from '../../hooks/useBusquedaProductos';
 
 function ControlCantidad({ cantidad, onCantidadChange, stockDisponible, className = "" }) {
@@ -193,8 +193,11 @@ function ModalProductos({
   );
 }
 
-export default function ProductoSelector() {
-  const { addProducto } = usePedidosContext();
+export default function ProductoSelector({ onAddProducto = null }) {
+  // ✅ Usar hook compartido que detecta automáticamente el contexto
+  const contexto = useContextoCompartido();
+  const addProducto = onAddProducto || contexto.addProducto;
+
   const {
     busqueda,
     setBusqueda,

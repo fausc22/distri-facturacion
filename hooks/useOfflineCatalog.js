@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { offlineManager, getAppMode } from '../utils/offlineManager';
 import { axiosAuth } from '../utils/apiClient';
@@ -397,6 +397,9 @@ export function useOfflineCatalog() {
 export function useOfflinePedidos() {
   const [pedidosPendientes, setPedidosPendientes] = useState([]);
   const [syncing, setSyncing] = useState(false);
+  
+  // ✅ REF PARA PROTECCIÓN CONTRA EJECUCIONES MÚLTIPLES
+  const sincronizandoRef = useRef(false);
 
   const isPWA = getAppMode() === 'pwa';
   const { updateCatalogAfterSync } = useOfflineCatalog();
@@ -409,7 +412,9 @@ export function useOfflinePedidos() {
 
   const loadPedidosPendientes = () => {
     const pedidos = offlineManager.getPedidosPendientes();
-    setPedidosPendientes(pedidos);
+    // ✅ FILTRAR PEDIDOS FALLIDOS PERMANENTES
+    const pedidosActivos = pedidos.filter(p => p.estado !== 'fallido_permanente');
+    setPedidosPendientes(pedidosActivos);
   };
 
   // ✅ GUARDAR PEDIDO OFFLINE
@@ -426,47 +431,81 @@ export function useOfflinePedidos() {
     return { success: false };
   };
 
-  // ✅ SINCRONIZAR PEDIDOS PENDIENTES CON AUTO-ACTUALIZACIÓN
+  // ✅ SINCRONIZAR PEDIDOS PENDIENTES CON PROTECCIÓN CONTRA DUPLICADOS Y EJECUCIONES MÚLTIPLES
   const syncPedidosPendientes = async () => {
+    // ✅ PROTECCIÓN CONTRA EJECUCIONES MÚLTIPLES
+    if (sincronizandoRef.current) {
+      console.log('⚠️ Sincronización ya en curso, ignorando solicitud duplicada');
+      toast.info('Sincronización en curso, por favor espere...');
+      return { success: false, error: 'Sincronización en curso' };
+    }
+
     if (!navigator.onLine) {
       toast.error('Sin conexión para sincronizar');
       return { success: false, error: 'Sin conexión' };
     }
 
-    if (pedidosPendientes.length === 0) {
+    // Recargar pedidos pendientes antes de sincronizar
+    loadPedidosPendientes();
+    const pedidosActuales = offlineManager.getPedidosPendientes().filter(p => p.estado !== 'fallido_permanente');
+
+    if (pedidosActuales.length === 0) {
       toast.info('No hay pedidos pendientes');
       return { success: true, count: 0 };
     }
 
+    sincronizandoRef.current = true;
     setSyncing(true);
     let exitosos = 0;
     let fallidos = 0;
+    let duplicados = 0;
 
     try {
-      console.log(`🔄 Sincronizando ${pedidosPendientes.length} pedidos pendientes...`);
+      console.log(`🔄 Sincronizando ${pedidosActuales.length} pedidos pendientes...`);
       
-      for (const pedido of pedidosPendientes) {
+      for (const pedido of pedidosActuales) {
         try {
-          console.log(`🔄 Sincronizando pedido ${pedido.tempId}...`);
+          // ✅ VERIFICAR SI EL PEDIDO YA FUE PROCESADO (por hash)
+          if (!pedido.hash_pedido) {
+            console.warn(`⚠️ Pedido ${pedido.tempId} no tiene hash, continuando...`);
+          }
           
-          // Remover campos temporales
+          console.log(`🔄 Sincronizando pedido ${pedido.tempId} (hash: ${pedido.hash_pedido || 'sin hash'})...`);
+          
+          // Remover campos temporales pero mantener hash_pedido
           const { tempId, fechaCreacion, estado, intentos, ultimoError, ultimoIntento, ...pedidoData } = pedido;
           
           const response = await axiosAuth.post('/pedidos/registrar-pedido', pedidoData);
           
           if (response.data.success) {
-            offlineManager.removePedidoPendiente(tempId);
-            exitosos++;
-            console.log(`✅ Pedido ${tempId} sincronizado exitosamente`);
+            // ✅ VERIFICAR SI ES DUPLICADO (backend retorna existing: true)
+            if (response.data.existing) {
+              console.log(`⚠️ Pedido ${tempId} ya existe en el backend (duplicado detectado), removiendo de pendientes`);
+              offlineManager.removePedidoPendiente(tempId);
+              duplicados++;
+              exitosos++; // Contar como exitoso porque ya está procesado
+            } else {
+              offlineManager.removePedidoPendiente(tempId);
+              exitosos++;
+              console.log(`✅ Pedido ${tempId} sincronizado exitosamente`);
+            }
           } else {
             offlineManager.markPedidoAsFailed(tempId, response.data.message);
             fallidos++;
           }
           
         } catch (error) {
-          console.error(`❌ Error sincronizando pedido ${pedido.tempId}:`, error);
-          offlineManager.markPedidoAsFailed(pedido.tempId, error.message);
-          fallidos++;
+          // ✅ VERIFICAR SI ES ERROR DE DUPLICADO DEL BACKEND
+          if (error.response?.status === 409 || error.response?.data?.code === 'DUPLICATE') {
+            console.log(`⚠️ Pedido ${pedido.tempId} duplicado detectado por backend, removiendo de pendientes`);
+            offlineManager.removePedidoPendiente(pedido.tempId);
+            duplicados++;
+            exitosos++;
+          } else {
+            console.error(`❌ Error sincronizando pedido ${pedido.tempId}:`, error);
+            offlineManager.markPedidoAsFailed(pedido.tempId, error.message);
+            fallidos++;
+          }
         }
       }
 
@@ -474,7 +513,10 @@ export function useOfflinePedidos() {
 
       // ✅ AUTO-ACTUALIZACIÓN DESPUÉS DE SINCRONIZAR
       if (exitosos > 0) {
-        toast.success(`${exitosos} pedidos sincronizados correctamente`);
+        const mensaje = duplicados > 0 
+          ? `${exitosos} pedidos procesados (${duplicados} ya existían)`
+          : `${exitosos} pedidos sincronizados correctamente`;
+        toast.success(mensaje);
         
         // Actualizar catálogo después de sincronizar pedidos
         console.log('🔄 Actualizando catálogo después de sincronización...');
@@ -489,7 +531,8 @@ export function useOfflinePedidos() {
         success: exitosos > 0, 
         exitosos, 
         fallidos, 
-        total: pedidosPendientes.length 
+        duplicados,
+        total: pedidosActuales.length 
       };
 
     } catch (error) {
@@ -498,6 +541,7 @@ export function useOfflinePedidos() {
       return { success: false, error: error.message };
     } finally {
       setSyncing(false);
+      sincronizandoRef.current = false;
     }
   };
 

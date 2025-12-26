@@ -75,6 +75,39 @@ export function useGenerarListados() {
     return await generarPDF(apiCall, configuracion);
   };
 
+  // Generar PDF de Listado de Vendedores
+  const generarPdfListadoVendedores = async (vendedorId, mes, anio) => {
+    if (!vendedorId || !mes || !anio) {
+      toast.error('Debe seleccionar vendedor, mes y año.');
+      return false;
+    }
+
+    // Función que realizará la llamada a la API
+    const apiCall = () => axiosAuth({
+      url: `/listados/generarpdf-listado-vendedores`,
+      method: 'POST',
+      data: { vendedorId, mes, anio },
+      responseType: 'blob'
+    });
+
+    // Configuración para el modal
+    const mesesNombres = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    const mesNombre = mesesNombres[mes - 1];
+
+    const configuracion = {
+      nombreArchivo: `Listado_Vendedores_${mesNombre}_${anio}.pdf`,
+      titulo: 'Listado de Vendedores Generado',
+      subtitulo: `Listado de Vendedores - ${mesNombre} ${anio}`,
+      mensajeExito: 'Listado de Vendedores generado con éxito',
+      mensajeError: 'Error al generar el Listado de Vendedores'
+    };
+
+    return await generarPDF(apiCall, configuracion);
+  };
+
   return {
     loading: loadingPDF,
     pdfURL,
@@ -84,6 +117,7 @@ export function useGenerarListados() {
     subtituloModal,
     generarPdfLibroIva,
     generarPdfListaPrecios,
+    generarPdfListadoVendedores,
     descargarPDF,
     compartirPDF,
     cerrarModalPDF

@@ -2,9 +2,21 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 import { useGenerarListados } from '../../hooks/listados/useGenerarListados';
+import { ModalPDFUniversal } from '../../components/shared/ModalPDFUniversal';
 
 export default function ListaPrecios() {
-  const { loading, generarPdfListaPrecios } = useGenerarListados();
+  const { 
+    loading, 
+    generarPdfListaPrecios,
+    pdfURL,
+    mostrarModalPDF,
+    nombreArchivo,
+    tituloModal,
+    subtituloModal,
+    descargarPDF,
+    compartirPDF,
+    cerrarModalPDF
+  } = useGenerarListados();
 
   // Estados para Lista de Precios
   const [categorias, setCategorias] = useState([]);
@@ -124,6 +136,19 @@ export default function ListaPrecios() {
           {loading ? 'Generando...' : 'Generar Lista de Precios'}
         </button>
       </div>
+
+      {/* Modal PDF para Lista de Precios */}
+      <ModalPDFUniversal
+        mostrar={mostrarModalPDF}
+        pdfURL={pdfURL}
+        nombreArchivo={nombreArchivo}
+        titulo={tituloModal}
+        subtitulo={subtituloModal}
+        onDescargar={descargarPDF}
+        onCompartir={compartirPDF}
+        onCerrar={cerrarModalPDF}
+        zIndex={70}
+      />
     </div>
   );
 }

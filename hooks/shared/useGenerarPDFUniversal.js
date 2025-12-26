@@ -17,7 +17,8 @@ export function useGenerarPDFUniversal() {
       titulo = 'PDF Generado Exitosamente',
       subtitulo = '',
       mensajeExito = 'PDF generado con éxito',
-      mensajeError = 'Error al generar el PDF'
+      mensajeError = 'Error al generar el PDF',
+      abrirEnNuevaPestaña = false // Nueva opción para abrir automáticamente
     } = configuracion;
 
     setLoading(true);
@@ -26,9 +27,37 @@ export function useGenerarPDFUniversal() {
       // apiCall debe retornar la respuesta del axios con responseType: 'blob'
       const response = await apiCall();
 
+      console.log('📄 Respuesta recibida:', {
+        dataType: typeof response.data,
+        dataSize: response.data?.size || response.data?.byteLength || 'unknown',
+        contentType: response.headers?.['content-type'] || response.headers?.['Content-Type'] || 'unknown',
+        status: response.status
+      });
+
+      // Verificar que la respuesta tenga datos
+      if (!response.data) {
+        console.error('❌ No hay datos en la respuesta');
+        toast.error('No se recibieron datos del servidor');
+        return false;
+      }
+
       // Crear una URL para el blob del PDF
       const blob = new Blob([response.data], { type: 'application/pdf' });
+      
+      // Verificar que el blob tenga contenido
+      if (blob.size === 0) {
+        console.error('❌ El blob está vacío');
+        toast.error('El PDF generado está vacío');
+        return false;
+      }
+      
       const url = window.URL.createObjectURL(blob);
+      
+      console.log('📄 Blob creado:', {
+        blobSize: blob.size,
+        blobType: blob.type,
+        url: url.substring(0, 50) + '...'
+      });
       
       // Guardar tanto la URL como el blob original
       setPdfBlob(blob);
@@ -36,13 +65,61 @@ export function useGenerarPDFUniversal() {
       setNombreArchivo(nombre);
       setTituloModal(titulo);
       setSubtituloModal(subtitulo);
+      
+      // Siempre mostrar el modal con la previsualización
       setMostrarModalPDF(true);
       
+      // Si se solicita abrir en nueva pestaña, hacerlo automáticamente además del modal
+      if (abrirEnNuevaPestaña) {
+        // Usar un pequeño delay para asegurar que el modal se muestre primero
+        setTimeout(() => {
+          try {
+            // Usar un elemento <a> en lugar de window.open() para evitar bloqueos del navegador
+            const link = document.createElement('a');
+            link.href = url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
+            // No establecer download para que se abra en lugar de descargar
+            document.body.appendChild(link);
+            link.click();
+            
+            // Esperar un momento antes de remover el link para asegurar que se procese el click
+            setTimeout(() => {
+              document.body.removeChild(link);
+            }, 100);
+            
+            console.log('✅ PDF abierto en nueva pestaña');
+          } catch (openError) {
+            console.error('❌ Error al abrir PDF:', openError);
+            // Fallback: intentar con window.open
+            const newWindow = window.open(url, '_blank');
+            if (!newWindow) {
+              console.warn('⚠️ No se pudo abrir el PDF en nueva pestaña. El modal está disponible.');
+            }
+          }
+        }, 300); // Pequeño delay para que el modal se muestre primero
+      }
+      
       toast.success(mensajeExito);
+      
       return true;
     } catch (error) {
       console.error('Error al generar el PDF:', error);
-      toast.error(mensajeError);
+      
+      // Si la respuesta es un blob pero contiene un error JSON, intentar leerlo
+      if (error.response && error.response.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          const errorData = JSON.parse(text);
+          toast.error(errorData.error || mensajeError);
+        } catch (parseError) {
+          // Si no se puede parsear, mostrar el error genérico
+          toast.error(mensajeError);
+        }
+      } else {
+        toast.error(mensajeError);
+      }
+      
       return false;
     } finally {
       setLoading(false);

@@ -1,4 +1,6 @@
-import { usePedidosContext } from '../../context/PedidosContext';
+import { useState } from 'react';
+import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
+import { ModalEditarProductoVentaDirecta } from '../ventas/ModalEditarProductoVentaDirecta';
 
 function ControlCantidad({ cantidad, onCantidadChange }) {
   const formatearCantidad = (cantidad) => {
@@ -42,7 +44,7 @@ function ControlCantidad({ cantidad, onCantidadChange }) {
   );
 }
 
-function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActualizarDescuento }) {
+function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActualizarDescuento, onEditar }) {
   const formatearCantidad = (cantidad) => {
     const cantidadNum = parseFloat(cantidad);
     return cantidadNum % 1 === 0 ? cantidadNum.toString() : cantidadNum.toFixed(1);
@@ -60,7 +62,7 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
             <th className="p-3 text-center">Desc. %</th>
             <th className="p-3 text-center">IVA %</th>
             <th className="p-3 text-center">Subtotal</th>
-            <th className="p-3 text-center">Eliminar</th>
+            <th className="p-3 text-center">Acciones</th>
           </tr>
         </thead>
         <tbody>
@@ -122,16 +124,28 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
                     )}
                   </td>
                   <td className="p-3 text-center">
-                    <button
-                      className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded transition-colors"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onEliminar(idx);
-                      }}
-                      title="Eliminar producto"
-                    >
-                      ✕
-                    </button>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        className="bg-blue-500 hover:bg-blue-700 text-white px-2 py-1 rounded transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEditar(idx);
+                        }}
+                        title="Editar producto"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        className="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onEliminar(idx);
+                        }}
+                        title="Eliminar producto"
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -149,7 +163,7 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
   );
 }
 
-function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento, onEliminar }) {
+function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento, onEliminar, onEditar }) {
   const formatearCantidad = (cantidad) => {
     const cantidadNum = parseFloat(cantidad);
     return cantidadNum % 1 === 0 ? cantidadNum.toString() : cantidadNum.toFixed(1);
@@ -178,12 +192,22 @@ function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento,
                     </div>
                   )}
                 </div>
-                <button
-                  className="bg-red-500 hover:bg-red-700 text-white px-3 py-1 rounded ml-2 transition-colors"
-                  onClick={() => onEliminar(idx)}
-                >
-                  ✕
-                </button>
+                <div className="flex gap-1">
+                  <button
+                    className="bg-blue-500 hover:bg-blue-700 text-white px-2 py-1 rounded transition-colors text-xs"
+                    onClick={() => onEditar(idx)}
+                    title="Editar producto"
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    className="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded transition-colors text-xs"
+                    onClick={() => onEliminar(idx)}
+                    title="Eliminar producto"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -254,7 +278,10 @@ function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento,
 }
 
 export default function ProductosCarrito() {
-  const { productos, updateCantidad, updateDescuento, removeProducto, subtotal, totalIva, total } = usePedidosContext();
+  // ✅ Usar hook compartido que detecta automáticamente el contexto
+  const { productos, cliente, updateCantidad, updateDescuento, removeProducto, updateProducto, subtotal, totalIva, total } = useContextoCompartido();
+  const [productoEditando, setProductoEditando] = useState(null);
+  const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
 
   const handleActualizarCantidad = (index, nuevaCantidad) => {
     // Convertir a float y redondear a medios
@@ -274,6 +301,23 @@ export default function ProductosCarrito() {
     updateDescuento(index, descuento);
   };
 
+  const handleEditarProducto = (index) => {
+    setProductoEditando({ ...productos[index], index });
+    setMostrarModalEditar(true);
+  };
+
+  const handleGuardarProducto = (index, productoActualizado) => {
+    // ✅ Actualizar el producto en el contexto manteniendo el ID original
+    updateProducto(index, productoActualizado);
+    setMostrarModalEditar(false);
+    setProductoEditando(null);
+  };
+
+  const handleCerrarModal = () => {
+    setMostrarModalEditar(false);
+    setProductoEditando(null);
+  };
+
   return (
     <>
       <div className="mt-6">
@@ -284,6 +328,7 @@ export default function ProductosCarrito() {
           onActualizarCantidad={handleActualizarCantidad}
           onActualizarDescuento={handleActualizarDescuento}
           onEliminar={removeProducto}
+          onEditar={handleEditarProducto}
         />
 
         <TarjetasMovil
@@ -291,6 +336,7 @@ export default function ProductosCarrito() {
           onActualizarCantidad={handleActualizarCantidad}
           onActualizarDescuento={handleActualizarDescuento}
           onEliminar={removeProducto}
+          onEditar={handleEditarProducto}
         />
       
         {/* Resumen de totales */}
@@ -306,6 +352,29 @@ export default function ProductosCarrito() {
                 <span className="text-gray-600">IVA Total:</span>
                 <span className="font-medium">${totalIva.toFixed(2)}</span>
               </div>
+              {/* ✅ Mostrar monto exento si el cliente es exento */}
+              {(() => {
+                const esClienteExento = cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
+                if (!esClienteExento) return null;
+                
+                const montoExento = productos.reduce((acc, prod) => {
+                  const porcentajeIva = prod.porcentaje_iva || 21;
+                  const ivaQueDeberiaCobrarse = parseFloat((prod.subtotal * (porcentajeIva / 100)).toFixed(2));
+                  return acc + ivaQueDeberiaCobrarse;
+                }, 0);
+                
+                if (montoExento > 0) {
+                  return (
+                    <div className="flex justify-between items-center bg-blue-50 p-2 rounded border border-blue-200 mt-1">
+                      <span className="text-blue-700 font-medium">Monto Exento (IVA no cobrado):</span>
+                      <span className="font-bold text-blue-600">
+                        ${montoExento.toFixed(2)}
+                      </span>
+                    </div>
+                  );
+                }
+                return null;
+              })()}
               <hr className="my-2" />
               <div className="flex justify-between items-center text-lg">
                 <span className="font-semibold">Total (con IVA):</span>
@@ -315,6 +384,16 @@ export default function ProductosCarrito() {
           </div>
         )}
       </div>
+
+      {/* Modal de editar producto */}
+      {mostrarModalEditar && productoEditando && (
+        <ModalEditarProductoVentaDirecta
+          producto={productoEditando}
+          index={productoEditando.index}
+          onClose={handleCerrarModal}
+          onGuardar={handleGuardarProducto}
+        />
+      )}
     </>
   );
 }

@@ -1,7 +1,8 @@
-import { usePedidosContext } from '../../context/PedidosContext';
+import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
 
 export default function ObservacionesPedidos() {
-  const { observaciones, setObservaciones } = usePedidosContext();
+  // ✅ Usar hook compartido que detecta automáticamente el contexto
+  const { observaciones, setObservaciones } = useContextoCompartido();
 
   const handleObservacionesChange = (e) => {
     setObservaciones(e.target.value);

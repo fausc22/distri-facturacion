@@ -1,9 +1,21 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { useGenerarListados } from '../../hooks/listados/useGenerarListados';
+import { ModalPDFUniversal } from '../../components/shared/ModalPDFUniversal';
 
 export default function LibroIvaVentas() {
-  const { loading, generarPdfLibroIva } = useGenerarListados();
+  const { 
+    loading, 
+    generarPdfLibroIva,
+    pdfURL,
+    mostrarModalPDF,
+    nombreArchivo,
+    tituloModal,
+    subtituloModal,
+    descargarPDF,
+    compartirPDF,
+    cerrarModalPDF
+  } = useGenerarListados();
 
   // Estados para Libro IVA
   const [mesSeleccionado, setMesSeleccionado] = useState('');
@@ -94,6 +106,19 @@ export default function LibroIvaVentas() {
           {loading ? 'Generando...' : 'Generar Libro IVA'}
         </button>
       </div>
+
+      {/* Modal PDF para Libro IVA */}
+      <ModalPDFUniversal
+        mostrar={mostrarModalPDF}
+        pdfURL={pdfURL}
+        nombreArchivo={nombreArchivo}
+        titulo={tituloModal}
+        subtitulo={subtituloModal}
+        onDescargar={descargarPDF}
+        onCompartir={compartirPDF}
+        onCerrar={cerrarModalPDF}
+        zIndex={70}
+      />
     </div>
   );
 }

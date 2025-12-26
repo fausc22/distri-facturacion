@@ -54,6 +54,24 @@ export function usePedidos() {
     const subtotal = productos.reduce((acc, prod) => acc + prod.subtotal, 0); // Sin IVA
     const totalIva = productos.reduce((acc, prod) => acc + prod.iva_calculado, 0); // IVA calculado
     const total = subtotal + totalIva; // Total con IVA
+    
+    // ✅ Calcular monto exento: si el cliente es exento, calcular el IVA que debería haberse cobrado
+    const esClienteExento = cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
+    let montoExento = 0;
+    
+    if (esClienteExento && productos && productos.length > 0) {
+      // Calcular el IVA que debería haberse cobrado si no fuera exento
+      // Los productos en el contexto tienen porcentaje_iva disponible
+      montoExento = productos.reduce((acc, prod) => {
+        // El porcentaje_iva está disponible en el contexto de pedidos
+        const porcentajeIva = prod.porcentaje_iva || 21; // Usar 21% si no está disponible
+        const subtotal = parseFloat(prod.subtotal) || 0;
+        const ivaQueDeberiaCobrarse = parseFloat((subtotal * (porcentajeIva / 100)).toFixed(2));
+        return acc + ivaQueDeberiaCobrarse;
+      }, 0);
+    }
+    
+    console.log(`💰 [Frontend] Cliente exento: ${esClienteExento}, Monto exento calculado: $${montoExento.toFixed(2)}`);
 
     // Preparar datos del pedido
     const pedidoData = {
@@ -67,6 +85,7 @@ export function usePedidos() {
       cliente_cuit: cliente.cuit || '',
       subtotal: subtotal.toFixed(2), // Subtotal sin IVA
       iva_total: totalIva.toFixed(2), // Total de IVA
+      exento: montoExento > 0 ? montoExento.toFixed(2) : '0.00', // ✅ Monto exento (IVA que no se cobra)
       total: total.toFixed(2), // Total con IVA
       estado: 'Exportado', // Según tu DB, el default es 'Exportado'
       empleado_id: empleado?.id || 1,
@@ -87,6 +106,8 @@ export function usePedidos() {
 
     try {
       console.log('🔍 Datos del pedido a enviar:', pedidoData); // Debug para verificar estructura
+      console.log('🔍 Exento calculado en frontend:', montoExento.toFixed(2));
+      console.log('🔍 Cliente es exento:', esClienteExento);
       
       const response = await axiosAuth.post(`/pedidos/registrar-pedido`, pedidoData);
       
