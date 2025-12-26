@@ -175,7 +175,19 @@ const setPeriodoPredefinido = (periodo) => {
     }
 
     if (diasEnPeriodo > 365) {
-      toast.warning('El período seleccionado es muy amplio, los datos pueden tardar en cargar');
+      // ✅ Corregido: toast.warning no existe, usar toast() con estilo de warning
+      toast('El período seleccionado es muy amplio, los datos pueden tardar en cargar', {
+        duration: 3000,
+        icon: '⚠️',
+        style: {
+          background: '#f59e0b',
+          color: '#fff',
+        },
+        iconTheme: {
+          primary: '#fff',
+          secondary: '#f59e0b',
+        },
+      });
     }
 
     return true;

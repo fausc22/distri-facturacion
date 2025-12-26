@@ -72,9 +72,18 @@ function AppHeader() {
         }
       } else {
         console.log(`📴 Sin conexión, bloqueando navegación a: ${href}`);
-        toast.warning('📴 Esta sección requiere conexión a internet', {
+        // ✅ Corregido: toast.warning no existe, usar toast() con estilo de warning
+        toast('📴 Esta sección requiere conexión a internet', {
           duration: 3000,
-          icon: '📴'
+          icon: '📴',
+          style: {
+            background: '#f59e0b',
+            color: '#fff',
+          },
+          iconTheme: {
+            primary: '#fff',
+            secondary: '#f59e0b',
+          },
         });
       }
       
