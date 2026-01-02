@@ -220,7 +220,8 @@ export function InformacionCliente({
   cargandoCuentas = false,
   onActualizarClientePedido,
   isPedidoAnulado = false,
-  isPedidoFacturado = false // ✅ AGREGAR PROP
+  isPedidoFacturado = false, // ✅ AGREGAR PROP
+  loadingFacturacion = false // ✅ AGREGAR PROP PARA ESTADO DE CARGA
 }) {
   const [mostrarModalEditarCliente, setMostrarModalEditarCliente] = useState(false);
   const [clienteActualizado, setClienteActualizado] = useState(null);
@@ -321,6 +322,7 @@ export function InformacionCliente({
         cuentas={cuentas}
         cargandoCuentas={cargandoCuentas}
         onConfirmarFacturacion={handleConfirmarFacturacion}
+        loading={loadingFacturacion} // ✅ Pasar estado de carga del hook
       />
 
       {/* Modal para editar/cambiar cliente */}
@@ -1709,7 +1711,7 @@ export function ModalDetallePedido({
   const [productosExpandidos, setProductosExpandidos] = useState(false);
   
   const { user } = useAuth();
-  const { facturarPedido } = useFacturacion(); // ✅ USAR HOOK DE FACTURACIÓN
+  const { facturarPedido, loading: loadingFacturacion } = useFacturacion(); // ✅ USAR HOOK DE FACTURACIÓN CON LOADING
 
   const formatearFecha = (fecha) => {
     if (!fecha) return 'Fecha no disponible';
@@ -1737,29 +1739,40 @@ export function ModalDetallePedido({
     setMostrarModalFacturacion(true);
   };
 
-  // ✅ FUNCIÓN PARA CONFIRMAR FACTURACIÓN
+  // ✅ FUNCIÓN PARA CONFIRMAR FACTURACIÓN - CON MANEJO DE IDEMPOTENCIA
   const handleConfirmarFacturacion = async (datosFacturacion) => {
-  try {
-    // ✅ AGREGAR pedidoId al objeto antes de enviar
-    const datosCompletos = {
-      ...datosFacturacion,
-      pedidoId: pedido.id  // ✅ Usar pedido en lugar de selectedPedido
-    };
-    
-    const resultado = await facturarPedido(datosCompletos); // ✅ Enviar objeto completo
-    
-    if (resultado.success) {
-      await onCambiarEstado('Facturado');
-      setMostrarModalFacturacion(false);
-      toast.success(`Pedido #${pedido.id} facturado exitosamente!`);
-    } else {
-      toast.error(resultado.error || 'Error al facturar pedido');
+    try {
+      // ✅ AGREGAR pedidoId al objeto antes de enviar
+      const datosCompletos = {
+        ...datosFacturacion,
+        pedidoId: pedido.id  // ✅ Usar pedido en lugar de selectedPedido
+      };
+      
+      const resultado = await facturarPedido(datosCompletos); // ✅ Enviar objeto completo
+      
+      if (resultado.success) {
+        // ✅ MANEJAR RESPUESTA IDEMPOTENTE (existing: true)
+        if (resultado.existing) {
+          console.log('ℹ️ Pedido ya estaba facturado, actualizando UI');
+          toast.info(`El pedido #${pedido.id} ya estaba facturado anteriormente`, {
+            duration: 4000,
+            icon: 'ℹ️'
+          });
+        } else {
+          toast.success(`Pedido #${pedido.id} facturado exitosamente!`);
+        }
+        
+        // ✅ Actualizar estado y cerrar modal en ambos casos (éxito o duplicado)
+        await onCambiarEstado('Facturado');
+        setMostrarModalFacturacion(false);
+      } else {
+        toast.error(resultado.error || 'Error al facturar pedido');
+      }
+    } catch (error) {
+      console.error('Error facturando:', error);
+      toast.error('Error al procesar facturación');
     }
-  } catch (error) {
-    console.error('Error facturando:', error);
-    toast.error('Error al procesar facturación');
-  }
-};
+  };
 
   const handleAbrirModalAgregar = () => {
     if (onAgregarProducto) {
@@ -1812,6 +1825,7 @@ export function ModalDetallePedido({
               onActualizarClientePedido={onActualizarClientePedido} // ✅ PASAR HANDLER
               isPedidoAnulado={isPedidoAnulado}     // ✅ PASAR ESTADO ANULADO
               isPedidoFacturado={isPedidoFacturado} // ✅ PASAR ESTADO FACTURADO
+              loadingFacturacion={loadingFacturacion} // ✅ PASAR ESTADO DE CARGA DE FACTURACIÓN
             />
 
             <InformacionAdicional 
