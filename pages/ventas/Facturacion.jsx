@@ -21,6 +21,7 @@ import { ModalComprobantesVenta } from '../../components/ventas/ModalComprobante
 import { ModalConfirmacionSalida } from '../../components/ventas/ModalesConfirmacion';
 import { BotonAcciones } from '../../components/ventas/BotonAcciones';
 import { BotonFlotanteAcciones } from '../../components/ventas/BotonFlotanteAcciones';
+import { ModalCrearNota } from '../../components/notas/ModalCrearNota';
 
 // API Client
 import { axiosAuth } from '../../utils/apiClient';
@@ -30,6 +31,8 @@ function HistorialVentasContent() {
   const [mostrarModalDetalle, setMostrarModalDetalle] = useState(false);
   const [mostrarModalComprobante, setMostrarModalComprobante] = useState(false);
   const [mostrarConfirmacionSalida, setMostrarConfirmacionSalida] = useState(false);
+  const [mostrarModalNotaDebito, setMostrarModalNotaDebito] = useState(false);
+  const [mostrarModalNotaCredito, setMostrarModalNotaCredito] = useState(false);
   
   // ✅ NUEVO: Estado para ventas desde búsqueda en backend
   const [ventasDesdeBackend, setVentasDesdeBackend] = useState(null);
@@ -435,9 +438,25 @@ const handleSolicitarCAE = async () => {
       </Head>
       
       <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-6xl">
-        <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
-          HISTORIAL DE VENTAS
-        </h1>
+        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+          <h1 className="text-3xl font-bold text-center text-gray-800">
+            HISTORIAL DE VENTAS
+          </h1>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setMostrarModalNotaDebito(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2"
+            >
+              📝 NUEVA NOTA DE DÉBITO
+            </button>
+            <button
+              onClick={() => setMostrarModalNotaCredito(true)}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2"
+            >
+              📝 NUEVA NOTA DE CRÉDITO
+            </button>
+          </div>
+        </div>
         
         {/* ✅ ACTUALIZADO: Agregar props para búsqueda */}
         <FiltrosHistorialVentas
@@ -552,6 +571,27 @@ const handleSolicitarCAE = async () => {
         mostrar={mostrarConfirmacionSalida}
         onConfirmar={handleSalir}
         onCancelar={() => setMostrarConfirmacionSalida(false)}
+      />
+
+      {/* Modales de Notas */}
+      <ModalCrearNota
+        tipoNota="NOTA_DEBITO"
+        mostrar={mostrarModalNotaDebito}
+        onClose={() => setMostrarModalNotaDebito(false)}
+        onNotaCreada={() => {
+          cargarVentas();
+          toast.success('Nota de Débito creada exitosamente');
+        }}
+      />
+
+      <ModalCrearNota
+        tipoNota="NOTA_CREDITO"
+        mostrar={mostrarModalNotaCredito}
+        onClose={() => setMostrarModalNotaCredito(false)}
+        onNotaCreada={() => {
+          cargarVentas();
+          toast.success('Nota de Crédito creada exitosamente');
+        }}
       />
     </div>
   );

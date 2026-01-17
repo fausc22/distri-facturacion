@@ -129,12 +129,21 @@ class OfflineManager {
     ).slice(0, 10);
   }
 
-  // ✅ STORAGE DE PEDIDOS PENDIENTES
+  // ✅ STORAGE DE PEDIDOS PENDIENTES CON VERIFICACIÓN DE DUPLICADOS
   async savePedidoPendiente(pedidoData) {
     try {
       if (!isClient()) return false;
       
       const pedidosPendientes = this.getPedidosPendientes();
+      
+      // ✅ VERIFICAR DUPLICADOS POR HASH SI EXISTE
+      if (pedidoData.hash_pedido) {
+        const pedidoExistente = pedidosPendientes.find(p => p.hash_pedido === pedidoData.hash_pedido);
+        if (pedidoExistente) {
+          console.log(`⚠️ Pedido con hash ${pedidoData.hash_pedido} ya existe, no duplicar`);
+          return pedidoExistente.tempId; // Retornar el tempId existente
+        }
+      }
       
       // Generar ID temporal único
       const tempId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -150,7 +159,7 @@ class OfflineManager {
       pedidosPendientes.push(pedidoPendiente);
       localStorage.setItem(STORAGE_KEYS.PEDIDOS_PENDIENTES, JSON.stringify(pedidosPendientes));
       
-      console.log(`📱 Pedido guardado offline con ID temporal: ${tempId}`);
+      console.log(`📱 Pedido guardado offline con ID temporal: ${tempId}, hash: ${pedidoData.hash_pedido || 'sin hash'}`);
       return tempId;
     } catch (error) {
       console.error('❌ Error guardando pedido pendiente:', error);
@@ -187,7 +196,7 @@ class OfflineManager {
     }
   }
 
-  // ✅ MARCAR PEDIDO COMO FALLIDO
+  // ✅ MARCAR PEDIDO COMO FALLIDO CON LÍMITE DE REINTENTOS
   markPedidoAsFailed(tempId, error) {
     try {
       if (!isClient()) return false;
@@ -196,9 +205,16 @@ class OfflineManager {
       const pedidoIndex = pedidosPendientes.findIndex(p => p.tempId === tempId);
       
       if (pedidoIndex !== -1) {
-        pedidosPendientes[pedidoIndex].intentos = (pedidosPendientes[pedidoIndex].intentos || 0) + 1;
+        const intentos = (pedidosPendientes[pedidoIndex].intentos || 0) + 1;
+        pedidosPendientes[pedidoIndex].intentos = intentos;
         pedidosPendientes[pedidoIndex].ultimoError = error;
         pedidosPendientes[pedidoIndex].ultimoIntento = new Date().toISOString();
+        
+        // ✅ LÍMITE DE REINTENTOS: Si supera 5 intentos, marcar como fallido permanente
+        if (intentos >= 5) {
+          pedidosPendientes[pedidoIndex].estado = 'fallido_permanente';
+          console.log(`⚠️ Pedido ${tempId} marcado como fallido permanente después de ${intentos} intentos`);
+        }
         
         localStorage.setItem(STORAGE_KEYS.PEDIDOS_PENDIENTES, JSON.stringify(pedidosPendientes));
         return true;

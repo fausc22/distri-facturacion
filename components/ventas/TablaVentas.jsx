@@ -14,35 +14,66 @@ const formatearFecha = (fecha) => {
   });
 };
 
-// ✅ NUEVA FUNCIÓN: Desglosar numero_factura
-const desglosarNumeroFactura = (numeroCompleto) => {
+// ✅ FUNCIÓN: Desglosar numero_factura (maneja facturas y notas)
+const desglosarNumeroFactura = (numeroCompleto, tipoDoc) => {
   if (!numeroCompleto || typeof numeroCompleto !== 'string') {
     return {
       tipoFactura: '-',
       puntoVenta: '-',
       numeroComprobante: '-',
-      numeroCompleto: '-'
+      numeroCompleto: '-',
+      esNota: false
     };
   }
 
-  const regex = /^([A-Z]+)\s+(\d{4})-(\d{8})$/;
-  const match = numeroCompleto.trim().match(regex);
+  const esNota = tipoDoc === 'NOTA_DEBITO' || tipoDoc === 'NOTA_CREDITO';
+  
+  if (esNota) {
+    // ✅ Formato de nota: "0004-00001" (sin letra al inicio, 5 dígitos)
+    const regexNota = /^(\d{4})-(\d{5})$/;
+    const matchNota = numeroCompleto.trim().match(regexNota);
+    
+    if (matchNota) {
+      return {
+        tipoFactura: tipoDoc === 'NOTA_DEBITO' ? 'ND' : 'NC',
+        puntoVenta: matchNota[1],
+        numeroComprobante: matchNota[2],
+        numeroCompleto: numeroCompleto,
+        esNota: true
+      };
+    } else {
+      // Si no coincide con el formato esperado, mostrar tal cual
+      return {
+        tipoFactura: tipoDoc === 'NOTA_DEBITO' ? 'ND' : 'NC',
+        puntoVenta: '-',
+        numeroComprobante: '-',
+        numeroCompleto: numeroCompleto,
+        esNota: true
+      };
+    }
+  } else {
+    // ✅ Formato de factura: "A 0004-00000001" (con letra al inicio, 8 dígitos)
+    const regexFactura = /^([A-Z]+)\s+(\d{4})-(\d{8})$/;
+    const matchFactura = numeroCompleto.trim().match(regexFactura);
 
-  if (!match) {
+    if (!matchFactura) {
+      return {
+        tipoFactura: '-',
+        puntoVenta: '-',
+        numeroComprobante: '-',
+        numeroCompleto: numeroCompleto,
+        esNota: false
+      };
+    }
+
     return {
-      tipoFactura: '-',
-      puntoVenta: '-',
-      numeroComprobante: '-',
-      numeroCompleto: numeroCompleto
+      tipoFactura: matchFactura[1],
+      puntoVenta: matchFactura[2],
+      numeroComprobante: matchFactura[3],
+      numeroCompleto: numeroCompleto,
+      esNota: false
     };
   }
-
-  return {
-    tipoFactura: match[1],
-    puntoVenta: match[2],
-    numeroComprobante: match[3],
-    numeroCompleto: numeroCompleto
-  };
 };
 
 // Componente para tabla en escritorio
@@ -145,7 +176,7 @@ function TablaEscritorio({
         </thead>
         <tbody>
           {ventas.map((venta) => {
-            const numeroFacturaDesglosado = desglosarNumeroFactura(venta.numero_factura);
+            const numeroFacturaDesglosado = desglosarNumeroFactura(venta.numero_factura, venta.tipo_doc);
             
             return (
               <tr
@@ -181,12 +212,22 @@ function TablaEscritorio({
                 <td className="p-3 text-center">
                   {numeroFacturaDesglosado.numeroCompleto !== '-' ? (
                     <div className="font-mono text-sm">
-                      <div className="font-bold text-blue-600">
-                        {numeroFacturaDesglosado.tipoFactura}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        {numeroFacturaDesglosado.puntoVenta}-{numeroFacturaDesglosado.numeroComprobante}
-                      </div>
+                      {numeroFacturaDesglosado.esNota ? (
+                        // ✅ Formato para NOTAS: "0004-00001"
+                        <div className="font-bold text-purple-600">
+                          {numeroFacturaDesglosado.numeroCompleto}
+                        </div>
+                      ) : (
+                        // ✅ Formato para FACTURAS: "A" arriba, "0004-00000001" abajo
+                        <>
+                          <div className="font-bold text-blue-600">
+                            {numeroFacturaDesglosado.tipoFactura}
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            {numeroFacturaDesglosado.puntoVenta}-{numeroFacturaDesglosado.numeroComprobante}
+                          </div>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <span className="text-gray-400 text-xs">Sin número</span>
@@ -292,7 +333,7 @@ function TarjetasMovil({
 
       <div className="space-y-3">
         {ventas.map((venta) => {
-          const numeroFacturaDesglosado = desglosarNumeroFactura(venta.numero_factura);
+          const numeroFacturaDesglosado = desglosarNumeroFactura(venta.numero_factura, venta.tipo_doc);
           
           return (
             <div
@@ -317,7 +358,7 @@ function TarjetasMovil({
                   <div>
                     {/* ✅ NUMERO_FACTURA en lugar de ID */}
                     {numeroFacturaDesglosado.numeroCompleto !== '-' ? (
-                      <div className="font-mono text-sm font-bold text-blue-600">
+                      <div className={`font-mono text-sm font-bold ${numeroFacturaDesglosado.esNota ? 'text-purple-600' : 'text-blue-600'}`}>
                         {numeroFacturaDesglosado.numeroCompleto}
                       </div>
                     ) : (

@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
@@ -9,6 +9,9 @@ export function useFacturacion() {
   const [loading, setLoading] = useState(false);
   const [cuentas, setCuentas] = useState([]);
   const [loadingCuentas, setLoadingCuentas] = useState(false);
+  
+  // ✅ REF PARA PROTECCIÓN CONTRA DOBLE CLIC/ENVÍO
+  const facturandoRef = useRef(false);
 
   // Cargar cuentas de fondos
   const cargarCuentasFondos = async () => {
@@ -32,22 +35,45 @@ export function useFacturacion() {
     }
   };
 
-  // Facturar un pedido
+  // Facturar un pedido - ✅ CON PROTECCIÓN CONTRA DOBLE CLIC Y MANEJO DE IDEMPOTENCIA
   const facturarPedido = async (datosFacturacion) => {
+    // ✅ PROTECCIÓN CONTRA DOBLE CLIC/ENVÍO
+    if (facturandoRef.current) {
+      console.log('⚠️ Ya hay una facturación en proceso, ignorando solicitud duplicada');
+      toast.info('Ya estamos procesando la facturación. Por favor, espera.');
+      return { success: false, error: 'Facturación en proceso' };
+    }
+
+    facturandoRef.current = true;
     setLoading(true);
+    
     try {
       console.log('🧾 Enviando datos de facturación:', datosFacturacion);
       
       const response = await axiosAuth.post(`/ventas/facturar-pedido`, datosFacturacion);
       
       if (response.data.success) {
+        // ✅ VERIFICAR SI ES DUPLICADO (backend retorna existing: true)
+        if (response.data.existing) {
+          console.log('⚠️ Facturación duplicada detectada por backend');
+          toast.info('Este pedido ya fue facturado anteriormente');
+          facturandoRef.current = false;
+          return {
+            success: true,
+            data: response.data.data,
+            existing: true
+          };
+        }
+        
         toast.success('¡Pedido facturado exitosamente!');
+        facturandoRef.current = false;
         return {
           success: true,
           data: response.data.data
         };
       } else {
         toast.error(response.data.message || 'Error al facturar pedido');
+        facturandoRef.current = false;
         return {
           success: false,
           error: response.data.message
@@ -55,14 +81,29 @@ export function useFacturacion() {
       }
     } catch (error) {
       console.error('Error facturando pedido:', error);
+      
+      // ✅ VERIFICAR SI ES ERROR DE DUPLICADO
+      if (error.response?.status === 409 || error.response?.data?.code === 'DUPLICATE') {
+        console.log('⚠️ Facturación duplicada detectada');
+        toast.info('Este pedido ya fue facturado anteriormente');
+        facturandoRef.current = false;
+        return {
+          success: true,
+          data: error.response?.data?.data,
+          existing: true
+        };
+      }
+      
       const errorMessage = error.response?.data?.message || 'Error al facturar el pedido';
       toast.error(errorMessage);
+      facturandoRef.current = false;
       return {
         success: false,
         error: errorMessage
       };
     } finally {
       setLoading(false);
+      facturandoRef.current = false;
     }
   };
 

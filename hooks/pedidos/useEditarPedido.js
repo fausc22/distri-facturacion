@@ -183,7 +183,8 @@ export function useEditarPedido() {
       precio,
       iva: ivaCalculado,
       subtotal: parseFloat(subtotalConDescuento.toFixed(2)),
-      descuento_porcentaje: descuentoPorcentaje // ✅ Enviar descuento al backend
+      descuento_porcentaje: descuentoPorcentaje, // ✅ Enviar descuento al backend
+      producto_nombre: producto.producto_nombre || producto.nombre // ✅ Incluir nombre editado
     };
 
     try {

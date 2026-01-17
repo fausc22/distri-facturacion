@@ -1,13 +1,18 @@
 // hooks/pedidos/usePedidosHybrid.js - VERSIÓN MEJORADA con auto-actualización post-pedidos
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 import { getAppMode, offlineManager } from '../../utils/offlineManager';
 import { useOfflineCatalog } from '../useOfflineCatalog';
+import { generarHashPedido } from '../../utils/pedidoHash';
 
 export function usePedidosHybrid() {
   const [loading, setLoading] = useState(false);
   const [pedidos, setPedidos] = useState([]);
+  
+  // ✅ REF PARA PROTECCIÓN CONTRA DOBLE EJECUCIÓN
+  const registrandoRef = useRef(false);
+  const abortControllerRef = useRef(null);
 
   const appMode = getAppMode();
   const { 
@@ -89,8 +94,14 @@ export function usePedidosHybrid() {
     }
   };
 
-  // ✅ REGISTRAR PEDIDO HÍBRIDO CON AUTO-ACTUALIZACIÓN
+  // ✅ REGISTRAR PEDIDO HÍBRIDO CON AUTO-ACTUALIZACIÓN Y PROTECCIÓN CONTRA DUPLICADOS
   const registrarPedido = async (datosFormulario) => {
+    // ✅ PROTECCIÓN CONTRA DOBLE EJECUCIÓN
+    if (registrandoRef.current) {
+      console.log('⚠️ Ya hay un pedido en proceso, ignorando solicitud duplicada');
+      return { success: false, error: 'Ya hay un pedido en proceso' };
+    }
+
     const { cliente, productos, observaciones, empleado } = datosFormulario;
 
     if (!cliente || !productos || productos.length === 0) {
@@ -132,16 +143,55 @@ export function usePedidosHybrid() {
       }))
     };
 
+    // ✅ GENERAR HASH ÚNICO DEL PEDIDO PARA IDEMPOTENCIA
+    const hashPedido = generarHashPedido(pedidoData);
+    pedidoData.hash_pedido = hashPedido;
+    console.log(`🔐 Hash del pedido generado: ${hashPedido}`);
+
+    // ✅ VERIFICAR SI EL PEDIDO YA FUE PROCESADO (offline)
+    if (appMode === 'pwa') {
+      const pedidosPendientes = offlineManager.getPedidosPendientes();
+      const pedidoExistente = pedidosPendientes.find(p => p.hash_pedido === hashPedido);
+      
+      if (pedidoExistente) {
+        console.log(`⚠️ Pedido con hash ${hashPedido} ya existe en pendientes, verificando estado...`);
+        // Si ya está pendiente, no duplicar
+        toast.info('Este pedido ya está pendiente de sincronización');
+        return { 
+          success: true, 
+          offline: true, 
+          tempId: pedidoExistente.tempId,
+          message: 'Pedido ya pendiente'
+        };
+      }
+    }
+
+    registrandoRef.current = true;
     setLoading(true);
+    
+    // ✅ CREAR ABORT CONTROLLER PARA CANCELAR PETICIONES
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
 
     try {
       // ✅ MODO WEB: Directo a DB con auto-actualización
       if (appMode === 'web') {
         console.log('🌐 Web: Registrando pedido directamente');
         
-        const response = await axiosAuth.post('/pedidos/registrar-pedido', pedidoData);
+        const response = await axiosAuth.post('/pedidos/registrar-pedido', pedidoData, {
+          signal: abortControllerRef.current.signal
+        });
         
         if (response.data.success) {
+          // ✅ VERIFICAR SI ES DUPLICADO (backend retorna existing: true)
+          if (response.data.existing) {
+            console.log('⚠️ Pedido duplicado detectado por backend, retornando pedido existente');
+            toast.info('Este pedido ya fue registrado anteriormente');
+            return { success: true, pedidoId: response.data.pedidoId, existing: true };
+          }
+          
           toast.success('✅ Pedido registrado correctamente');
           
           // ✅ AUTO-ACTUALIZACIÓN SILENCIOSA DESPUÉS DEL PEDIDO
@@ -167,20 +217,45 @@ export function usePedidosHybrid() {
         
         if (!navigator.onLine) {
           console.log('📱 PWA: Sin conexión, guardando offline directamente');
-          return await guardarPedidoOffline(pedidoData);
+          const resultado = await guardarPedidoOffline(pedidoData);
+          registrandoRef.current = false;
+          return resultado;
         }
 
         try {
-          // ✅ TIMEOUT DE 8 SEGUNDOS
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Timeout de 8 segundos')), 8000)
-          );
+          // ✅ TIMEOUT DE 8 SEGUNDOS CON CANCELACIÓN DE PETICIÓN
+          let timeoutId;
+          const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+              console.log('⏱️ Timeout de 8 segundos alcanzado, cancelando petición...');
+              abortControllerRef.current.abort();
+              reject(new Error('Timeout de 8 segundos'));
+            }, 8000);
+          });
 
-          const registroPromise = axiosAuth.post('/pedidos/registrar-pedido', pedidoData);
+          const registroPromise = axiosAuth.post('/pedidos/registrar-pedido', pedidoData, {
+            signal: abortControllerRef.current.signal
+          });
           
+          // ✅ RACE ENTRE PETICIÓN Y TIMEOUT
           const response = await Promise.race([registroPromise, timeoutPromise]);
+          clearTimeout(timeoutId);
           
           if (response.data.success) {
+            // ✅ VERIFICAR SI ES DUPLICADO
+            if (response.data.existing) {
+              console.log('⚠️ Pedido duplicado detectado por backend');
+              toast.info('Este pedido ya fue registrado anteriormente');
+              // Remover de pendientes si estaba ahí
+              const pedidosPendientes = offlineManager.getPedidosPendientes();
+              const pedidoPendiente = pedidosPendientes.find(p => p.hash_pedido === hashPedido);
+              if (pedidoPendiente) {
+                offlineManager.removePedidoPendiente(pedidoPendiente.tempId);
+              }
+              registrandoRef.current = false;
+              return { success: true, pedidoId: response.data.pedidoId, existing: true };
+            }
+            
             console.log('✅ PWA: Pedido registrado online exitosamente');
             toast.success('✅ Pedido registrado correctamente');
             
@@ -192,14 +267,30 @@ export function usePedidosHybrid() {
               console.log('⚠️ No se pudo actualizar catálogo después del pedido PWA');
             }
             
+            registrandoRef.current = false;
             return { success: true, pedidoId: response.data.pedidoId };
           } else {
             throw new Error(response.data.message || 'Error del servidor');
           }
           
         } catch (error) {
+          // ✅ VERIFICAR SI FUE CANCELADO POR TIMEOUT O ERROR REAL
+          if (error.name === 'AbortError' || error.message === 'Timeout de 8 segundos') {
+            console.log(`📱 PWA: Petición cancelada por timeout, guardando offline...`);
+            // ✅ VERIFICAR SI LA PETICIÓN COMPLETÓ DESPUÉS DEL TIMEOUT
+            // Esperar un momento para ver si la petición completa
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Si llegamos aquí, la petición no completó, guardar offline
+            const resultado = await guardarPedidoOffline(pedidoData);
+            registrandoRef.current = false;
+            return resultado;
+          }
+          
           console.log(`📱 PWA: Fallo online (${error.message}), guardando offline...`);
-          return await guardarPedidoOffline(pedidoData);
+          const resultado = await guardarPedidoOffline(pedidoData);
+          registrandoRef.current = false;
+          return resultado;
         }
       }
 
@@ -207,19 +298,41 @@ export function usePedidosHybrid() {
       console.error('❌ Error inesperado registrando pedido:', error);
       
       if (appMode === 'pwa') {
-        return await guardarPedidoOffline(pedidoData);
+        const resultado = await guardarPedidoOffline(pedidoData);
+        registrandoRef.current = false;
+        return resultado;
       }
       
       toast.error('Error al registrar el pedido. Verifique su conexión.');
+      registrandoRef.current = false;
       return { success: false, error: error.message };
     } finally {
       setLoading(false);
+      registrandoRef.current = false;
     }
   };
 
-  // ✅ FUNCIÓN HELPER PARA GUARDAR OFFLINE
+  // ✅ FUNCIÓN HELPER PARA GUARDAR OFFLINE CON VERIFICACIÓN DE DUPLICADOS
   const guardarPedidoOffline = async (pedidoData) => {
     try {
+      // ✅ VERIFICAR SI YA EXISTE UN PEDIDO CON EL MISMO HASH
+      const hashPedido = pedidoData.hash_pedido;
+      if (hashPedido) {
+        const pedidosPendientes = offlineManager.getPedidosPendientes();
+        const pedidoExistente = pedidosPendientes.find(p => p.hash_pedido === hashPedido);
+        
+        if (pedidoExistente) {
+          console.log(`⚠️ Pedido con hash ${hashPedido} ya existe offline, no duplicar`);
+          toast.info('Este pedido ya está pendiente de sincronización');
+          return { 
+            success: true, 
+            offline: true, 
+            tempId: pedidoExistente.tempId,
+            message: 'Pedido ya pendiente'
+          };
+        }
+      }
+      
       const tempId = await offlineManager.savePedidoPendiente(pedidoData);
       
       if (tempId) {
@@ -229,7 +342,7 @@ export function usePedidosHybrid() {
         }
         
         toast.success('📱 Pedido guardado offline');
-        console.log(`📱 Pedido guardado offline con ID: ${tempId}, stock actualizado localmente`);
+        console.log(`📱 Pedido guardado offline con ID: ${tempId}, hash: ${hashPedido}, stock actualizado localmente`);
         return { 
           success: true, 
           offline: true, 

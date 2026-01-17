@@ -220,7 +220,8 @@ export function InformacionCliente({
   cargandoCuentas = false,
   onActualizarClientePedido,
   isPedidoAnulado = false,
-  isPedidoFacturado = false // ✅ AGREGAR PROP
+  isPedidoFacturado = false, // ✅ AGREGAR PROP
+  loadingFacturacion = false // ✅ AGREGAR PROP PARA ESTADO DE CARGA
 }) {
   const [mostrarModalEditarCliente, setMostrarModalEditarCliente] = useState(false);
   const [clienteActualizado, setClienteActualizado] = useState(null);
@@ -321,6 +322,7 @@ export function InformacionCliente({
         cuentas={cuentas}
         cargandoCuentas={cargandoCuentas}
         onConfirmarFacturacion={handleConfirmarFacturacion}
+        loading={loadingFacturacion} // ✅ Pasar estado de carga del hook
       />
 
       {/* Modal para editar/cambiar cliente */}
@@ -800,6 +802,8 @@ export function ModalEditarProductoPedido({
   const [localCantidad, setLocalCantidad] = useState(1);
   const [localPrecio, setLocalPrecio] = useState(0);
   const [localDescuento, setLocalDescuento] = useState(0);
+  const [localNombre, setLocalNombre] = useState('');
+  const [editandoNombre, setEditandoNombre] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [inicializado, setInicializado] = useState(false);
 
@@ -810,17 +814,21 @@ export function ModalEditarProductoPedido({
   useEffect(() => {
     console.log('🔄 Effect inicialización, producto:', producto?.producto_nombre);
     
-    if (producto && !inicializado) {
-      console.log('📝 Inicializando valores del modal');
-      setLocalCantidad(Math.max(0.5, parseFloat(producto.cantidad) || 0.5));
-      setLocalPrecio(Number(producto.precio) || 0);
-      setLocalDescuento(Number(producto.descuento_porcentaje) || 0);
-      setGuardando(false);
-      setInicializado(true);
-    }
-    
-    if (!producto) {
+    if (producto) {
+      // ✅ Resetear estado cuando cambia el producto
+      if (producto.id !== producto?.id || !inicializado) {
+        console.log('📝 Inicializando valores del modal');
+        setLocalCantidad(Math.max(0.5, parseFloat(producto.cantidad) || 0.5));
+        setLocalPrecio(Number(producto.precio) || 0);
+        setLocalDescuento(Number(producto.descuento_porcentaje) || 0);
+        setLocalNombre(producto.producto_nombre || '');
+        setEditandoNombre(false); // ✅ Asegurar que siempre empiece en false
+        setGuardando(false);
+        setInicializado(true);
+      }
+    } else {
       setInicializado(false);
+      setEditandoNombre(false);
     }
   }, [producto, inicializado]);
 
@@ -903,6 +911,24 @@ export function ModalEditarProductoPedido({
     setLocalDescuento(valor);
   };
 
+  const handleEditarNombre = () => {
+    if (guardando) return;
+    setEditandoNombre(true);
+  };
+
+  const handleCancelarEdicionNombre = () => {
+    setLocalNombre(producto.producto_nombre || '');
+    setEditandoNombre(false);
+  };
+
+  const handleGuardarNombre = () => {
+    if (!localNombre.trim()) {
+      toast.error('El nombre no puede estar vacío');
+      return;
+    }
+    setEditandoNombre(false);
+  };
+
   const handleGuardarClick = async (e) => {
     e?.preventDefault();
     e?.stopPropagation();
@@ -930,7 +956,8 @@ export function ModalEditarProductoPedido({
         cantidad: localCantidad,
         precio: localPrecio,
         descuento_porcentaje: localDescuento,
-        subtotal: parseFloat(subtotalFinal.toFixed(2))
+        subtotal: parseFloat(subtotalFinal.toFixed(2)),
+        producto_nombre: localNombre.trim() || producto.producto_nombre // ✅ Incluir nombre editado
       };
 
       console.log('💾 Guardando:', productoActualizado.producto_nombre);
@@ -1001,12 +1028,73 @@ export function ModalEditarProductoPedido({
 
             <div>
               <label className="block mb-1 font-medium text-sm">Nombre:</label>
-              <input 
-                type="text"
-                className="border p-2 w-full rounded bg-gray-100 text-sm"
-                value={producto.producto_nombre || ''}
-                disabled
-              />
+              <div className="flex items-center gap-2">
+                <input 
+                  type="text"
+                  className={`border p-2 flex-1 rounded text-sm ${
+                    editandoNombre 
+                      ? 'bg-white border-blue-500 focus:ring-2 focus:ring-blue-500' 
+                      : 'bg-gray-100'
+                  }`}
+                  value={localNombre}
+                  onChange={(e) => setLocalNombre(e.target.value)}
+                  onBlur={editandoNombre ? handleGuardarNombre : undefined}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && editandoNombre) {
+                      handleGuardarNombre();
+                    } else if (e.key === 'Escape' && editandoNombre) {
+                      handleCancelarEdicionNombre();
+                    }
+                  }}
+                  disabled={!editandoNombre || guardando}
+                  readOnly={!editandoNombre}
+                />
+                {!editandoNombre && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleEditarNombre();
+                    }}
+                    disabled={guardando}
+                    className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 border border-blue-300"
+                    title="Editar nombre"
+                  >
+                    <span className="text-lg" role="img" aria-label="editar">✏️</span>
+                  </button>
+                )}
+                {editandoNombre && (
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleGuardarNombre();
+                      }}
+                      disabled={guardando || !localNombre.trim()}
+                      className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 border border-green-300"
+                      title="Guardar nombre"
+                    >
+                      <span className="text-lg" role="img" aria-label="guardar">✓</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleCancelarEdicionNombre();
+                      }}
+                      disabled={guardando}
+                      className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0 border border-red-300"
+                      title="Cancelar edición"
+                    >
+                      <span className="text-lg" role="img" aria-label="cancelar">✕</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             
             <div>
@@ -1498,7 +1586,7 @@ export function TablaProductos({ productos, onEditarProducto, onEliminarProducto
 }
 
 
-export function ResumenTotales({ productos }) {
+export function ResumenTotales({ productos, pedido }) {
   const subtotalNeto = productos.reduce((acc, prod) => {
     return acc + (Number(prod.subtotal) || 0);
   }, 0);
@@ -1516,6 +1604,21 @@ export function ResumenTotales({ productos }) {
     const montoDescuento = (subtotalBase * descuento) / 100;
     return acc + montoDescuento;
   }, 0);
+  
+  // ✅ Obtener monto exento del pedido si está disponible, o calcularlo si el cliente es exento
+  const esClienteExento = pedido?.cliente_condicion?.toUpperCase() === 'EXENTO';
+  let montoExento = pedido?.exento ? Number(pedido.exento) : 0;
+  
+  // Si el cliente es exento pero no hay monto exento guardado, calcularlo
+  if (esClienteExento && montoExento === 0 && productos.length > 0) {
+    montoExento = productos.reduce((acc, prod) => {
+      const subtotal = Number(prod.subtotal) || 0;
+      // Intentar obtener el porcentaje de IVA del producto, o usar 21% por defecto
+      const porcentajeIva = Number(prod.porcentaje_iva) || 21;
+      const ivaQueDeberiaCobrarse = parseFloat((subtotal * (porcentajeIva / 100)).toFixed(2));
+      return acc + ivaQueDeberiaCobrarse;
+    }, 0);
+  }
 
   const totalFinal = subtotalNeto + ivaTotal;
 
@@ -1556,6 +1659,14 @@ export function ResumenTotales({ productos }) {
           <span className="text-gray-700 font-medium">IVA TOTAL:</span>
           <span className="font-semibold text-red-600">${ivaTotal.toFixed(2)}</span>
         </div>
+        
+        {/* ✅ Mostrar monto exento si el cliente es exento */}
+        {esClienteExento && (
+          <div className="flex justify-between items-center py-1 border-b border-gray-300 text-sm">
+            <span className="text-gray-700 font-medium italic">MONTO EXENTO (IVA no cobrado):</span>
+            <span className="font-semibold text-orange-600">${montoExento.toFixed(2)}</span>
+          </div>
+        )}
         
         <div className="flex justify-between items-center py-2 bg-yellow-300 rounded-lg px-3 border-2 border-yellow-400">
           <span className="text-black font-bold">TOTAL FINAL:</span>
@@ -1600,7 +1711,7 @@ export function ModalDetallePedido({
   const [productosExpandidos, setProductosExpandidos] = useState(false);
   
   const { user } = useAuth();
-  const { facturarPedido } = useFacturacion(); // ✅ USAR HOOK DE FACTURACIÓN
+  const { facturarPedido, loading: loadingFacturacion } = useFacturacion(); // ✅ USAR HOOK DE FACTURACIÓN CON LOADING
 
   const formatearFecha = (fecha) => {
     if (!fecha) return 'Fecha no disponible';
@@ -1628,29 +1739,40 @@ export function ModalDetallePedido({
     setMostrarModalFacturacion(true);
   };
 
-  // ✅ FUNCIÓN PARA CONFIRMAR FACTURACIÓN
+  // ✅ FUNCIÓN PARA CONFIRMAR FACTURACIÓN - CON MANEJO DE IDEMPOTENCIA
   const handleConfirmarFacturacion = async (datosFacturacion) => {
-  try {
-    // ✅ AGREGAR pedidoId al objeto antes de enviar
-    const datosCompletos = {
-      ...datosFacturacion,
-      pedidoId: pedido.id  // ✅ Usar pedido en lugar de selectedPedido
-    };
-    
-    const resultado = await facturarPedido(datosCompletos); // ✅ Enviar objeto completo
-    
-    if (resultado.success) {
-      await onCambiarEstado('Facturado');
-      setMostrarModalFacturacion(false);
-      toast.success(`Pedido #${pedido.id} facturado exitosamente!`);
-    } else {
-      toast.error(resultado.error || 'Error al facturar pedido');
+    try {
+      // ✅ AGREGAR pedidoId al objeto antes de enviar
+      const datosCompletos = {
+        ...datosFacturacion,
+        pedidoId: pedido.id  // ✅ Usar pedido en lugar de selectedPedido
+      };
+      
+      const resultado = await facturarPedido(datosCompletos); // ✅ Enviar objeto completo
+      
+      if (resultado.success) {
+        // ✅ MANEJAR RESPUESTA IDEMPOTENTE (existing: true)
+        if (resultado.existing) {
+          console.log('ℹ️ Pedido ya estaba facturado, actualizando UI');
+          toast.info(`El pedido #${pedido.id} ya estaba facturado anteriormente`, {
+            duration: 4000,
+            icon: 'ℹ️'
+          });
+        } else {
+          toast.success(`Pedido #${pedido.id} facturado exitosamente!`);
+        }
+        
+        // ✅ Actualizar estado y cerrar modal en ambos casos (éxito o duplicado)
+        await onCambiarEstado('Facturado');
+        setMostrarModalFacturacion(false);
+      } else {
+        toast.error(resultado.error || 'Error al facturar pedido');
+      }
+    } catch (error) {
+      console.error('Error facturando:', error);
+      toast.error('Error al procesar facturación');
     }
-  } catch (error) {
-    console.error('Error facturando:', error);
-    toast.error('Error al procesar facturación');
-  }
-};
+  };
 
   const handleAbrirModalAgregar = () => {
     if (onAgregarProducto) {
@@ -1703,6 +1825,7 @@ export function ModalDetallePedido({
               onActualizarClientePedido={onActualizarClientePedido} // ✅ PASAR HANDLER
               isPedidoAnulado={isPedidoAnulado}     // ✅ PASAR ESTADO ANULADO
               isPedidoFacturado={isPedidoFacturado} // ✅ PASAR ESTADO FACTURADO
+              loadingFacturacion={loadingFacturacion} // ✅ PASAR ESTADO DE CARGA DE FACTURACIÓN
             />
 
             <InformacionAdicional 
@@ -1755,7 +1878,7 @@ export function ModalDetallePedido({
                     canEdit={canEdit}
                   />
                 </div>
-                {productosExpandidos && <ResumenTotales productos={productos} />}
+                {productosExpandidos && <ResumenTotales productos={productos} pedido={pedido} />}
               </div>
 
               <div className="hidden lg:block">
@@ -1766,7 +1889,7 @@ export function ModalDetallePedido({
                   loading={loading}
                   canEdit={canEdit}
                 />
-                <ResumenTotales productos={productos} />
+                <ResumenTotales productos={productos} pedido={pedido} />
               </div>
             </div>
 

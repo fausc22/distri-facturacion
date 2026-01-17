@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 
 
 // Función helper para formatear fechas
@@ -348,43 +348,47 @@ export default function TablaPedidos({
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
 
-  const handleSort = (field) => {
+  // ✅ FASE 2: Memoizar callback de ordenamiento
+  const handleSort = useCallback((field) => {
     if (sortField === field) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
     } else {
       setSortField(field);
       setSortDirection('asc');
     }
-  };
+  }, [sortField, sortDirection]);
 
-  const sortedPedidos = [...pedidos].sort((a, b) => {
-    if (!sortField) return 0;
+  // ✅ FASE 2: Memoizar ordenamiento para evitar re-cálculos innecesarios
+  const sortedPedidos = useMemo(() => {
+    if (!sortField) return pedidos;
     
-    let aValue = a[sortField];
-    let bValue = b[sortField];
-    
-    // Manejar campos numéricos
-    if (sortField === 'id' || sortField === 'total') {
-      aValue = Number(aValue) || 0;
-      bValue = Number(bValue) || 0;
-    }
-    
-    // Manejar fechas
-    if (sortField === 'fecha') {
-      aValue = new Date(aValue);
-      bValue = new Date(bValue);
-    }
-    
-    // Manejar texto
-    if (typeof aValue === 'string') {
-      aValue = aValue.toLowerCase();
-      bValue = bValue.toLowerCase();
-    }
-    
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
+    return [...pedidos].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+      
+      // Manejar campos numéricos
+      if (sortField === 'id' || sortField === 'total') {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+      }
+      
+      // Manejar fechas
+      if (sortField === 'fecha') {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      }
+      
+      // Manejar texto
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [pedidos, sortField, sortDirection]);
 
   if (loading) {
     return (

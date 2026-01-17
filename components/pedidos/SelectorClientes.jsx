@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MdSearch, MdDeleteForever, MdKeyboardArrowDown, MdKeyboardArrowUp, MdPersonAdd} from "react-icons/md";
-import { usePedidosContext } from '../../context/PedidosContext';
+import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
 import { useClienteSearch } from '../../hooks/useBusquedaClientes';
 import ModalCrearClienteRapido from './ModalCrearClienteRapido';
 
@@ -72,7 +72,8 @@ function DetallesClienteListaPrecios({ cliente }) {
 }
 
 export default function ClienteSelectorListaPrecios() {
-  const { cliente, setCliente, clearCliente } = usePedidosContext();
+  // ✅ Usar hook compartido que detecta automáticamente el contexto
+  const { cliente, setCliente, clearCliente } = useContextoCompartido();
   const {
     busqueda,
     setBusqueda,

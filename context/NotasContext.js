@@ -1,10 +1,10 @@
-// context/PedidosContext.js
+// context/NotasContext.js
 import { createContext, useContext, useReducer } from 'react';
 
-export const PedidosContext = createContext();
+export const NotasContext = createContext();
 
-// Reducer para manejar el estado de pedidos
-function pedidosReducer(state, action) {
+// Reducer para manejar el estado de notas
+function notasReducer(state, action) {
   switch (action.type) {
     case 'SET_CLIENTE':
       // ✅ VERIFICAR SI EL NUEVO CLIENTE ES EXENTO
@@ -31,100 +31,76 @@ function pedidosReducer(state, action) {
     case 'CLEAR_CLIENTE':
       return { ...state, cliente: null };
     
+    case 'SET_VENTA_REFERENCIA':
+      return { ...state, ventaReferencia: action.payload };
+    
+    case 'CLEAR_VENTA_REFERENCIA':
+      return { ...state, ventaReferencia: null };
+    
     case 'ADD_PRODUCTO':
-  const cantidadNueva = parseFloat(action.payload.cantidad) || 0.5;
+      const cantidadNueva = parseFloat(action.payload.cantidad) || 1;
 
       // ✅ VERIFICAR SI EL CLIENTE ES EXENTO DE IVA
       const esClienteExento = state.cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
 
-      // ✅ VERIFICAR SI EL PRODUCTO YA EXISTE
-      const productoExistenteIndex = state.productos.findIndex(p => p.id === action.payload.id);
+      // ✅ VERIFICAR SI EL PRODUCTO YA EXISTE (solo para productos no manuales)
+      if (!action.payload.esManual) {
+        const productoExistenteIndex = state.productos.findIndex(
+          p => !p.esManual && p.id === action.payload.id
+        );
 
-      if (productoExistenteIndex !== -1) {
-        // Si existe, actualizar la cantidad
-        const productosActualizados = [...state.productos];
-        const productoExistente = productosActualizados[productoExistenteIndex];
-        const nuevaCantidadTotal = parseFloat(productoExistente.cantidad) + cantidadNueva;
+        if (productoExistenteIndex !== -1) {
+          // Si existe, actualizar la cantidad
+          const productosActualizados = [...state.productos];
+          const productoExistente = productosActualizados[productoExistenteIndex];
+          const nuevaCantidadTotal = parseFloat(productoExistente.cantidad) + cantidadNueva;
 
-        // ✅ RECALCULAR SUBTOTAL CONSIDERANDO DESCUENTO
-        const descuentoPorcentaje = productoExistente.descuento_porcentaje || 0;
-        const subtotalBase = productoExistente.precio * nuevaCantidadTotal;
-        const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
-        const nuevoSubtotal = parseFloat((subtotalBase - montoDescuento).toFixed(2));
-        
-        // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
-        const nuevoIvaCalculado = esClienteExento
-          ? 0
-          : parseFloat((nuevoSubtotal * (productoExistente.porcentaje_iva / 100)).toFixed(2));
+          const descuentoPorcentaje = productoExistente.descuento_porcentaje || 0;
+          const subtotalBase = productoExistente.precio * nuevaCantidadTotal;
+          const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
+          const nuevoSubtotal = parseFloat((subtotalBase - montoDescuento).toFixed(2));
+          
+          const nuevoIvaCalculado = esClienteExento
+            ? 0
+            : parseFloat((nuevoSubtotal * (productoExistente.porcentaje_iva / 100)).toFixed(2));
 
-        productosActualizados[productoExistenteIndex] = {
-          ...productoExistente,
-          cantidad: nuevaCantidadTotal,
-          subtotal: nuevoSubtotal,
-          iva_calculado: nuevoIvaCalculado
-          // descuento_porcentaje se mantiene
-        };
+          productosActualizados[productoExistenteIndex] = {
+            ...productoExistente,
+            cantidad: nuevaCantidadTotal,
+            subtotal: nuevoSubtotal,
+            iva_calculado: nuevoIvaCalculado
+          };
 
-        return {
-          ...state,
-          productos: productosActualizados
-        };
-      } else {
-        // Si no existe, agregarlo como antes
-        const subtotalSinIva = parseFloat((cantidadNueva * action.payload.precio).toFixed(2));
-        const porcentajeIva = action.payload.iva || 21;
-        // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
-        const ivaCalculado = esClienteExento
-          ? 0
-          : parseFloat((subtotalSinIva * (porcentajeIva / 100)).toFixed(2));
-
-        const nuevoProducto = {
-          id: action.payload.id,
-          nombre: action.payload.nombre,
-          unidad_medida: action.payload.unidad_medida || 'Unidad',
-          cantidad: cantidadNueva,
-          precio: parseFloat(action.payload.precio),
-          porcentaje_iva: porcentajeIva,
-          iva_calculado: ivaCalculado,
-          subtotal: subtotalSinIva,
-          descuento_porcentaje: parseFloat(action.payload.descuento_porcentaje || 0) // ✅ INICIALIZAR DESCUENTO
-        };
-
-        return {
-          ...state,
-          productos: [...state.productos, nuevoProducto]
-        };
+          return {
+            ...state,
+            productos: productosActualizados
+          };
+        }
       }
-    
-    // ✅ NUEVA ACCIÓN PARA MÚLTIPLES PRODUCTOS
-    case 'ADD_MULTIPLE_PRODUCTOS':
-      // ✅ VERIFICAR SI EL CLIENTE ES EXENTO DE IVA
-      const esClienteExentoMultiple = state.cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
 
-      const nuevosProductos = action.payload.map(producto => {
-        const subtotalSinIva = parseFloat((producto.cantidad * producto.precio).toFixed(2));
-        const porcentajeIva = producto.iva || producto.porcentaje_iva || 21;
-        // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
-        const ivaCalculado = esClienteExentoMultiple
-          ? 0
-          : parseFloat((subtotalSinIva * (porcentajeIva / 100)).toFixed(2));
+      // Si no existe o es manual, agregarlo
+      const subtotalSinIva = parseFloat((cantidadNueva * action.payload.precio).toFixed(2));
+      const porcentajeIva = action.payload.porcentaje_iva || action.payload.iva || 21;
+      const ivaCalculado = esClienteExento
+        ? 0
+        : parseFloat((subtotalSinIva * (porcentajeIva / 100)).toFixed(2));
 
-        return {
-          id: producto.id,
-          nombre: producto.nombre,
-          unidad_medida: producto.unidad_medida || 'Unidad',
-          cantidad: producto.cantidad,
-          precio: parseFloat(producto.precio),
-          porcentaje_iva: porcentajeIva,
-          iva_calculado: ivaCalculado,
-          subtotal: subtotalSinIva,
-          descuento_porcentaje: producto.descuento_porcentaje || 0 // ✅ INICIALIZAR DESCUENTO
-        };
-      });
+      const nuevoProducto = {
+        id: action.payload.esManual ? null : action.payload.id,
+        nombre: action.payload.nombre,
+        unidad_medida: action.payload.unidad_medida || 'Unidad',
+        cantidad: cantidadNueva,
+        precio: parseFloat(action.payload.precio),
+        porcentaje_iva: porcentajeIva,
+        iva_calculado: ivaCalculado,
+        subtotal: subtotalSinIva,
+        descuento_porcentaje: parseFloat(action.payload.descuento_porcentaje || 0),
+        esManual: action.payload.esManual || false
+      };
 
       return {
         ...state,
-        productos: [...state.productos, ...nuevosProductos]
+        productos: [...state.productos, nuevoProducto]
       };
     
     case 'REMOVE_PRODUCTO':
@@ -134,32 +110,25 @@ function pedidosReducer(state, action) {
       };
     
     case 'UPDATE_CANTIDAD':
-      // ✅ VERIFICAR SI EL CLIENTE ES EXENTO DE IVA
       const esClienteExentoCantidad = state.cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
-
       const productosActualizados = [...state.productos];
       const producto = productosActualizados[action.payload.index];
-
-      // ✅ ASEGURAR QUE CANTIDAD SEA PARSEADA COMO FLOAT
       const nuevaCantidad = parseFloat(action.payload.cantidad);
 
-      // ✅ RECALCULAR SUBTOTAL CONSIDERANDO DESCUENTO
       const descuentoPorcentaje = producto.descuento_porcentaje || 0;
       const subtotalBase = producto.precio * nuevaCantidad;
       const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
       const nuevoSubtotal = parseFloat((subtotalBase - montoDescuento).toFixed(2));
       
-      // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
       const nuevoIvaCalculado = esClienteExentoCantidad
         ? 0
         : parseFloat((nuevoSubtotal * (producto.porcentaje_iva / 100)).toFixed(2));
 
       productosActualizados[action.payload.index] = {
         ...producto,
-        cantidad: nuevaCantidad, // ✅ USAR LA CANTIDAD PARSEADA
+        cantidad: nuevaCantidad,
         subtotal: nuevoSubtotal,
         iva_calculado: nuevoIvaCalculado
-        // descuento_porcentaje se mantiene del producto original
       };
 
       return {
@@ -168,7 +137,6 @@ function pedidosReducer(state, action) {
       };
 
     case 'UPDATE_PRODUCTO':
-      // ✅ ACTUALIZAR PRODUCTO COMPLETO (con descuentos, precio, cantidad, etc.)
       const productosActualizadosCompleto = [...state.productos];
       productosActualizadosCompleto[action.payload.index] = {
         ...productosActualizadosCompleto[action.payload.index],
@@ -181,19 +149,15 @@ function pedidosReducer(state, action) {
       };
 
     case 'UPDATE_DESCUENTO':
-      // ✅ ACTUALIZAR SOLO EL DESCUENTO Y RECALCULAR
       const esClienteExentoDescuento = state.cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
       const productosConDescuento = [...state.productos];
       const productoDesc = productosConDescuento[action.payload.index];
 
       const nuevoDescuento = Math.max(0, Math.min(100, parseFloat(action.payload.descuento) || 0));
-
-      // Recalcular subtotal con el nuevo descuento
       const subtotalBaseDesc = productoDesc.precio * productoDesc.cantidad;
       const montoDescuentoNuevo = (subtotalBaseDesc * nuevoDescuento) / 100;
       const subtotalConDescuento = parseFloat((subtotalBaseDesc - montoDescuentoNuevo).toFixed(2));
 
-      // Recalcular IVA
       const ivaCalculadoDesc = esClienteExentoDescuento
         ? 0
         : parseFloat((subtotalConDescuento * (productoDesc.porcentaje_iva / 100)).toFixed(2));
@@ -213,9 +177,10 @@ function pedidosReducer(state, action) {
     case 'SET_OBSERVACIONES':
       return { ...state, observaciones: action.payload };
     
-    case 'CLEAR_PEDIDO':
+    case 'CLEAR_NOTA':
       return {
         cliente: null,
+        ventaReferencia: null,
         productos: [],
         observaciones: ''
       };
@@ -227,17 +192,18 @@ function pedidosReducer(state, action) {
 
 const initialState = {
   cliente: null,
+  ventaReferencia: null,
   productos: [],
   observaciones: ''
 };
 
-export function PedidosProvider({ children }) {
-  const [state, dispatch] = useReducer(pedidosReducer, initialState);
+export function NotasProvider({ children }) {
+  const [state, dispatch] = useReducer(notasReducer, initialState);
 
   // Calcular totales dinámicamente
-  const subtotal = state.productos.reduce((acc, prod) => acc + prod.subtotal, 0); // Suma subtotales SIN IVA
-  const totalIva = state.productos.reduce((acc, prod) => acc + prod.iva_calculado, 0); // Suma IVAs calculados
-  const total = subtotal + totalIva; // Total con IVA incluido
+  const subtotal = state.productos.reduce((acc, prod) => acc + prod.subtotal, 0);
+  const totalIva = state.productos.reduce((acc, prod) => acc + prod.iva_calculado, 0);
+  const total = subtotal + totalIva;
   const totalProductos = state.productos.reduce((acc, prod) => acc + prod.cantidad, 0);
 
   const actions = {
@@ -245,25 +211,22 @@ export function PedidosProvider({ children }) {
     setCliente: (cliente) => dispatch({ type: 'SET_CLIENTE', payload: cliente }),
     clearCliente: () => dispatch({ type: 'CLEAR_CLIENTE' }),
     
+    // Acciones de venta referencia
+    setVentaReferencia: (venta) => dispatch({ type: 'SET_VENTA_REFERENCIA', payload: venta }),
+    clearVentaReferencia: () => dispatch({ type: 'CLEAR_VENTA_REFERENCIA' }),
+    
     // Acciones de productos
     addProducto: (producto, cantidad) => {
       const productoConCantidad = {
         ...producto,
-        cantidad: parseFloat(cantidad) || 0.5 // ✅ CAMBIAR DEFAULT A 0.5
-        // El porcentaje de IVA ya viene en producto.iva desde la DB
+        cantidad: parseFloat(cantidad) || 1
       };
       dispatch({ type: 'ADD_PRODUCTO', payload: productoConCantidad });
-    },
-    
-    // ✅ NUEVA FUNCIÓN PARA MÚLTIPLES PRODUCTOS
-    addMultipleProductos: (productos) => {
-      dispatch({ type: 'ADD_MULTIPLE_PRODUCTOS', payload: productos });
     },
     
     removeProducto: (index) => dispatch({ type: 'REMOVE_PRODUCTO', payload: index }),
     
     updateCantidad: (index, cantidad) => {
-      // ✅ CAMBIAR PARA PERMITIR 0.5 COMO MÍNIMO
       const cantidadValida = Math.max(0.5, parseFloat(cantidad));
       dispatch({ type: 'UPDATE_CANTIDAD', payload: { index, cantidad: cantidadValida } });
     },
@@ -280,11 +243,12 @@ export function PedidosProvider({ children }) {
     setObservaciones: (observaciones) => dispatch({ type: 'SET_OBSERVACIONES', payload: observaciones }),
     
     // Limpiar todo
-    clearPedido: () => dispatch({ type: 'CLEAR_PEDIDO' }),
+    clearNota: () => dispatch({ type: 'CLEAR_NOTA' }),
     
     // Obtener datos para envío
-    getDatosPedido: () => ({
+    getDatosNota: () => ({
       cliente: state.cliente,
+      ventaReferencia: state.ventaReferencia,
       productos: state.productos,
       observaciones: state.observaciones,
       subtotal,
@@ -295,7 +259,7 @@ export function PedidosProvider({ children }) {
   };
 
   return (
-    <PedidosContext.Provider value={{ 
+    <NotasContext.Provider value={{ 
       ...state, 
       subtotal,
       totalIva,
@@ -304,14 +268,15 @@ export function PedidosProvider({ children }) {
       ...actions 
     }}>
       {children}
-    </PedidosContext.Provider>
+    </NotasContext.Provider>
   );
 }
 
-export function usePedidosContext() {
-  const context = useContext(PedidosContext);
+export function useNotasContext() {
+  const context = useContext(NotasContext);
   if (!context) {
-    throw new Error('usePedidosContext debe ser usado dentro de PedidosProvider');
+    throw new Error('useNotasContext debe ser usado dentro de NotasProvider');
   }
   return context;
 }
+

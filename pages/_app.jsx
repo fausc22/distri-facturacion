@@ -4,6 +4,8 @@ import { useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
 import { Toaster } from 'react-hot-toast'; 
 import { useRouter } from 'next/router'
+import { QueryClientProvider } from '@tanstack/react-query';
+import { queryClient } from '../utils/queryClient';
 import { AuthProvider } from '../components/AuthProvider';
 import DefaultLayout from '../components/DefaultLayout';
 import AppInitializer from '../components/AppInitializer';
@@ -157,8 +159,10 @@ function MyApp({ Component, pageProps }) {
 
   return (
     <AnimatePresence>
-      {/* ✅ AuthProvider AHORA ENVUELVE TODO - Públicas y privadas */}
-      <AuthProvider>
+      {/* ✅ FASE 2: React Query Provider (solo memoria, PWA-safe) */}
+      <QueryClientProvider client={queryClient}>
+        {/* ✅ AuthProvider AHORA ENVUELVE TODO - Públicas y privadas */}
+        <AuthProvider>
         {isPublicRoute ? (
           // ✅ PÁGINAS PÚBLICAS - Solo PublicLayout + Toaster básico
           <PublicLayout>
@@ -243,7 +247,8 @@ function MyApp({ Component, pageProps }) {
             </OfflineGuard>
           </AppInitializer>
         )}
-      </AuthProvider>
+        </AuthProvider>
+      </QueryClientProvider>
     </AnimatePresence>
   );
 }

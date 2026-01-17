@@ -275,7 +275,19 @@ export function useSolicitarCAE() {
         return { success: true, data: response.data.data };
       } else {
         console.warn('⚠️ Servicio ARCA con problemas');
-        toast.warning('El servicio de facturación tiene problemas');
+        // ✅ Corregido: toast.warning no existe, usar toast() con estilo de warning
+        toast('El servicio de facturación tiene problemas', {
+          duration: 3000,
+          icon: '⚠️',
+          style: {
+            background: '#f59e0b',
+            color: '#fff',
+          },
+          iconTheme: {
+            primary: '#fff',
+            secondary: '#f59e0b',
+          },
+        });
         return { success: false };
       }
     } catch (err) {

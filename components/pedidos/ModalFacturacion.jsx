@@ -167,13 +167,14 @@ export function ModalDescuentos({
   );
 }
 
-// ✅ MODAL DE FACTURACIÓN - CON VALIDACIÓN DE CONDICIÓN IVA
+// ✅ MODAL DE FACTURACIÓN - CON VALIDACIÓN DE CONDICIÓN IVA Y PROTECCIÓN CONTRA DOBLE CLIC
 export function ModalFacturacion({ 
   mostrar, 
   onClose, 
   pedido,
   productos,
-  onConfirmarFacturacion
+  onConfirmarFacturacion,
+  loading = false // ✅ Prop para estado de carga desde el hook
 }) {
   const [tipoFiscal, setTipoFiscal] = useState('A');
   const [subtotalSinIva, setSubtotalSinIva] = useState(0);
@@ -181,6 +182,7 @@ export function ModalFacturacion({
   const [totalConIva, setTotalConIva] = useState(0);
   const [mostrarModalDescuentos, setMostrarModalDescuentos] = useState(false);
   const [descuentoAplicado, setDescuentoAplicado] = useState(null);
+  const [procesando, setProcesando] = useState(false); // ✅ Estado local para bloqueo inmediato
 
   // ✅ FUNCIÓN: Determinar tipo fiscal según condición IVA
   const determinarTipoFiscal = (condicionIva) => {
@@ -240,22 +242,40 @@ export function ModalFacturacion({
   };
 
   const handleConfirmar = async () => {
-    const cuentaId = tipoFiscal === 'X' ? 2 : 1;
+    // ✅ BLOQUEO INMEDIATO DEL BOTÓN (antes de cualquier async)
+    if (procesando || loading) {
+      console.log('⚠️ Facturación ya en proceso, ignorando click');
+      return;
+    }
 
-    const totalOriginal = subtotalSinIva + ivaTotal;
-    const descuentoMonto = descuentoAplicado?.descuentoCalculado || 0;
-    const totalFinal = totalOriginal - descuentoMonto;
+    setProcesando(true); // ✅ Deshabilitar inmediatamente
 
-    const datosFacturacion = {
-      cuentaId: cuentaId,
-      tipoFiscal,
-      subtotalSinIva,
-      ivaTotal,
-      totalConIva: totalFinal,
-      descuentoAplicado
-    };
+    try {
+      const cuentaId = tipoFiscal === 'X' ? 2 : 1;
 
-    await onConfirmarFacturacion(datosFacturacion);
+      const totalOriginal = subtotalSinIva + ivaTotal;
+      const descuentoMonto = descuentoAplicado?.descuentoCalculado || 0;
+      const totalFinal = totalOriginal - descuentoMonto;
+
+      const datosFacturacion = {
+        cuentaId: cuentaId,
+        tipoFiscal,
+        subtotalSinIva,
+        ivaTotal,
+        totalConIva: totalFinal,
+        descuentoAplicado
+      };
+
+      await onConfirmarFacturacion(datosFacturacion);
+    } catch (error) {
+      console.error('Error en handleConfirmar:', error);
+    } finally {
+      // ✅ Solo resetear si no hay loading del hook (el hook maneja su propio estado)
+      // El reset final lo hace el componente padre cuando cierra el modal
+      if (!loading) {
+        setProcesando(false);
+      }
+    }
   };
 
   const limpiarFormulario = () => {
@@ -264,12 +284,24 @@ export function ModalFacturacion({
     setIvaTotal(0);
     setTotalConIva(0);
     setDescuentoAplicado(null);
+    setProcesando(false); // ✅ Resetear estado de procesamiento
   };
 
   const handleClose = () => {
     limpiarFormulario();
     onClose();
   };
+
+  // ✅ Resetear estado de procesamiento cuando el modal se cierra o loading cambia
+  useEffect(() => {
+    if (!mostrar) {
+      setProcesando(false);
+    }
+    if (!loading && procesando) {
+      // Si el loading del hook terminó pero procesando sigue activo, resetearlo
+      setProcesando(false);
+    }
+  }, [mostrar, loading, procesando]);
 
   if (!mostrar) return null;
 
@@ -423,13 +455,33 @@ export function ModalFacturacion({
             <div className="flex flex-col sm:flex-row gap-4">
               <button
                 onClick={handleConfirmar}
-                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2"
+                disabled={procesando || loading}
+                className={`${
+                  procesando || loading
+                    ? 'bg-gray-400 cursor-not-allowed'
+                    : 'bg-green-600 hover:bg-green-700'
+                } text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2 flex items-center justify-center`}
               >
-                CONFIRMAR FACTURACIÓN
+                {procesando || loading ? (
+                  <div className="flex items-center justify-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Facturando...
+                  </div>
+                ) : (
+                  'CONFIRMAR FACTURACIÓN'
+                )}
               </button>
               <button
                 onClick={handleClose}
-                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2"
+                disabled={procesando || loading}
+                className={`${
+                  procesando || loading
+                    ? 'bg-gray-400 cursor-not-allowed opacity-50'
+                    : 'bg-gray-600 hover:bg-gray-700'
+                } text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2`}
               >
                 CANCELAR
               </button>

@@ -114,6 +114,7 @@ class ConnectionManager {
   }
 
   // ✅ VERIFICACIÓN BAJO DEMANDA - ÚNICA FORMA DE VERIFICAR CONEXIÓN
+  // ✅ FIX: Usa /ping en lugar de /health para evitar falsos OFFLINE cuando DB está caída
   async checkConnectionOnDemand() {
     console.log('🔍 Verificación de conexión BAJO DEMANDA...');
     
@@ -121,7 +122,8 @@ class ConnectionManager {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/health`, {
+      // ✅ Usar /ping (liviano) en lugar de /health (puede fallar si DB está caída)
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ping`, {
         method: 'GET',
         signal: controller.signal,
         cache: 'no-cache'
@@ -129,13 +131,19 @@ class ConnectionManager {
       
       clearTimeout(timeoutId);
       
-      const isOnline = response.ok;
+      // ✅ Cualquier respuesta HTTP (incluso 500) significa que hay conectividad
+      // Solo fetch fallido o timeout significa OFFLINE
+      const isOnline = response.status >= 200 && response.status < 600;
       
       // ✅ ACTUALIZAR ESTADO INTERNO SIN NOTIFICACIONES
       const wasOnline = this.isOnline;
       this.isOnline = isOnline;
       
-      console.log(`✅ Verificación bajo demanda resultado: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+      if (response.status >= 500) {
+        console.warn(`⚠️ Backend responde pero con error ${response.status} - Considerado ONLINE (conectividad disponible)`);
+      } else {
+        console.log(`✅ Verificación bajo demanda resultado: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+      }
       
       // ✅ NO DISPARAR EVENTOS AUTOMÁTICOS NUNCA
       // El componente que llama esta función maneja el resultado
@@ -143,7 +151,8 @@ class ConnectionManager {
       return isOnline;
       
     } catch (error) {
-      console.log('❌ Verificación bajo demanda falló:', error.message);
+      // ✅ Solo errores de red (fetch fallido, timeout) se consideran OFFLINE
+      console.log('❌ Verificación bajo demanda falló (sin conectividad):', error.message);
       this.isOnline = false;
       return false;
     }

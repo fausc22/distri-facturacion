@@ -14,6 +14,8 @@ export function ModalEditarProductoVentaDirecta({
   const [localCantidad, setLocalCantidad] = useState(0.5);
   const [localPrecio, setLocalPrecio] = useState(0);
   const [localDescuento, setLocalDescuento] = useState(0);
+  const [localNombre, setLocalNombre] = useState('');
+  const [editandoNombre, setEditandoNombre] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [inicializado, setInicializado] = useState(false);
 
@@ -25,6 +27,8 @@ export function ModalEditarProductoVentaDirecta({
       setLocalCantidad(Math.max(0.5, parseFloat(producto.cantidad) || 0.5));
       setLocalPrecio(Number(producto.precio) || 0);
       setLocalDescuento(Number(producto.descuento_porcentaje) || 0);
+      setLocalNombre(producto.nombre || '');
+      setEditandoNombre(false);
       setGuardando(false);
       setInicializado(true);
     }
@@ -111,6 +115,24 @@ export function ModalEditarProductoVentaDirecta({
     setLocalDescuento(valor);
   };
 
+  const handleEditarNombre = () => {
+    if (guardando) return;
+    setEditandoNombre(true);
+  };
+
+  const handleCancelarEdicionNombre = () => {
+    setLocalNombre(producto.nombre || '');
+    setEditandoNombre(false);
+  };
+
+  const handleGuardarNombre = () => {
+    if (!localNombre.trim()) {
+      toast.error('El nombre no puede estar vacío');
+      return;
+    }
+    setEditandoNombre(false);
+  };
+
   const handleGuardarClick = async (e) => {
     e?.preventDefault();
     e?.stopPropagation();
@@ -127,6 +149,7 @@ export function ModalEditarProductoVentaDirecta({
     try {
       const productoActualizado = {
         ...producto,
+        nombre: localNombre.trim() || producto.nombre, // ✅ Incluir nombre editado
         cantidad: localCantidad,
         precio: localPrecio,
         descuento_porcentaje: localDescuento,
@@ -195,12 +218,59 @@ export function ModalEditarProductoVentaDirecta({
 
             <div>
               <label className="block mb-1 font-medium text-sm">Nombre:</label>
-              <input
-                type="text"
-                className="border p-2 w-full rounded bg-gray-100 text-sm"
-                value={producto.nombre || ''}
-                disabled
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  className={`border p-2 flex-1 rounded text-sm ${
+                    editandoNombre 
+                      ? 'bg-white border-blue-500 focus:ring-2 focus:ring-blue-500' 
+                      : 'bg-gray-100'
+                  }`}
+                  value={localNombre}
+                  onChange={(e) => setLocalNombre(e.target.value)}
+                  onBlur={editandoNombre ? handleGuardarNombre : undefined}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && editandoNombre) {
+                      handleGuardarNombre();
+                    } else if (e.key === 'Escape' && editandoNombre) {
+                      handleCancelarEdicionNombre();
+                    }
+                  }}
+                  disabled={!editandoNombre || guardando}
+                />
+                {!editandoNombre ? (
+                  <button
+                    type="button"
+                    onClick={handleEditarNombre}
+                    disabled={guardando}
+                    className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Editar nombre"
+                  >
+                    ✏️
+                  </button>
+                ) : (
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      onClick={handleGuardarNombre}
+                      disabled={guardando || !localNombre.trim()}
+                      className="p-2 text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Guardar nombre"
+                    >
+                      ✓
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCancelarEdicionNombre}
+                      disabled={guardando}
+                      className="p-2 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Cancelar edición"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <div>

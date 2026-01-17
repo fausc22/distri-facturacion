@@ -2,12 +2,11 @@ import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import useAuth from '../../hooks/useAuth';
-import { useGenerarListados } from '../../hooks/listados/useGenerarListados';
-import { ModalPDFUniversal } from '../../components/shared/ModalPDFUniversal';
 import { ControlStockProvider } from '../../context/ControlStockContext';
 import LibroIvaVentas from '../../components/listados/LibroIvaVentas';
 import ListaPrecios from '../../components/listados/ListaPrecios';
 import ControlStock from '../../components/listados/ControlStock';
+import ListadoVendedores from '../../components/listados/ListadoVendedores';
 
 // Configuración de pestañas
 const TABS = [
@@ -35,6 +34,15 @@ const TABS = [
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+      </svg>
+    )
+  },
+  {
+    id: 'listado-vendedores',
+    name: 'Listado Vendedores',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
       </svg>
     )
   }
@@ -115,6 +123,7 @@ function ListadosContent() {
           {tabActiva === 'libro-iva' && <LibroIvaVentas />}
           {tabActiva === 'lista-precios' && <ListaPrecios />}
           {tabActiva === 'control-stock' && <ControlStock />}
+          {tabActiva === 'listado-vendedores' && <ListadoVendedores />}
         </div>
 
         {/* Botón Volver */}
@@ -134,33 +143,9 @@ function ListadosContent() {
 export default function Listados() {
   useAuth();
 
-  const {
-    pdfURL,
-    mostrarModalPDF,
-    nombreArchivo,
-    tituloModal,
-    subtituloModal,
-    descargarPDF,
-    compartirPDF,
-    cerrarModalPDF
-  } = useGenerarListados();
-
   return (
     <ControlStockProvider>
       <ListadosContent />
-      
-      {/* Modal PDF Unificado - Compartido entre todos los listados */}
-      <ModalPDFUniversal
-        mostrar={mostrarModalPDF}
-        pdfURL={pdfURL}
-        nombreArchivo={nombreArchivo}
-        titulo={tituloModal}
-        subtitulo={subtituloModal}
-        onDescargar={descargarPDF}
-        onCompartir={compartirPDF}
-        onCerrar={cerrarModalPDF}
-        zIndex={70}
-      />
     </ControlStockProvider>
   );
 }
