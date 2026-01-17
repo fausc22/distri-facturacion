@@ -194,53 +194,26 @@ function RegistrarPedidoContent() {
     }
   }, [isPWA]);
 
-  // ✅ MANEJO DE EVENTOS DE CONECTIVIDAD - SIN REINICIALIZACIÓN
+  // ⚠️ OFFLINE-FIRST: IGNORAR eventos de conectividad durante el flujo
+  // Los eventos de conexión NO deben cambiar el modo ni interrumpir el flujo
   useEffect(() => {
-    if (!eventType || !estadoInicializado) return;
+    if (!estadoInicializado) return;
 
-    // ✅ SI LA INTERFAZ ESTÁ BLOQUEADA, NO HACER NADA
-    if (interfazLocked) {
-      console.log(`🔒 [RegistrarPedido] Evento ${eventType} ignorado - Interfaz bloqueada`);
-      return;
+    // ⚠️ SIEMPRE ignorar eventos de conexión durante el flujo de registro
+    // El modo offline forzado se mantiene hasta que el usuario:
+    // 1. Guarde el pedido (entonces se verifica conexión)
+    // 2. Vuelva al menú (entonces se verifica conexión)
+    if (eventType) {
+      console.log(`🔒 [RegistrarPedido] Evento ${eventType} IGNORADO - Modo offline-first activo`);
+      // NO hacer nada - mantener estado actual
     }
 
-    // ✅ DETECTAR CAMBIOS DE CONEXIÓN SIN PERDER ESTADO
-    const conexionAnterior = ultimoEstadoConexion;
-    const conexionActual = isOnline;
-    
-    if (conexionAnterior !== conexionActual) {
-      console.log(`🔄 [RegistrarPedido] Cambio de conexión: ${conexionAnterior ? 'Online' : 'Offline'} → ${conexionActual ? 'Online' : 'Offline'}`);
-      
-      // ✅ GUARDAR ESTADO ANTES DEL CAMBIO
-      guardarEstadoCompleto();
-      
-      switch (eventType) {
-        case 'connection_lost':
-          console.log('📴 [RegistrarPedido] Transición a offline - MANTENIENDO ESTADO');
-          // ✅ NO cambiar modos si ya está en modo forzado
-          if (!modoForzadoOffline) {
-            // Solo actualizar indicadores visuales
-          }
-          break;
-          
-        case 'connection_restored':
-          console.log('🌐 [RegistrarPedido] Transición a online - MANTENIENDO ESTADO');
-          // ✅ NO resetear interfaz, solo actualizar indicadores
-          break;
-          
-        default:
-          break;
-      }
-      
-      setUltimoEstadoConexion(conexionActual);
-    }
-
-    // ✅ SIEMPRE actualizar estadísticas
+    // Solo actualizar estadísticas (no cambiar modo)
     if (isPWA) {
       const stats = offlineManager.getStorageStats();
       setCatalogStats(stats);
     }
-  }, [eventType, isOnline, estadoInicializado, interfazLocked, ultimoEstadoConexion, modoForzadoOffline, isPWA]);
+  }, [eventType, estadoInicializado, isPWA]);
 
   // ✅ AUTO-RESTORE DE BACKUP FALLBACK (por si localStorage falla)
   useEffect(() => {
@@ -277,16 +250,16 @@ function RegistrarPedidoContent() {
     }
   }, [estadoInicializado]);
 
-  // ✅ AUTO-SAVE CONTINUO CON AMBOS SISTEMAS
+  // Auto-save continuo - OFFLINE-FIRST: Guardar más frecuentemente
   useEffect(() => {
     if (!estadoInicializado) return;
     
     if (cliente || productos.length > 0 || observaciones.trim()) {
-      // Guardar en ambos sistemas
+      // Guardar en ambos sistemas cada 10 segundos (más frecuente para conexiones inestables)
       const interval = setInterval(() => {
         saveForm(); // Sistema tradicional
         guardarEstadoCompleto(); // Sistema completo
-      }, 30000); // Cada 30 segundos
+      }, 10000); // Cada 10 segundos
 
       return () => clearInterval(interval);
     }
@@ -313,7 +286,7 @@ function RegistrarPedidoContent() {
     setMostrarConfirmacion(true);
   };
 
-  // ✅ REGISTRAR PEDIDO CON LIMPIEZA DE ESTADO
+  // Registrar pedido - OFFLINE-FIRST
   const handleRegistrarPedido = async () => {
     const datosPedido = getDatosPedido();
     const datosCompletos = {
@@ -321,9 +294,10 @@ function RegistrarPedidoContent() {
       empleado: user
     };
     
-    console.log(`🔄 [RegistrarPedido] Registrando pedido - Modo forzado offline: ${modoForzadoOffline}`);
+    console.log(`🔄 [RegistrarPedido] Registrando pedido - Modo offline forzado: ${modoForzadoOffline}`);
     
-    const resultado = await registrarPedido(datosCompletos);
+    // Pasar modoOfflineForzado al hook
+    const resultado = await registrarPedido(datosCompletos, modoForzadoOffline);
     
     if (resultado.success) {
       // ✅ LIMPIAR TODOS LOS SISTEMAS DE PERSISTENCIA
@@ -341,30 +315,26 @@ function RegistrarPedidoContent() {
         setCatalogStats(newStats);
       }
       
-      // ✅ LÓGICA PRINCIPAL: Verificar conexión solo después de guardar offline
+      // Lógica OFFLINE-FIRST: Verificar conexión solo después de guardar offline
       if (resultado.offline || modoForzadoOffline) {
         console.log('📱 [RegistrarPedido] Pedido guardado offline - Verificando conexión disponible...');
         
-        // ✅ Verificar conexión bajo demanda
+        // Verificar conexión bajo demanda (solo para mostrar opciones, no cambiar modo)
         const hayConexion = await checkOnDemand();
         
         if (hayConexion && !modoForzadoOffline) {
-          // ✅ HAY CONEXIÓN pero no estamos en modo forzado: Mostrar modal
-          console.log('🌐 [RegistrarPedido] Conexión disponible - Mostrando modal de reconexión');
+          // Hay conexión pero no estamos en modo forzado: Mostrar opción de sincronizar
+          console.log('🌐 [RegistrarPedido] Conexión disponible - Mostrando opción de sincronizar');
           setMostrarModalReconexion(true);
-        } else if (hayConexion && modoForzadoOffline) {
-          // ✅ HAY CONEXIÓN pero estamos en modo forzado: Solo toast offline
-          console.log('🔒 [RegistrarPedido] Conexión disponible pero modo forzado - Solo toast offline');
-          
         } else {
-          // ✅ SIN CONEXIÓN: Toast normal de offline
-          console.log('📴 [RegistrarPedido] Sin conexión - Toast offline normal');
-          
+          // Sin conexión o modo forzado: Solo confirmar que se guardó offline
+          console.log('📱 [RegistrarPedido] Pedido guardado offline correctamente');
+          // El toast ya se mostró en guardarPedidoOffline
         }
       } else {
-        // ✅ PEDIDO ONLINE: Toast normal
-        console.log('🌐 [RegistrarPedido] Pedido registrado online');
-        toast.success('✅ Pedido registrado exitosamente');
+        // Pedido online: Toast normal
+        console.log('🌐 [RegistrarPedido] Pedido registrado online exitosamente');
+        // El toast ya se mostró en registrarPedido
       }
     } else {
       console.error('❌ [RegistrarPedido] Error registrando pedido:', resultado.error);

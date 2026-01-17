@@ -1,15 +1,23 @@
-// utils/ConnectionManager.js - VERSIÓN FINAL: NUNCA RECARGA AUTOMÁTICAMENTE
-import { toast } from 'react-hot-toast';
+// utils/ConnectionManager.js - OFFLINE-FIRST: Completamente pasivo, sin auto-reconexión
 import { getAppMode } from './offlineManager';
 
+/**
+ * ConnectionManager - Gestor de conectividad completamente pasivo
+ * 
+ * PRINCIPIOS:
+ * - Solo detecta y notifica cambios de estado
+ * - NUNCA dispara acciones automáticas
+ * - NUNCA intenta reconectar automáticamente
+ * - Los componentes deciden cuándo verificar conexión
+ * 
+ * Uso: Los componentes deben llamar checkConnectionOnDemand() cuando necesiten
+ * verificar conexión real (al guardar pedido, al volver al menú, etc.)
+ */
 class ConnectionManager {
   constructor() {
-    this.isOnline = navigator.onLine;
+    this.isOnline = typeof window !== 'undefined' ? navigator.onLine : true;
     this.listeners = new Set();
-    this.checkInterval = null;
     this.isTransitioning = false;
-    this.reconnectionAttempts = 0;
-    
     this.isPWA = getAppMode() === 'pwa';
     
     // Solo inicializar en cliente
@@ -19,146 +27,117 @@ class ConnectionManager {
   }
 
   init() {
-    console.log('🔌 ConnectionManager iniciado - MODO ULTRA ESTABLE (sin auto-recargas NUNCA)');
+    console.log('🔌 [ConnectionManager] Iniciado - Modo OFFLINE-FIRST (completamente pasivo)');
     
-    // Listeners nativos del navegador
+    // Listeners nativos del navegador - SOLO para actualizar estado interno
     window.addEventListener('online', this.handleOnline.bind(this));
     window.addEventListener('offline', this.handleOffline.bind(this));
     
-    // Listener para reactivación de PWA
-    document.addEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-    window.addEventListener('focus', this.handleFocus.bind(this));
-    
-    // ✅ DESHABILITAMOS VERIFICACIÓN PERIÓDICA AUTOMÁTICA
-    // NO queremos que verifique automáticamente y cambie estados
-    // Solo verificación bajo demanda
-    console.log('⚠️ Verificación periódica DESHABILITADA para máxima estabilidad');
-    
     // Estado inicial
     this.isOnline = navigator.onLine;
-    console.log(`🌐 Estado inicial de conexión: ${this.isOnline ? 'ONLINE' : 'OFFLINE'}`);
+    console.log(`🌐 [ConnectionManager] Estado inicial: ${this.isOnline ? 'ONLINE' : 'OFFLINE'}`);
   }
 
-  // ✅ GESTIÓN DE EVENTOS COMPLETAMENTE SILENCIOSA
+  /**
+   * Maneja evento online del navegador
+   * Solo actualiza estado interno y notifica listeners
+   * NO dispara ninguna acción automática
+   */
   handleOnline() {
-    console.log('🌐 Evento ONLINE detectado - NOTIFICACIÓN SILENCIOSA');
+    const wasOnline = this.isOnline;
+    this.isOnline = true;
     
-    if (!this.isOnline) {
-      this.isOnline = true;
-      this.reconnectionAttempts = 0;
-      this.handleConnectionRestored();
+    if (!wasOnline) {
+      console.log('🌐 [ConnectionManager] Evento ONLINE detectado - Solo actualizando estado');
+      this.notifyListeners('connection_restored', {
+        isOnline: true,
+        message: 'Conexión detectada',
+        silent: true,
+        timestamp: Date.now()
+      });
     }
   }
 
+  /**
+   * Maneja evento offline del navegador
+   * Solo actualiza estado interno y notifica listeners
+   * NO dispara ninguna acción automática
+   */
   handleOffline() {
-    console.log('📴 Evento OFFLINE detectado - NOTIFICACIÓN SILENCIOSA');
+    const wasOnline = this.isOnline;
+    this.isOnline = false;
     
-    if (this.isOnline) {
-      this.isOnline = false;
-      this.handleConnectionLost();
+    if (wasOnline) {
+      console.log('📴 [ConnectionManager] Evento OFFLINE detectado - Solo actualizando estado');
+      this.notifyListeners('connection_lost', {
+        isOnline: false,
+        message: 'Conexión perdida',
+        silent: true,
+        timestamp: Date.now()
+      });
     }
   }
 
-  handleVisibilityChange() {
-    if (document.visibilityState === 'visible' && this.isPWA) {
-      console.log('👁️ PWA reactivada - SIN verificación automática');
-      // ✅ NO HACER NADA AUTOMÁTICO
-      // La verificación solo se hace bajo demanda
-    }
-  }
-
-  handleFocus() {
-    if (this.isPWA) {
-      console.log('🔍 PWA obtuvo focus - SIN verificación automática');
-      // ✅ NO HACER NADA AUTOMÁTICO
-    }
-  }
-
-  // ✅ MANEJO COMPLETAMENTE SILENCIOSO - SOLO NOTIFICAR LISTENERS
-  handleConnectionLost() {
-    if (this.isTransitioning) return;
-    
-    console.log('📴 Conexión perdida - Notificación silenciosa SOLAMENTE');
-    this.isTransitioning = true;
-    
-    // ✅ NO MOSTRAR TOAST - COMPLETAMENTE SILENCIOSO
-    // Solo notificar a listeners para que actualicen UI
-    this.notifyListeners('connection_lost', {
-      isOnline: false,
-      message: 'Conexión perdida',
-      silent: true
-    });
-    
-    setTimeout(() => {
-      this.isTransitioning = false;
-    }, 1000);
-  }
-
-  handleConnectionRestored() {
-    if (this.isTransitioning) return;
-    
-    console.log('🌐 Conexión restaurada - Notificación silenciosa SOLAMENTE');
-    this.isTransitioning = true;
-    
-    // ✅ NO MOSTRAR TOAST - COMPLETAMENTE SILENCIOSO
-    // Solo notificar a listeners para que actualicen UI
-    this.notifyListeners('connection_restored', {
-      isOnline: true,
-      message: 'Conexión restaurada',
-      silent: true
-    });
-    
-    setTimeout(() => {
-      this.isTransitioning = false;
-    }, 2000);
-  }
-
-  // ✅ VERIFICACIÓN BAJO DEMANDA - ÚNICA FORMA DE VERIFICAR CONEXIÓN
-  // ✅ FIX: Usa /ping en lugar de /health para evitar falsos OFFLINE cuando DB está caída
-  async checkConnectionOnDemand() {
-    console.log('🔍 Verificación de conexión BAJO DEMANDA...');
+  /**
+   * Verificación de conexión REAL bajo demanda
+   * 
+   * Esta es la ÚNICA forma de verificar conexión real (no solo navigator.onLine)
+   * Debe ser llamada explícitamente por los componentes cuando necesiten verificar
+   * 
+   * @param {number} timeout - Timeout en ms (default: 5s)
+   * @returns {Promise<boolean>} - true si hay conexión real, false si no
+   */
+  async checkConnectionOnDemand(timeout = 5000) {
+    console.log('🔍 [ConnectionManager] Verificación de conexión REAL bajo demanda...');
     
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
       
-      // ✅ Usar /ping (liviano) en lugar de /health (puede fallar si DB está caída)
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/ping`, {
+      // Usar /ping (liviano) - cualquier respuesta HTTP significa conectividad
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      const response = await fetch(`${apiUrl}/ping`, {
         method: 'GET',
         signal: controller.signal,
-        cache: 'no-cache'
+        cache: 'no-cache',
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
       });
       
       clearTimeout(timeoutId);
       
-      // ✅ Cualquier respuesta HTTP (incluso 500) significa que hay conectividad
+      // Cualquier respuesta HTTP (200-599) significa que hay conectividad
       // Solo fetch fallido o timeout significa OFFLINE
-      const isOnline = response.status >= 200 && response.status < 600;
+      const hasConnection = response.status >= 200 && response.status < 600;
       
-      // ✅ ACTUALIZAR ESTADO INTERNO SIN NOTIFICACIONES
+      // Actualizar estado interno
       const wasOnline = this.isOnline;
-      this.isOnline = isOnline;
+      this.isOnline = hasConnection;
       
-      if (response.status >= 500) {
-        console.warn(`⚠️ Backend responde pero con error ${response.status} - Considerado ONLINE (conectividad disponible)`);
-      } else {
-        console.log(`✅ Verificación bajo demanda resultado: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+      if (hasConnection) {
+        if (response.status >= 500) {
+          console.warn(`⚠️ [ConnectionManager] Backend responde con error ${response.status} - Considerado ONLINE`);
+        } else {
+          console.log(`✅ [ConnectionManager] Verificación exitosa: ONLINE`);
+        }
       }
       
-      // ✅ NO DISPARAR EVENTOS AUTOMÁTICOS NUNCA
-      // El componente que llama esta función maneja el resultado
-      
-      return isOnline;
+      // NO disparar eventos automáticos - el componente maneja el resultado
+      return hasConnection;
       
     } catch (error) {
-      // ✅ Solo errores de red (fetch fallido, timeout) se consideran OFFLINE
-      console.log('❌ Verificación bajo demanda falló (sin conectividad):', error.message);
+      // Solo errores de red (fetch fallido, timeout) se consideran OFFLINE
+      console.log(`❌ [ConnectionManager] Verificación falló (sin conectividad): ${error.name} - ${error.message}`);
       this.isOnline = false;
       return false;
     }
   }
 
-  // ✅ SISTEMA DE LISTENERS PARA UI
+  /**
+   * Sistema de listeners para que componentes se suscriban a cambios
+   * Los listeners reciben eventos pero NO deben disparar acciones automáticas
+   */
   addListener(callback) {
     this.listeners.add(callback);
     return () => this.listeners.delete(callback);
@@ -172,92 +151,70 @@ class ConnectionManager {
           ...data
         });
       } catch (error) {
-        console.error('Error notificando listener:', error);
+        console.error('❌ [ConnectionManager] Error notificando listener:', error);
       }
     });
   }
 
-  // ✅ MÉTODOS PÚBLICOS
+  /**
+   * Obtiene el estado actual de conexión
+   * @returns {Object} Estado de conexión
+   */
   getConnectionState() {
     return {
       isOnline: this.isOnline,
-      isTransitioning: this.isTransitioning,
-      isPWA: this.isPWA
+      isPWA: this.isPWA,
+      timestamp: Date.now()
     };
   }
 
-  // ✅ VERIFICACIÓN FORZADA MANUAL
+  /**
+   * Alias para checkConnectionOnDemand (compatibilidad)
+   */
   async forceConnectionCheck() {
-    console.log('🔄 Verificación de conexión FORZADA MANUAL');
     return await this.checkConnectionOnDemand();
   }
 
-  // ✅ NO HAY VERIFICACIÓN PERIÓDICA AUTOMÁTICA
-  // Esta función ya no se usa para evitar cambios automáticos
-  startPeriodicCheck() {
-    console.log('⚠️ Verificación periódica NO INICIADA - Modo estable activado');
-    // No hacer nada - mantener estabilidad total
-  }
-
+  /**
+   * Limpia recursos del ConnectionManager
+   */
   destroy() {
-    console.log('🧹 Destruyendo ConnectionManager');
+    console.log('🧹 [ConnectionManager] Destruyendo...');
     
     if (typeof window !== 'undefined') {
       window.removeEventListener('online', this.handleOnline.bind(this));
       window.removeEventListener('offline', this.handleOffline.bind(this));
-      document.removeEventListener('visibilitychange', this.handleVisibilityChange.bind(this));
-      window.removeEventListener('focus', this.handleFocus.bind(this));
-    }
-    
-    if (this.checkInterval) {
-      clearInterval(this.checkInterval);
     }
     
     this.listeners.clear();
   }
 
-  waitForConnection(timeout = 10000) {
-    return new Promise((resolve, reject) => {
-      if (this.isOnline) {
-        resolve(true);
-        return;
-      }
-      
-      const timeoutId = setTimeout(() => {
-        cleanup();
-        reject(new Error('Timeout esperando conexión'));
-      }, timeout);
-      
-      const cleanup = this.addListener((eventType, data) => {
-        if (data.isOnline) {
-          clearTimeout(timeoutId);
-          cleanup();
-          resolve(true);
-        }
-      });
-    });
-  }
-
+  /**
+   * Información de debug
+   */
   getDebugInfo() {
     return {
       isOnline: this.isOnline,
-      isTransitioning: this.isTransitioning,
       isPWA: this.isPWA,
-      reconnectionAttempts: this.reconnectionAttempts,
       listenersCount: this.listeners.size,
-      hasPeriodicCheck: false, // Siempre false en modo estable
       currentPath: typeof window !== 'undefined' ? window.location.pathname : 'unknown',
-      mode: 'ULTRA_STABLE' // Nuevo modo
+      mode: 'OFFLINE_FIRST_PASSIVE'
     };
   }
 }
 
-// ✅ EXPORTAR INSTANCIA SINGLETON
+// Exportar instancia singleton
 export const connectionManager = new ConnectionManager();
 
-// ✅ HOOK ULTRA SIMPLIFICADO - SOLO ESTADO, SIN CAMBIOS AUTOMÁTICOS
+// Hook para componentes React - Solo estado, sin acciones automáticas
 import { useState, useEffect } from 'react';
 
+/**
+ * Hook useConnection - Proporciona estado de conexión a componentes
+ * 
+ * IMPORTANTE: Este hook solo proporciona estado, NO dispara acciones automáticas
+ * Los componentes deben decidir cuándo verificar conexión usando checkOnDemand()
+ */
 export function useConnection() {
   const [connectionState, setConnectionState] = useState(() => 
     connectionManager.getConnectionState()
@@ -265,25 +222,26 @@ export function useConnection() {
 
   useEffect(() => {
     const unsubscribe = connectionManager.addListener((eventType, data) => {
-      console.log(`🔔 Listener recibió evento: ${eventType}, silent: ${data.silent}`);
-      
+      // Solo actualizar estado, NO disparar acciones
       setConnectionState({
         isOnline: data.isOnline,
-        isTransitioning: data.isTransitioning || false,
         isPWA: data.isPWA || false,
         eventType,
-        eventData: data
+        eventData: data,
+        timestamp: data.timestamp || Date.now()
       });
     });
 
+    // Estado inicial
     setConnectionState(connectionManager.getConnectionState());
+    
     return unsubscribe;
   }, []);
 
   return {
     ...connectionState,
-    forceCheck: connectionManager.forceConnectionCheck.bind(connectionManager),
-    waitForConnection: connectionManager.waitForConnection.bind(connectionManager),
-    checkOnDemand: connectionManager.checkConnectionOnDemand.bind(connectionManager)
+    // Métodos para verificación bajo demanda (los componentes deciden cuándo llamar)
+    checkOnDemand: connectionManager.checkConnectionOnDemand.bind(connectionManager),
+    forceCheck: connectionManager.forceConnectionCheck.bind(connectionManager)
   };
 }

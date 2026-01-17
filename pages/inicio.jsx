@@ -76,37 +76,46 @@ export default function Inicio() {
     checkAuth();
   }, [router]);
 
-  // ✅ CARGAR ESTADÍSTICAS DEL CATÁLOGO OFFLINE
+  // Cargar estadísticas del catálogo offline
   useEffect(() => {
     if (isPWA) {
       const stats = offlineManager.getStorageStats();
       setCatalogStats(stats);
-
-      console.log('📊 Estadísticas del catálogo offline:', stats);
+      console.log('📊 [inicio] Estadísticas del catálogo offline:', stats);
     }
   }, [isPWA]);
 
-  // ✅ MANEJO DE EVENTOS DE CONECTIVIDAD SIMPLIFICADO
+  // Verificar conexión al cargar (solo para mostrar panel de sincronización)
+  const { checkOnDemand } = useConnection();
+  
   useEffect(() => {
-    if (!eventType) return;
-
-    switch (eventType) {
-      case 'connection_lost_redirect':
-        console.log('📴 Redirección a /offline manejada por OfflineGuard');
-        break;
-
-      case 'connection_restored_normal':
-        console.log('🌐 Conexión restaurada en inicio');
-        break;
-
-      default:
-        break;
+    if (isPWA && hasPendientes) {
+      // Verificar conexión de forma no bloqueante
+      // Solo para decidir si mostrar el panel de sincronización
+      const verificarConexion = async () => {
+        try {
+          await checkOnDemand();
+          // El panel se muestra automáticamente si hay conexión (shouldShowPedidosPanel)
+        } catch (error) {
+          console.log('⚠️ [inicio] Error verificando conexión:', error);
+        }
+      };
+      
+      // No bloquear la carga de la página
+      setTimeout(verificarConexion, 1000);
     }
-  }, [eventType]);
+  }, [isPWA, hasPendientes, checkOnDemand]);
 
-  // ✅ HANDLERS PARA LOS BOTONES PWA
+  // Handlers para los botones PWA - OFFLINE-FIRST
   const handleUpdateCatalog = async () => {
-    console.log('🔄 Actualizando catálogo manualmente desde inicio...');
+    console.log('🔄 [inicio] Actualizando catálogo manualmente...');
+    
+    // Verificar conexión antes de actualizar
+    if (!navigator.onLine) {
+      toast.error('Sin conexión para actualizar catálogo');
+      return;
+    }
+    
     await updateCatalogManual();
 
     if (isPWA) {
@@ -116,12 +125,37 @@ export default function Inicio() {
   };
 
   const handleSyncPedidos = async () => {
-    console.log('🔄 Sincronizando pedidos pendientes desde inicio...');
-    await syncPedidosPendientes();
+    console.log('🔄 [inicio] Sincronizando pedidos pendientes...');
+    
+    // Verificar conexión antes de sincronizar
+    if (!navigator.onLine) {
+      toast.error('Sin conexión para sincronizar pedidos');
+      return;
+    }
+    
+    // Mostrar confirmación si hay muchos pedidos
+    if (cantidadPendientes > 5) {
+      const confirmar = window.confirm(
+        `¿Desea sincronizar ${cantidadPendientes} pedidos pendientes?`
+      );
+      if (!confirmar) return;
+    }
+    
+    const resultado = await syncPedidosPendientes();
 
     if (isPWA) {
       const stats = offlineManager.getStorageStats();
       setCatalogStats(stats);
+    }
+    
+    // Mostrar resultado detallado
+    if (resultado.success) {
+      if (resultado.duplicados > 0) {
+        toast.success(
+          `${resultado.exitosos} pedidos procesados (${resultado.duplicados} ya existían)`,
+          { duration: 4000 }
+        );
+      }
     }
   };
 
