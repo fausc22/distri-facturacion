@@ -1,8 +1,32 @@
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 
-// const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+// ✅ CONFIGURACIÓN DE API URL CON VALIDACIÓN
+const getApiUrl = () => {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL;
+  
+  // ✅ Validar que la URL esté definida
+  if (!envUrl) {
+    console.error('❌ NEXT_PUBLIC_API_URL no está definida en las variables de entorno');
+    // En desarrollo, usar localhost como fallback
+    if (process.env.NODE_ENV === 'development') {
+      return 'http://localhost:3001';
+    }
+    // En producción, lanzar error visible
+    throw new Error('NEXT_PUBLIC_API_URL no está configurada. Por favor, configura la variable de entorno en Vercel.');
+  }
+  
+  // ✅ Validar formato de URL
+  try {
+    new URL(envUrl);
+    return envUrl;
+  } catch (error) {
+    console.error('❌ NEXT_PUBLIC_API_URL tiene un formato inválido:', envUrl);
+    throw new Error(`NEXT_PUBLIC_API_URL tiene un formato inválido: ${envUrl}`);
+  }
+};
+
+const apiUrl = getApiUrl();
 
 // ✅ HELPER FUNCTIONS PARA SSR
 const isClient = () => typeof window !== 'undefined';
