@@ -20,24 +20,80 @@ function AppHeader() {
   // ⚠️ CONNECTION MANAGER - Usar navigator.onLine directamente para evitar bugs de estado
   const { checkOnDemand } = useConnection();
   
-  // Estado local de conexión basado en navigator.onLine (más confiable)
-  const [isOnlineLocal, setIsOnlineLocal] = useState(() => 
-    typeof window !== 'undefined' ? navigator.onLine : true
-  );
+  // ⚠️ Estado local de conexión - RESPETA MODO OFFLINE FORZADO
+  // El navbar NO debe cambiar automáticamente si el modo offline forzado está activo
+  const [isOnlineLocal, setIsOnlineLocal] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    
+    // Si hay modo offline forzado guardado, siempre mostrar offline (naranja)
+    const modoOfflineForzado = localStorage.getItem('vertimar_modo_offline_forzado');
+    if (modoOfflineForzado === 'true') {
+      return false; // Forzar naranja (offline)
+    }
+    
+    return navigator.onLine;
+  });
   
   useEffect(() => {
     const updateOnlineStatus = () => {
+      // ⚠️ CRÍTICO: Si hay modo offline forzado, NO actualizar el estado
+      // El navbar debe quedarse naranja hasta que se reconecte manualmente
+      const modoOfflineForzado = localStorage.getItem('vertimar_modo_offline_forzado');
+      
+      if (modoOfflineForzado === 'true') {
+        // Mantener naranja (offline) aunque haya conexión
+        setIsOnlineLocal(false);
+        return;
+      }
+      
+      // Solo actualizar si NO hay modo offline forzado
       setIsOnlineLocal(navigator.onLine);
     };
     
-    window.addEventListener('online', updateOnlineStatus);
-    window.addEventListener('offline', updateOnlineStatus);
+    // Verificar estado inicial
+    updateOnlineStatus();
+    
+    const handleOnline = () => {
+      // Solo actualizar si NO hay modo offline forzado
+      const modoOfflineForzado = localStorage.getItem('vertimar_modo_offline_forzado');
+      if (modoOfflineForzado !== 'true') {
+        setIsOnlineLocal(true);
+      }
+    };
+    
+    const handleOffline = () => {
+      // Siempre actualizar cuando se pierde conexión
+      setIsOnlineLocal(false);
+    };
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // ⚠️ Polling para detectar cambios en localStorage (mismo origen)
+    // Esto es necesario porque el evento 'storage' solo se dispara en otras pestañas
+    const intervalId = setInterval(() => {
+      const modoOfflineForzado = localStorage.getItem('vertimar_modo_offline_forzado');
+      const tieneConexion = navigator.onLine;
+      
+      if (modoOfflineForzado === 'true') {
+        // Si hay modo offline forzado, mantener naranja (offline)
+        if (isOnlineLocal) {
+          setIsOnlineLocal(false);
+        }
+      } else {
+        // Si NO hay modo offline forzado, actualizar según conexión real
+        if (tieneConexion !== isOnlineLocal) {
+          setIsOnlineLocal(tieneConexion);
+        }
+      }
+    }, 500); // Verificar cada 500ms
     
     return () => {
-      window.removeEventListener('online', updateOnlineStatus);
-      window.removeEventListener('offline', updateOnlineStatus);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearInterval(intervalId);
     };
-  }, []);
+  }, [isOnlineLocal]);
 
   // ✅ NAVEGACIÓN CON VERIFICACIÓN DE CONEXIÓN MEJORADA
   const handleNavigationWithCheck = async (href) => {

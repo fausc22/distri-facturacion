@@ -128,28 +128,62 @@ export default function Inicio() {
     }
   }, [eventType, isPWA]);
 
-  // ⚠️ DETECTAR RECONEXIÓN: Mostrar botón "RECONECTAR APP" (NO reconectar automáticamente)
+  // ⚠️ MONITOREAR CONEXIÓN: Actualizar indicador visual del botón (pero el botón SIEMPRE visible)
   useEffect(() => {
-    if (!isPWA || !eventType) return;
+    if (!isPWA || !modoOfflineForzado) return;
 
-    if (eventType === 'connection_restored' && modoOfflineForzado) {
-      console.log('🌐 [inicio] Conexión detectada pero modo offline forzado activo - Verificando y mostrando botón RECONECTAR');
-      // Verificar conexión real en background (con delay para dar tiempo a estabilizar)
-      setTimeout(() => {
-        checkOnDemand().then(hayConexion => {
-          if (hayConexion) {
-            console.log('✅ [inicio] Conexión real confirmada - Mostrando botón RECONECTAR');
-            setMostrarBotonReconectar(true);
+    const verificarConexion = async () => {
+      const tieneConexion = typeof window !== 'undefined' ? navigator.onLine : false;
+      
+      if (tieneConexion) {
+        // Si navigator.onLine dice que hay conexión, verificar realmente
+        try {
+          const hayConexionReal = await checkOnDemand();
+          setMostrarBotonReconectar(hayConexionReal);
+          
+          if (hayConexionReal) {
+            console.log('✅ [inicio] Conexión real detectada - Botón mostrará indicador verde');
           } else {
-            console.log('❌ [inicio] Verificación falló - No mostrar botón');
-            setMostrarBotonReconectar(false);
+            console.log('⚠️ [inicio] navigator.onLine = true pero sin conexión real - Botón mostrará indicador naranja');
           }
-        }).catch(() => {
+        } catch (error) {
+          console.log('❌ [inicio] Error verificando conexión:', error);
           setMostrarBotonReconectar(false);
-        });
-      }, 2000); // Esperar 2 segundos para que la conexión se estabilice
-    }
-  }, [eventType, modoOfflineForzado, isPWA, checkOnDemand]);
+        }
+      } else {
+        setMostrarBotonReconectar(false);
+      }
+    };
+
+    const handleOnline = () => {
+      console.log('🌐 [inicio] Evento "online" detectado - Verificando conexión real...');
+      setTimeout(verificarConexion, 2000); // Delay para estabilizar
+    };
+
+    const handleOffline = () => {
+      console.log('📴 [inicio] Evento "offline" detectado');
+      setMostrarBotonReconectar(false);
+    };
+
+    // Verificar estado inicial
+    verificarConexion();
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    // Verificar periódicamente (cada 5 segundos) si hay conexión
+    const intervaloVerificacion = setInterval(() => {
+      if (modoOfflineForzado && navigator.onLine) {
+        verificarConexion();
+      }
+    }, 5000);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      clearInterval(intervaloVerificacion);
+    };
+  }, [modoOfflineForzado, isPWA, checkOnDemand]);
 
   // Handlers para los botones PWA - OFFLINE-FIRST
   const handleUpdateCatalog = async () => {
@@ -239,45 +273,101 @@ export default function Inicio() {
     }
   };
 
-  // ⚠️ MANEJAR RECONEXIÓN MANUAL
-  const handleReconectarApp = async () => {
-    console.log('🔄 [inicio] Usuario solicita reconectar app...');
+  // ⚠️ MANEJAR RECONEXIÓN MANUAL - Intentar por 10 segundos
+  const handleReconectarApp = () => {
+    console.log('🔄 [inicio] Usuario solicita reconectar app - Intentando por 10 segundos...');
     setReconectando(true);
     
-    try {
-      // Verificar conexión REAL antes de reconectar
-      const hayConexion = await checkOnDemand();
-      
-      if (hayConexion) {
-        console.log('✅ [inicio] Conexión confirmada - Desactivando modo offline forzado');
-        setModoOfflineForzado(false);
-        setMostrarBotonReconectar(false);
+    const TIEMPO_MAXIMO = 10000; // 10 segundos
+    const INTERVALO_VERIFICACION = 1000; // Verificar cada 1 segundo
+    const inicio = Date.now();
+    
+    const intentarReconectar = async () => {
+      try {
+        // Verificar conexión REAL
+        const hayConexion = await checkOnDemand();
         
-        // Limpiar estado guardado
-        localStorage.removeItem('vertimar_modo_offline_forzado');
-        
-        toast.success('App reconectada - Modo online activado');
-        
-        // Recargar estadísticas
-        if (isPWA) {
-          const stats = offlineManager.getStorageStats();
-          setCatalogStats(stats);
+        if (hayConexion) {
+          console.log('✅ [inicio] Conexión confirmada - Desactivando modo offline forzado');
+          setModoOfflineForzado(false);
+          setMostrarBotonReconectar(false);
+          
+          // Limpiar estado guardado
+          localStorage.removeItem('vertimar_modo_offline_forzado');
+          
+          toast.success('✅ App reconectada - Modo online activado', {
+            duration: 3000,
+            icon: '✅',
+          });
+          
+          // Recargar estadísticas
+          if (isPWA) {
+            const stats = offlineManager.getStorageStats();
+            setCatalogStats(stats);
+          }
+          
+          // Recargar página para actualizar toda la UI
+          setTimeout(() => {
+            window.location.reload();
+          }, 1500);
+          
+          return true; // Reconexión exitosa
         }
         
-        // Recargar página para actualizar toda la UI
-        setTimeout(() => {
-          window.location.reload();
-        }, 1000);
-      } else {
-        console.log('❌ [inicio] Sin conexión real - Manteniendo modo offline');
-        toast.error('Sin conexión real. Verifique su internet.');
+        return false; // Aún sin conexión
+      } catch (error) {
+        console.error('❌ [inicio] Error verificando conexión:', error);
+        return false;
       }
-    } catch (error) {
-      console.error('❌ [inicio] Error verificando conexión:', error);
-      toast.error('Error verificando conexión. Manteniendo modo offline.');
-    } finally {
-      setReconectando(false);
-    }
+    };
+    
+    // Función para intentar reconectar con timeout
+    const iniciarIntentoReconexion = async () => {
+      // Intentar reconectar inmediatamente
+      const exitoInmediato = await intentarReconectar();
+      if (exitoInmediato) {
+        setReconectando(false);
+        return;
+      }
+      
+      // Si no hay conexión inmediata, intentar durante 10 segundos
+      const intervaloId = setInterval(async () => {
+        const tiempoTranscurrido = Date.now() - inicio;
+        
+        if (tiempoTranscurrido >= TIEMPO_MAXIMO) {
+          // Tiempo agotado
+          clearInterval(intervaloId);
+          setReconectando(false);
+          
+          console.log('❌ [inicio] Tiempo agotado (10s) - Sin conexión');
+          toast.error('No se pudo reconectar después de 10 segundos. Verifique su conexión a internet.', {
+            duration: 5000,
+            icon: '❌',
+          });
+          return;
+        }
+        
+        // Intentar reconectar
+        const exito = await intentarReconectar();
+        if (exito) {
+          clearInterval(intervaloId);
+          setReconectando(false);
+          return;
+        }
+        
+        // Mostrar progreso cada 2 segundos
+        const segundosRestantes = Math.ceil((TIEMPO_MAXIMO - tiempoTranscurrido) / 1000);
+        if (tiempoTranscurrido % 2000 < INTERVALO_VERIFICACION) {
+          console.log(`🔄 [inicio] Intentando reconectar... ${segundosRestantes}s restantes`);
+        }
+      }, INTERVALO_VERIFICACION);
+      
+      // Guardar intervaloId para poder limpiarlo si es necesario
+      // (aunque normalmente se limpiará automáticamente cuando se reconecte o se agote el tiempo)
+    };
+    
+    // Iniciar el proceso de reconexión
+    iniciarIntentoReconexion();
   };
 
   // ⚠️ DETERMINAR SI ESTAMOS EN MODO OFFLINE (forzado o real)
@@ -324,19 +414,45 @@ export default function Inicio() {
         </div>
       </div>
 
-      {/* ⚠️ BOTÓN "RECONECTAR APP" - Solo cuando hay conexión disponible pero modo offline forzado */}
-      {isPWA && mostrarBotonReconectar && modoOfflineForzado && (
-        <div className="mb-6 bg-green-50 border-2 border-green-500 rounded-xl p-6 shadow-lg">
+      {/* ⚠️ BOTÓN "RECONECTAR APP" - SIEMPRE visible cuando está en modo offline */}
+      {isPWA && modoOfflineForzado && (
+        <div className={`mb-6 border-2 rounded-xl p-6 shadow-lg ${
+          mostrarBotonReconectar 
+            ? 'bg-green-50 border-green-500' 
+            : 'bg-orange-50 border-orange-500'
+        }`}>
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="p-3 bg-green-100 rounded-full">
-                <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-                </svg>
+              <div className={`p-3 rounded-full ${
+                mostrarBotonReconectar 
+                  ? 'bg-green-100' 
+                  : 'bg-orange-100'
+              }`}>
+                {mostrarBotonReconectar ? (
+                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                  </svg>
+                ) : (
+                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                  </svg>
+                )}
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-gray-800">Conexión Disponible</h3>
-                <p className="text-sm text-gray-600">Haz clic para reconectar la app y acceder a todas las funciones</p>
+                <h3 className={`text-lg font-semibold ${
+                  mostrarBotonReconectar 
+                    ? 'text-gray-800' 
+                    : 'text-gray-800'
+                }`}>
+                  {mostrarBotonReconectar 
+                    ? 'Conexión Disponible' 
+                    : 'Modo Offline Activo'}
+                </h3>
+                <p className="text-sm text-gray-600">
+                  {mostrarBotonReconectar 
+                    ? 'Haz clic para reconectar la app y acceder a todas las funciones'
+                    : 'Haz clic para intentar reconectar la app (se intentará por 10 segundos)'}
+                </p>
               </div>
             </div>
             <button
@@ -345,7 +461,9 @@ export default function Inicio() {
               className={`px-6 py-3 rounded-lg font-semibold text-white transition-all ${
                 reconectando
                   ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg'
+                  : mostrarBotonReconectar
+                    ? 'bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg'
+                    : 'bg-orange-600 hover:bg-orange-700 shadow-md hover:shadow-lg'
               }`}
             >
               {reconectando ? (
