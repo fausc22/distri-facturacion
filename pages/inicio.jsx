@@ -15,8 +15,8 @@ export default function Inicio() {
   const [loading, setLoading] = useState(true);
   const [catalogStats, setCatalogStats] = useState(null);
 
-  // ✅ CONNECTION MANAGER
-  const { isOnline, eventType } = useConnection();
+  // Connection Manager
+  const { isOnline, eventType, checkOnDemand } = useConnection();
   const isPWA = getAppMode() === 'pwa';
 
   // ✅ HOOKS PARA PWA
@@ -86,12 +86,11 @@ export default function Inicio() {
   }, [isPWA]);
 
   // Verificar conexión al cargar (solo para mostrar panel de sincronización)
-  const { checkOnDemand } = useConnection();
-  
+  // No bloqueante - solo para UI
   useEffect(() => {
-    if (isPWA && hasPendientes) {
-      // Verificar conexión de forma no bloqueante
-      // Solo para decidir si mostrar el panel de sincronización
+    if (isPWA && hasPendientes && isOnline) {
+      // Si navigator.onLine dice que hay conexión, verificar realmente en background
+      // No bloquear la carga de la página
       const verificarConexion = async () => {
         try {
           await checkOnDemand();
@@ -101,10 +100,9 @@ export default function Inicio() {
         }
       };
       
-      // No bloquear la carga de la página
       setTimeout(verificarConexion, 1000);
     }
-  }, [isPWA, hasPendientes, checkOnDemand]);
+  }, [isPWA, hasPendientes, isOnline, checkOnDemand]);
 
   // Handlers para los botones PWA - OFFLINE-FIRST
   const handleUpdateCatalog = async () => {
@@ -127,9 +125,18 @@ export default function Inicio() {
   const handleSyncPedidos = async () => {
     console.log('🔄 [inicio] Sincronizando pedidos pendientes...');
     
-    // Verificar conexión antes de sincronizar
-    if (!navigator.onLine) {
-      toast.error('Sin conexión para sincronizar pedidos');
+    // ⚠️ ENDURECER: Verificar conexión REAL antes de sincronizar
+    // No confiar solo en navigator.onLine (Safari puede mentir)
+    try {
+      const hayConexion = await checkOnDemand();
+      
+      if (!hayConexion) {
+        toast.error('Sin conexión real para sincronizar pedidos');
+        return;
+      }
+    } catch (error) {
+      console.error('❌ [inicio] Error verificando conexión:', error);
+      toast.error('Error verificando conexión. No se puede sincronizar.');
       return;
     }
     
@@ -141,21 +148,33 @@ export default function Inicio() {
       if (!confirmar) return;
     }
     
-    const resultado = await syncPedidosPendientes();
+    // ⚠️ ENDURECER: Manejar errores sin dejar locks
+    try {
+      const resultado = await syncPedidosPendientes();
 
-    if (isPWA) {
-      const stats = offlineManager.getStorageStats();
-      setCatalogStats(stats);
-    }
-    
-    // Mostrar resultado detallado
-    if (resultado.success) {
-      if (resultado.duplicados > 0) {
-        toast.success(
-          `${resultado.exitosos} pedidos procesados (${resultado.duplicados} ya existían)`,
-          { duration: 4000 }
-        );
+      if (isPWA) {
+        const stats = offlineManager.getStorageStats();
+        setCatalogStats(stats);
       }
+      
+      // Mostrar resultado detallado
+      if (resultado.success) {
+        if (resultado.duplicados > 0) {
+          toast.success(
+            `${resultado.exitosos} pedidos procesados (${resultado.duplicados} ya existían)`,
+            { duration: 4000 }
+          );
+        } else if (resultado.exitosos > 0) {
+          toast.success(`${resultado.exitosos} pedidos sincronizados correctamente`);
+        }
+      } else if (resultado.error) {
+        // Error ya fue mostrado en syncPedidosPendientes, solo loguear
+        console.error('❌ [inicio] Error en sincronización:', resultado.error);
+      }
+    } catch (error) {
+      // ⚠️ ENDURECER: Capturar errores inesperados
+      console.error('❌ [inicio] Error inesperado sincronizando:', error);
+      toast.error('Error inesperado durante la sincronización');
     }
   };
 

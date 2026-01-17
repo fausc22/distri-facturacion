@@ -479,6 +479,7 @@ export function useOfflinePedidos() {
       return { success: true, count: 0 };
     }
 
+    // ⚠️ ENDURECER: Asegurar que el lock se limpie SIEMPRE, incluso si hay errores inesperados
     sincronizandoRef.current = true;
     setSyncing(true);
     setSyncProgress({ actual: 0, total: pedidosActuales.length });
@@ -506,33 +507,58 @@ export function useOfflinePedidos() {
           // Remover campos temporales pero mantener hash_pedido
           const { tempId, fechaCreacion, estado, intentos, ultimoError, ultimoIntento, ...pedidoData } = pedido;
           
-          // Enviar pedido al servidor
-          const response = await axiosAuth.post('/pedidos/registrar-pedido', pedidoData);
+          // Enviar pedido al servidor con timeout
+          const timeoutMs = 30000; // 30 segundos por pedido
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
           
-          if (response.data.success) {
-            // Verificar si es duplicado (backend retorna existing: true)
-            if (response.data.existing) {
-              console.log(`⚠️ [useOfflinePedidos] Pedido ${tempId} ya existe en el backend (duplicado), removiendo de pendientes`);
-              offlineManager.removePedidoPendiente(tempId);
-              duplicados++;
-              exitosos++; // Contar como exitoso porque ya está procesado
-            } else {
-              // Pedido nuevo: actualizar stock y eliminar de pendientes
-              console.log(`✅ [useOfflinePedidos] Pedido ${tempId} sincronizado exitosamente`);
-              
-              // Actualizar stock DESPUÉS de confirmar que se guardó en el servidor
-              if (pedidoData.productos && pedidoData.productos.length > 0) {
-                await offlineManager.updateStockAfterSync(pedidoData.productos);
+          try {
+            const response = await axiosAuth.post('/pedidos/registrar-pedido', pedidoData, {
+              signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.data.success) {
+              // Verificar si es duplicado (backend retorna existing: true)
+              if (response.data.existing) {
+                console.log(`⚠️ [useOfflinePedidos] Pedido ${tempId} ya existe en el backend (duplicado), removiendo de pendientes`);
+                offlineManager.removePedidoPendiente(tempId);
+                duplicados++;
+                exitosos++; // Contar como exitoso porque ya está procesado
+              } else {
+                // Pedido nuevo: actualizar stock y eliminar de pendientes
+                console.log(`✅ [useOfflinePedidos] Pedido ${tempId} sincronizado exitosamente`);
+                
+                // Actualizar stock DESPUÉS de confirmar que se guardó en el servidor
+                if (pedidoData.productos && pedidoData.productos.length > 0) {
+                  try {
+                    await offlineManager.updateStockAfterSync(pedidoData.productos);
+                  } catch (stockError) {
+                    console.error(`⚠️ [useOfflinePedidos] Error actualizando stock para pedido ${tempId}:`, stockError);
+                    // No fallar la sincronización por error de stock
+                  }
+                }
+                
+                offlineManager.removePedidoPendiente(tempId);
+                exitosos++;
               }
-              
-              offlineManager.removePedidoPendiente(tempId);
-              exitosos++;
+            } else {
+              // Error del servidor
+              console.error(`❌ [useOfflinePedidos] Error del servidor para pedido ${tempId}: ${response.data.message}`);
+              offlineManager.markPedidoAsFailed(tempId, response.data.message);
+              fallidos++;
             }
-          } else {
-            // Error del servidor
-            console.error(`❌ [useOfflinePedidos] Error del servidor para pedido ${tempId}: ${response.data.message}`);
-            offlineManager.markPedidoAsFailed(tempId, response.data.message);
-            fallidos++;
+          } catch (requestError) {
+            clearTimeout(timeoutId);
+            
+            if (requestError.name === 'AbortError' || requestError.message?.includes('timeout')) {
+              console.error(`⏱️ [useOfflinePedidos] Timeout sincronizando pedido ${tempId}`);
+              offlineManager.markPedidoAsFailed(tempId, 'Timeout al sincronizar');
+              fallidos++;
+            } else {
+              throw requestError; // Re-lanzar para manejo general
+            }
           }
           
         } catch (error) {
@@ -544,7 +570,7 @@ export function useOfflinePedidos() {
             exitosos++;
           } else {
             console.error(`❌ [useOfflinePedidos] Error sincronizando pedido ${pedido.tempId}:`, error);
-            offlineManager.markPedidoAsFailed(pedido.tempId, error.message);
+            offlineManager.markPedidoAsFailed(pedido.tempId, error.message || 'Error desconocido');
             fallidos++;
           }
         }
@@ -581,13 +607,21 @@ export function useOfflinePedidos() {
       };
 
     } catch (error) {
-      console.error('❌ [useOfflinePedidos] Error en sincronización:', error);
+      console.error('❌ [useOfflinePedidos] Error crítico en sincronización:', error);
       toast.error('Error durante la sincronización');
       return { success: false, error: error.message };
     } finally {
-      setSyncing(false);
-      setSyncProgress({ actual: 0, total: 0 });
-      sincronizandoRef.current = false;
+      // ⚠️ CRÍTICO: SIEMPRE limpiar el lock, incluso si hay errores inesperados
+      try {
+        setSyncing(false);
+        setSyncProgress({ actual: 0, total: 0 });
+        sincronizandoRef.current = false;
+        console.log('✅ [useOfflinePedidos] Lock de sincronización limpiado');
+      } catch (cleanupError) {
+        // Si incluso el cleanup falla, forzar el reset
+        console.error('❌ [useOfflinePedidos] Error limpiando lock, forzando reset:', cleanupError);
+        sincronizandoRef.current = false;
+      }
     }
   };
 

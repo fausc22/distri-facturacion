@@ -75,58 +75,42 @@ export default function AppInitializer({ children }) {
     setInitStep('Verificando catálogo offline...');
     setProgress(20);
     
-    // ✅ 1. VERIFICAR CATÁLOGO LOCAL
+    // 1. VERIFICAR CATÁLOGO LOCAL (no bloqueante)
     const catalogoDisponible = checkCatalogoCompleto();
     console.log(`📦 [AppInitializer] Catálogo completo disponible: ${catalogoDisponible}`);
     
     setProgress(30);
     
-    // ✅ 2. VERIFICAR CONECTIVIDAD
+    // 2. VERIFICAR CONECTIVIDAD (no bloqueante)
     const currentlyOnline = navigator.onLine;
     console.log(`🌐 [AppInitializer] Estado de conexión: ${currentlyOnline ? 'ONLINE' : 'OFFLINE'}`);
     
     setProgress(40);
     
-    // ✅ 3. FLUJO SEGÚN ESTADO - SIN REDIRECCIONES AUTOMÁTICAS
-    if (!currentlyOnline && !catalogoDisponible) {
-      // Sin internet y sin catálogo -> Esperar conexión
-      console.log('📴 [AppInitializer] Sin conexión y sin catálogo - Esperando primera conexión');
-      setInitStep('Primera conexión requerida');
-      setProgress(50);
-      await waitForFirstConnection();
-      return;
-    }
+    // ⚠️ OFFLINE-FIRST: SIEMPRE permitir acceso, incluso sin catálogo
+    // El usuario puede registrar pedidos offline incluso en cold start
+    // El catálogo se descargará en background si hay conexión
     
-    if (!currentlyOnline && catalogoDisponible) {
-      // Sin internet pero con catálogo -> Modo offline DISPONIBLE
-      console.log('📱 [AppInitializer] Sin conexión pero con catálogo - PWA offline disponible');
-      setInitStep('Modo offline disponible');
-      setProgress(80);
-      
-      setAppReady(true);
-      setInitializing(false);
-      
-      // ✅ NO REDIRIGIR AUTOMÁTICAMENTE - Solo logging
-      const currentPath = router.pathname;
-      console.log(`📍 [AppInitializer] Ruta actual: ${currentPath} - Sin redirecciones automáticas`);
-      
-      setProgress(100);
-      return;
-    }
-    
-    // ✅ 4. ONLINE: Disponible inmediatamente
-    console.log('🌐 [AppInitializer] Online - App disponible inmediatamente');
+    console.log('✅ [AppInitializer] PWA disponible - Modo offline-first activo');
     setInitStep('App lista');
-    setProgress(60);
+    setProgress(80);
+    
+    // SIEMPRE permitir que la app arranque
     setAppReady(true);
     setInitializing(false);
+    setProgress(100);
     
-    // ✅ 5. AUTO-ACTUALIZACIÓN SILENCIOSA EN BACKGROUND (SIN BLOQUEO)
-    if (currentlyOnline) {
+    // Intentar descargar catálogo en background (no bloqueante)
+    if (currentlyOnline && !catalogoDisponible) {
+      console.log('📥 [AppInitializer] Descargando catálogo en background (no bloqueante)...');
+      // No esperar, solo iniciar en background
+      downloadFullCatalog().catch(() => {
+        console.log('⚠️ [AppInitializer] No se pudo descargar catálogo en background (continuando)');
+      });
+    } else if (currentlyOnline && catalogoDisponible) {
+      // Auto-actualización silenciosa si ya hay catálogo
       handleIntelligentUpdateSilent();
     }
-    
-    setProgress(100);
   };
 
   // ✅ AUTO-ACTUALIZACIÓN COMPLETAMENTE SILENCIOSA Y NO BLOQUEANTE
@@ -161,43 +145,9 @@ export default function AppInitializer({ children }) {
     }, 3000); // ✅ Esperar 3 segundos después de que la app esté lista
   };
 
-  // ✅ ESPERAR PRIMERA CONEXIÓN PARA PWA NUEVA
-  const waitForFirstConnection = async () => {
-    return new Promise((resolve) => {
-      const checkConnection = async () => {
-        if (navigator.onLine) {
-          console.log('🌐 [AppInitializer] Primera conexión establecida - Descargando catálogo...');
-          setInitStep('Descargando catálogo completo...');
-          setProgress(60);
-          
-          try {
-            await downloadFullCatalog();
-            setProgress(90);
-            setInitStep('Catálogo descargado');
-            
-            setAppReady(true);
-            setInitializing(false);
-            setProgress(100);
-            
-            console.log('✅ [AppInitializer] Primera descarga completada exitosamente');
-            resolve();
-          } catch (error) {
-            console.error('❌ [AppInitializer] Error en primera descarga:', error);
-            // Continuar de todos modos
-            setAppReady(true);
-            setInitializing(false);
-            setProgress(100);
-            resolve();
-          }
-        } else {
-          // Seguir esperando
-          setTimeout(checkConnection, 2000);
-        }
-      };
-      
-      checkConnection();
-    });
-  };
+  // ⚠️ ELIMINADO: waitForFirstConnection
+  // Ya no bloqueamos el acceso - la app siempre arranca
+  // El catálogo se descarga en background si hay conexión
 
   // ✅ VERIFICAR SI TENEMOS CATÁLOGO COMPLETO
   const checkCatalogoCompleto = () => {
@@ -219,34 +169,8 @@ export default function AppInitializer({ children }) {
             <p className="text-blue-200">Sistema ERP Ultra Estable</p>
           </div>
 
-          {/* ✅ DIFERENTES ESTADOS */}
-          {initStep === 'Primera conexión requerida' ? (
-            <div className="bg-red-500 bg-opacity-20 border border-red-400 rounded-lg p-6 mb-6">
-              <div className="text-red-100 mb-4">
-                <svg className="w-12 h-12 mx-auto mb-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Primera Conexión Requerida</h3>
-              <p className="text-sm text-red-200 mb-4">
-                Para usar la PWA por primera vez necesitas conexión a internet para descargar el catálogo completo.
-              </p>
-              
-              {/* ✅ INDICADOR DE CONECTIVIDAD */}
-              <div className="flex items-center justify-center mb-4">
-                <div className={`w-3 h-3 rounded-full mr-2 ${isOnline ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`}></div>
-                <span className="text-sm">
-                  {isOnline ? 'Detectando conexión...' : 'Sin conexión'}
-                </span>
-              </div>
-              
-              {isOnline && (
-                <div className="text-sm text-green-200">
-                  ✅ Conexión detectada - Descargando catálogo...
-                </div>
-              )}
-            </div>
-          ) : (
+          {/* Estado de inicialización */}
+          {
             <div className="mb-6">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
               <h2 className="text-xl font-semibold mb-2">{initStep}</h2>

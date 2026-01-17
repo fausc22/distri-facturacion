@@ -20,20 +20,23 @@
 /**
  * Verifica si hay conexión REAL con el backend
  * 
- * @param {number} timeout - Timeout en ms (default: 5s)
+ * ⚠️ CONSERVADOR: Mejor asumir offline que romper el flujo
+ * En Safari iOS, navigator.onLine puede mentir, así que verificamos realmente
+ * 
+ * @param {number} timeout - Timeout en ms (default: 3s - más corto para ser conservador)
  * @returns {Promise<boolean>} - true si hay conexión real, false si no
  */
-export async function verificarConexionReal(timeout = 5000) {
-  // Si navigator.onLine es false, no tiene sentido verificar
+export async function verificarConexionReal(timeout = 3000) {
+  // Si navigator.onLine es false, asumir offline (conservador)
   if (typeof window === 'undefined' || !navigator.onLine) {
-    console.log('📴 [VerificadorConexion] navigator.onLine = false, sin verificar');
+    console.log('📴 [VerificadorConexion] navigator.onLine = false, asumiendo offline (conservador)');
     return false;
   }
 
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
     if (!apiUrl) {
-      console.warn('⚠️ [VerificadorConexion] NEXT_PUBLIC_API_URL no configurado');
+      console.warn('⚠️ [VerificadorConexion] NEXT_PUBLIC_API_URL no configurado, asumiendo offline');
       return false;
     }
 
@@ -55,28 +58,26 @@ export async function verificarConexionReal(timeout = 5000) {
     
     clearTimeout(timeoutId);
     
-    // Cualquier respuesta HTTP (200-599) significa que hay conectividad
-    // Solo fetch fallido o timeout significa OFFLINE
-    const tieneConexion = response.status >= 200 && response.status < 600;
+    // ⚠️ CONSERVADOR: Solo considerar ONLINE si respuesta es 200-299
+    // 300-599 pueden ser errores que indican problemas de conectividad
+    const tieneConexion = response.status >= 200 && response.status < 300;
     
     if (tieneConexion) {
-      if (response.status >= 500) {
-        console.warn(`⚠️ [VerificadorConexion] Backend responde con error ${response.status} - Considerado ONLINE`);
-      } else {
-        console.log('✅ [VerificadorConexion] Conexión real confirmada');
-      }
+      console.log('✅ [VerificadorConexion] Conexión real confirmada');
     } else {
-      console.log('❌ [VerificadorConexion] Backend no responde correctamente');
+      // Respuesta fuera de rango exitoso - asumir offline (conservador)
+      console.log(`⚠️ [VerificadorConexion] Backend responde con status ${response.status} - Asumiendo offline (conservador)`);
+      return false;
     }
     
     return tieneConexion;
     
   } catch (error) {
-    // Solo errores de red (fetch fallido, timeout) se consideran OFFLINE
+    // Cualquier error (fetch fallido, timeout, etc.) se considera OFFLINE (conservador)
     if (error.name === 'AbortError') {
-      console.log(`⏱️ [VerificadorConexion] Timeout después de ${timeout}ms - Sin conexión`);
+      console.log(`⏱️ [VerificadorConexion] Timeout después de ${timeout}ms - Asumiendo offline (conservador)`);
     } else {
-      console.log(`❌ [VerificadorConexion] Error verificando conexión: ${error.name} - ${error.message}`);
+      console.log(`❌ [VerificadorConexion] Error verificando conexión: ${error.name} - Asumiendo offline (conservador)`);
     }
     return false;
   }

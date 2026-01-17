@@ -156,7 +156,7 @@ function RegistrarPedidoContent() {
     }
   };
 
-  // ✅ INICIALIZACIÓN ÚNICA Y DETECCIÓN DE MODO INICIAL
+  // ⚠️ INICIALIZACIÓN ENDURECIDA: Cold start offline siempre funciona
   useEffect(() => {
     if (inicializacionCompletada.current) return;
 
@@ -165,26 +165,33 @@ function RegistrarPedidoContent() {
     // Restaurar estado antes de detectar modo
     const estadoRestaurado = restaurarEstadoCompleto();
 
-    // Detectar modo inicial
-    if (isPWA && !isOnline) {
-      console.log('📱 [RegistrarPedido] Inicialización OFFLINE - Activando modo offline estable');
-      setModoForzadoOffline(true);
-      setInterfazLocked(true);
-    } else if (isPWA && isOnline) {
-      console.log('🌐 [RegistrarPedido] Inicialización ONLINE - Modo online disponible');
-      // Solo si no hay estado restaurado que indique modo forzado
-      if (!estadoRestaurado) {
-        setModoForzadoOffline(false);
-        setInterfazLocked(false);
+    // ⚠️ OFFLINE-FIRST: Si es PWA y no hay conexión, SIEMPRE activar modo offline
+    // Esto garantiza que el usuario pueda registrar pedidos incluso en cold start
+    if (isPWA) {
+      if (!isOnline) {
+        console.log('📱 [RegistrarPedido] Inicialización OFFLINE - Activando modo offline estable');
+        setModoForzadoOffline(true);
+        setInterfazLocked(true);
+      } else {
+        console.log('🌐 [RegistrarPedido] Inicialización ONLINE - Modo online disponible');
+        // Solo si no hay estado restaurado que indique modo forzado
+        if (!estadoRestaurado) {
+          setModoForzadoOffline(false);
+          setInterfazLocked(false);
+        }
       }
+    } else {
+      // Modo web: siempre online
+      setModoForzadoOffline(false);
+      setInterfazLocked(false);
     }
 
     setUltimoEstadoConexion(isOnline);
     setEstadoInicializado(true);
     inicializacionCompletada.current = true;
 
-    console.log('✅ [RegistrarPedido] Inicialización única completada');
-  }, []); // ✅ Solo ejecutar UNA VEZ
+    console.log('✅ [RegistrarPedido] Inicialización única completada - Modo:', modoForzadoOffline ? 'OFFLINE' : 'ONLINE');
+  }, []); // Solo ejecutar UNA VEZ
 
   // ✅ CARGAR ESTADÍSTICAS PWA
   useEffect(() => {
@@ -548,19 +555,66 @@ function RegistrarPedidoContent() {
             </div>
             
             <div className="mt-4 md:mt-0 text-right">
-              {/* ✅ BOTÓN PARA DESBLOQUEAR MODO (solo si hay conexión disponible) */}
-              {isPWA && modoForzadoOffline && isOnline && (
+              {/* ⚠️ BOTÓN EXPLÍCITO "ACTIVAR MODO ONLINE" - Con rollback automático */}
+              {isPWA && modoForzadoOffline && (
                 <button
-                  onClick={() => {
-                    console.log('🔓 [RegistrarPedido] Usuario desbloqueó modo offline manualmente');
-                    setModoForzadoOffline(false);
-                    setInterfazLocked(false);
-                    guardarEstadoCompleto(); // Guardar cambio
+                  onClick={async () => {
+                    console.log('🔓 [RegistrarPedido] Usuario intenta activar modo online...');
+                    setLoadingConexion(true);
                     
+                    // ⚠️ ROLLBACK: Guardar estado actual antes de cambiar
+                    const estadoAnterior = {
+                      modoForzadoOffline,
+                      interfazLocked
+                    };
+                    
+                    try {
+                      // Verificar conexión REAL antes de cambiar modo
+                      const hayConexion = await checkOnDemand();
+                      
+                      if (hayConexion) {
+                        console.log('✅ [RegistrarPedido] Conexión confirmada - Activando modo online');
+                        
+                        // Cambiar modo
+                        setModoForzadoOffline(false);
+                        setInterfazLocked(false);
+                        guardarEstadoCompleto();
+                        toast.success('Modo online activado');
+                      } else {
+                        // ⚠️ ROLLBACK: Sin conexión, mantener modo offline
+                        console.log('❌ [RegistrarPedido] Sin conexión real - Rollback a modo offline');
+                        setModoForzadoOffline(estadoAnterior.modoForzadoOffline);
+                        setInterfazLocked(estadoAnterior.interfazLocked);
+                        toast.error('Sin conexión real. Manteniendo modo offline.');
+                      }
+                    } catch (error) {
+                      // ⚠️ ROLLBACK: Error, volver a estado anterior
+                      console.error('❌ [RegistrarPedido] Error verificando conexión - Rollback:', error);
+                      setModoForzadoOffline(estadoAnterior.modoForzadoOffline);
+                      setInterfazLocked(estadoAnterior.interfazLocked);
+                      toast.error('Error verificando conexión. Manteniendo modo offline.');
+                    } finally {
+                      setLoadingConexion(false);
+                    }
                   }}
-                  className="mb-2 bg-white bg-opacity-20 hover:bg-opacity-30 px-3 py-1 rounded text-sm transition-colors"
+                  disabled={loadingConexion}
+                  className={`mb-2 px-4 py-2 rounded text-sm font-medium transition-colors ${
+                    loadingConexion
+                      ? 'bg-gray-400 cursor-not-allowed text-white'
+                      : 'bg-green-500 hover:bg-green-600 text-white shadow-md'
+                  }`}
                 >
-                  🔓 Desbloquear Modo Online
+                  {loadingConexion ? (
+                    <span className="flex items-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Verificando...
+                    </span>
+                  ) : (
+                    '🌐 Activar Modo Online'
+                  )}
                 </button>
               )}
               
