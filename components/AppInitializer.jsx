@@ -170,23 +170,21 @@ export default function AppInitializer({ children }) {
           </div>
 
           {/* Estado de inicialización */}
-          {
-            <div className="mb-6">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-              <h2 className="text-xl font-semibold mb-2">{initStep}</h2>
-              <p className="text-blue-200">
-                {isPWA ? 'Preparando PWA ultra estable...' : 'Cargando aplicación...'}
-              </p>
-              
-              {/* ✅ INDICADOR DE CONECTIVIDAD */}
-              <div className="flex items-center justify-center mt-2">
-                <div className={`w-2 h-2 rounded-full mr-2 ${isOnline ? 'bg-green-400' : 'bg-orange-400'}`}></div>
-                <span className="text-xs text-blue-200">
-                  {isOnline ? 'Online' : 'Offline'}
-                </span>
-              </div>
+          <div className="mb-6">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
+            <h2 className="text-xl font-semibold mb-2">{initStep}</h2>
+            <p className="text-blue-200">
+              {isPWA ? 'Preparando PWA ultra estable...' : 'Cargando aplicación...'}
+            </p>
+            
+            {/* ✅ INDICADOR DE CONECTIVIDAD */}
+            <div className="flex items-center justify-center mt-2">
+              <div className={`w-2 h-2 rounded-full mr-2 ${isOnline ? 'bg-green-400' : 'bg-orange-400'}`}></div>
+              <span className="text-xs text-blue-200">
+                {isOnline ? 'Online' : 'Offline'}
+              </span>
             </div>
-          )}
+          </div>
 
           {/* ✅ BARRA DE PROGRESO */}
           <div className="w-full bg-blue-700 rounded-full h-3 mb-4">
