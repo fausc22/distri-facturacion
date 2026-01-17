@@ -591,7 +591,7 @@ function AppHeader() {
             {/* Información del usuario */}
             <div className="text-right text-sm">
               <p className="font-medium">{getUserName()}</p>
-              <p className={`text-xs ${isOnline ? 'text-blue-200' : 'text-orange-200'}`}>{role}</p>
+              <p className={`text-xs ${isOnlineLocal ? 'text-blue-200' : 'text-orange-200'}`}>{role}</p>
               
             </div>
             
@@ -613,13 +613,13 @@ function AppHeader() {
           <div className="sm:hidden bg-blue-500 py-2 px-4 flex flex-col items-center">
             {/* Información del usuario en móvil */}
             <div className={`w-full text-center mb-4 rounded p-3 ${
-              isOnline ? 'bg-blue-600' : 'bg-orange-600'
+              isOnlineLocal ? 'bg-blue-600' : 'bg-orange-600'
             }`}>
               <p className="font-medium text-white">{getUserName()}</p>
               <p className="text-blue-200 text-sm">{role}</p>
               {isPWA && (
                 <div className="flex items-center justify-center gap-2 mt-1">
-                  {isOnline ? (
+                  {isOnlineLocal ? (
                     <FiWifi className="text-green-300" size={14} />
                   ) : (
                     <FiWifiOff className="text-orange-300" size={14} />
@@ -652,7 +652,7 @@ function AppHeader() {
                   >
                     Registrar Pedido
                   </MenuLink>
-                  {(isOnline || !isPWA) && (
+                  {(isOnlineLocal || !isPWA) && (
                     <>
                       <MenuLink 
                         href="/ventas/HistorialPedidos" 
@@ -702,7 +702,7 @@ function AppHeader() {
             )}
 
             {/* RESTO DE MENÚS MÓVILES - Solo cuando online */}
-            {(isOnline || !isPWA) && (
+            {(isOnlineLocal || !isPWA) && (
               <>
                 {/* INVENTARIO MÓVIL */}
                 {(role === 'GERENTE' || role === 'VENDEDOR') && (
