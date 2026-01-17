@@ -17,8 +17,27 @@ function AppHeader() {
   const [isPWA, setIsPWA] = useState(false);
   const router = useRouter();
 
-  // ✅ CONNECTION MANAGER (solo para indicadores visuales)
-  const { isOnline, checkOnDemand } = useConnection();
+  // ⚠️ CONNECTION MANAGER - Usar navigator.onLine directamente para evitar bugs de estado
+  const { checkOnDemand } = useConnection();
+  
+  // Estado local de conexión basado en navigator.onLine (más confiable)
+  const [isOnlineLocal, setIsOnlineLocal] = useState(() => 
+    typeof window !== 'undefined' ? navigator.onLine : true
+  );
+  
+  useEffect(() => {
+    const updateOnlineStatus = () => {
+      setIsOnlineLocal(navigator.onLine);
+    };
+    
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+    
+    return () => {
+      window.removeEventListener('online', updateOnlineStatus);
+      window.removeEventListener('offline', updateOnlineStatus);
+    };
+  }, []);
 
   // ✅ NAVEGACIÓN CON VERIFICACIÓN DE CONEXIÓN MEJORADA
   const handleNavigationWithCheck = async (href) => {
@@ -58,21 +77,14 @@ function AppHeader() {
       }
       
     } else if (onlineRequiredRoutes.some(route => href.includes(route))) {
-      // ✅ Verificar conexión para rutas que la requieren
+      // ⚠️ Verificar conexión para rutas que la requieren
+      // Usar navigator.onLine directamente (más confiable que estado del ConnectionManager)
       console.log(`🔍 Verificando conexión para: ${href}`);
       
-      const hayConexion = await checkOnDemand();
+      const tieneConexion = typeof window !== 'undefined' ? navigator.onLine : true;
       
-      if (hayConexion) {
-        console.log(`🌐 Conexión confirmada, navegando a: ${href}`);
-        try {
-          await router.push(href);
-        } catch (error) {
-          window.location.href = href;
-        }
-      } else {
+      if (!tieneConexion) {
         console.log(`📴 Sin conexión, bloqueando navegación a: ${href}`);
-        // ✅ Corregido: toast.warning no existe, usar toast() con estilo de warning
         toast('📴 Esta sección requiere conexión a internet', {
           duration: 3000,
           icon: '📴',
@@ -80,11 +92,17 @@ function AppHeader() {
             background: '#f59e0b',
             color: '#fff',
           },
-          iconTheme: {
-            primary: '#fff',
-            secondary: '#f59e0b',
-          },
         });
+        return;
+      }
+      
+      // Si hay conexión, navegar
+      console.log(`🌐 Conexión disponible, navegando a: ${href}`);
+      try {
+        await router.push(href);
+      } catch (error) {
+        console.log('⚠️ Error navegando, usando navegación directa');
+        window.location.href = href;
       }
       
     } else {
@@ -97,7 +115,7 @@ function AppHeader() {
     }
   };
 
-  // ✅ COMPONENTE LINK MEJORADO - Con verificación inteligente
+  // ⚠️ COMPONENTE LINK - Usar navigator.onLine directamente para evitar bugs
   const MenuLink = ({ href, className, children, requiresOnline = false }) => {
     const handleClick = (e) => {
       e.preventDefault();
@@ -106,8 +124,8 @@ function AppHeader() {
       handleNavigationWithCheck(href);
     };
 
-    // ✅ Determinar si mostrar como deshabilitado
-    const shouldDisable = isPWA && requiresOnline && !isOnline;
+    // ⚠️ Determinar si mostrar como deshabilitado - Usar estado local
+    const shouldDisable = isPWA && requiresOnline && !isOnlineLocal;
 
     return (
       <a 
@@ -214,21 +232,25 @@ function AppHeader() {
     tap: { scale: 0.9 },
   };
 
-  // ✅ DETERMINAR TEMA SEGÚN CONECTIVIDAD
+  // ⚠️ DETERMINAR TEMA SEGÚN CONECTIVIDAD - Usar estado local
   const getNavbarTheme = () => {
     if (!isPWA) return 'bg-blue-500'; // Tema normal para web
     
-    return isOnline ? 'bg-blue-500' : 'bg-orange-500'; // Azul online, naranja offline
+    return isOnlineLocal ? 'bg-blue-500' : 'bg-orange-500'; // Azul online, naranja offline
   };
 
-  // ✅ OBTENER ESTILO DE MENÚ SEGÚN DISPONIBILIDAD OFFLINE
+  // ⚠️ OBTENER ESTILO DE MENÚ SEGÚN DISPONIBILIDAD OFFLINE - Usar estado local
   const getMenuItemStyle = (requiresOnline = false) => {
-    if (!isPWA || isOnline) {
-      return "text-white focus:outline-none font-bold"; // Normal
+    if (!isPWA) {
+      return "text-white focus:outline-none font-bold"; // Normal para web
+    }
+    
+    if (isOnlineLocal) {
+      return "text-white focus:outline-none font-bold"; // Normal cuando hay conexión
     }
     
     if (requiresOnline) {
-      return "text-orange-200 focus:outline-none font-bold opacity-60 cursor-not-allowed"; // Deshabilitado
+      return "text-orange-200 focus:outline-none font-bold opacity-60 cursor-not-allowed"; // Deshabilitado offline
     }
     
     return "text-white focus:outline-none font-bold"; // Disponible offline
@@ -249,10 +271,10 @@ function AppHeader() {
             </Link>
           </motion.div>
 
-          {/* ✅ INDICADOR DE CONECTIVIDAD PROMINENTE */}
+          {/* ⚠️ INDICADOR DE CONECTIVIDAD - Usar estado local */}
           {isPWA && (
             <div className="flex items-center gap-2 bg-black bg-opacity-20 px-3 py-1 rounded-full">
-              {isOnline ? (
+              {isOnlineLocal ? (
                 <>
                   <FiWifi className="text-green-300" size={16} />
                   <span className="text-green-300 text-sm font-medium">ONLINE</span>
@@ -349,15 +371,15 @@ function AppHeader() {
             {(role === 'GERENTE' || role === 'VENDEDOR') && (
               <motion.div className="relative" variants={menuItemVariants} whileHover="hover" whileTap="tap">
                 <button 
-                  onClick={() => isPWA && !isOnline ? null : toggleSubMenu('inventario')} 
+                  onClick={() => isPWA && !isOnlineLocal ? null : toggleSubMenu('inventario')} 
                   className={getMenuItemStyle(true)}
-                  disabled={isPWA && !isOnline}
-                  title={isPWA && !isOnline ? "Requiere conexión a internet" : ""}
+                  disabled={isPWA && !isOnlineLocal}
+                  title={isPWA && !isOnlineLocal ? "Requiere conexión a internet" : ""}
                 >
                   INVENTARIO
-                  {isPWA && !isOnline && <span className="ml-1 text-xs">🔒</span>}
+                  {isPWA && !isOnlineLocal && <span className="ml-1 text-xs">🔒</span>}
                 </button>
-                {(isOnline || !isPWA) && (
+                {(isOnlineLocal || !isPWA) && (
                   <motion.div
                     className="absolute top-full left-0 bg-white text-black shadow-md rounded-md p-2 mt-1 origin-top transition duration-200 ease-in-out"
                     variants={subMenuVariants}
@@ -397,15 +419,15 @@ function AppHeader() {
             {/* COMPRAS - Requiere online */}
             <motion.div className="relative" variants={menuItemVariants} whileHover="hover" whileTap="tap">
               <button 
-                onClick={() => isPWA && !isOnline ? null : toggleSubMenu('compras')} 
+                onClick={() => isPWA && !isOnlineLocal ? null : toggleSubMenu('compras')} 
                 className={getMenuItemStyle(true)}
-                disabled={isPWA && !isOnline}
-                title={isPWA && !isOnline ? "Requiere conexión a internet" : ""}
+                disabled={isPWA && !isOnlineLocal}
+                title={isPWA && !isOnlineLocal ? "Requiere conexión a internet" : ""}
               >
                 COMPRAS
-                {isPWA && !isOnline && <span className="ml-1 text-xs">🔒</span>}
+                {isPWA && !isOnlineLocal && <span className="ml-1 text-xs">🔒</span>}
               </button>
-              {(isOnline || !isPWA) && (
+              {(isOnlineLocal || !isPWA) && (
                 <motion.div
                   className="absolute top-full left-0 bg-white text-black shadow-md rounded-md p-2 mt-1 origin-top transition duration-200 ease-in-out"
                   variants={subMenuVariants}
@@ -449,15 +471,15 @@ function AppHeader() {
             {role === 'GERENTE' && (
               <motion.div className="relative" variants={menuItemVariants} whileHover="hover" whileTap="tap">
                 <button 
-                  onClick={() => isPWA && !isOnline ? null : toggleSubMenu('finanzas')} 
+                  onClick={() => isPWA && !isOnlineLocal ? null : toggleSubMenu('finanzas')} 
                   className={getMenuItemStyle(true)}
-                  disabled={isPWA && !isOnline}
-                  title={isPWA && !isOnline ? "Requiere conexión a internet" : ""}
+                  disabled={isPWA && !isOnlineLocal}
+                  title={isPWA && !isOnlineLocal ? "Requiere conexión a internet" : ""}
                 >
                   FINANZAS
-                  {isPWA && !isOnline && <span className="ml-1 text-xs">🔒</span>}
+                  {isPWA && !isOnlineLocal && <span className="ml-1 text-xs">🔒</span>}
                 </button>
-                {(isOnline || !isPWA) && (
+                {(isOnlineLocal || !isPWA) && (
                   <motion.div
                     className="absolute top-full left-0 bg-white text-black shadow-md rounded-md p-2 mt-1 origin-top transition duration-200 ease-in-out"
                     variants={subMenuVariants}
@@ -509,15 +531,15 @@ function AppHeader() {
             {/* EDICION - Requiere online */}
             <motion.div className="relative" variants={menuItemVariants} whileHover="hover" whileTap="tap">
               <button 
-                onClick={() => isPWA && !isOnline ? null : toggleSubMenu('edicion')} 
+                onClick={() => isPWA && !isOnlineLocal ? null : toggleSubMenu('edicion')} 
                 className={getMenuItemStyle(true)}
-                disabled={isPWA && !isOnline}
-                title={isPWA && !isOnline ? "Requiere conexión a internet" : ""}
+                disabled={isPWA && !isOnlineLocal}
+                title={isPWA && !isOnlineLocal ? "Requiere conexión a internet" : ""}
               >
                 EDICION
-                {isPWA && !isOnline && <span className="ml-1 text-xs">🔒</span>}
+                {isPWA && !isOnlineLocal && <span className="ml-1 text-xs">🔒</span>}
               </button>
-              {(isOnline || !isPWA) && (
+              {(isOnlineLocal || !isPWA) && (
                 <motion.div
                   className="absolute top-full left-0 bg-white text-black shadow-md rounded-md p-2 mt-1 origin-top transition duration-200 ease-in-out"
                   variants={subMenuVariants}
@@ -871,8 +893,8 @@ function AppHeader() {
               </>
             )}
 
-            {/* ✅ MENSAJE INFORMATIVO OFFLINE EN MÓVIL */}
-            {isPWA && !isOnline && (
+            {/* ⚠️ MENSAJE INFORMATIVO OFFLINE EN MÓVIL - Usar estado local */}
+            {isPWA && !isOnlineLocal && (
               <div className="w-full mb-4 p-3 bg-orange-600 bg-opacity-50 rounded text-center">
                 <p className="text-xs text-orange-100">
                   🔒 Algunas secciones requieren conexión a internet
