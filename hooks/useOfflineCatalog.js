@@ -461,13 +461,21 @@ export function useOfflinePedidos() {
       return { success: false, error: 'Sincronización en curso' };
     }
 
-    // Verificar conexión REAL antes de empezar
+    // Verificar conexión REAL antes de empezar (con reintentos)
     console.log('🔍 [useOfflinePedidos] Verificando conexión real antes de sincronizar...');
-    const tieneConexion = await verificarConexionReal(5000);
+    const tieneConexion = await verificarConexionReal(5000, 2); // 5s timeout, 2 reintentos
     
     if (!tieneConexion) {
-      toast.error('Sin conexión real para sincronizar');
-      return { success: false, error: 'Sin conexión' };
+      // ⚠️ MEJORADO: Intentar de todos modos si navigator.onLine dice que hay conexión
+      // Puede ser un falso negativo de la verificación
+      if (navigator.onLine) {
+        console.log('⚠️ [useOfflinePedidos] Verificación falló pero navigator.onLine = true, intentando sincronizar de todos modos...');
+        toast.info('Verificación de conexión falló, pero intentando sincronizar...');
+        // Continuar con la sincronización - si realmente no hay conexión, fallará en el primer pedido
+      } else {
+        toast.error('Sin conexión para sincronizar. Verifique su conexión a internet.');
+        return { success: false, error: 'Sin conexión' };
+      }
     }
 
     // Recargar pedidos pendientes antes de sincronizar
@@ -552,27 +560,41 @@ export function useOfflinePedidos() {
           } catch (requestError) {
             clearTimeout(timeoutId);
             
+            // Manejar diferentes tipos de errores
             if (requestError.name === 'AbortError' || requestError.message?.includes('timeout')) {
               console.error(`⏱️ [useOfflinePedidos] Timeout sincronizando pedido ${tempId}`);
               offlineManager.markPedidoAsFailed(tempId, 'Timeout al sincronizar');
               fallidos++;
+            } else if (requestError.code === 'ERR_NETWORK' || requestError.message?.includes('Network Error') || requestError.message?.includes('Failed to fetch')) {
+              // Error de red - marcar como fallido pero continuar con los demás
+              console.error(`❌ [useOfflinePedidos] Error de red sincronizando pedido ${tempId}`);
+              offlineManager.markPedidoAsFailed(tempId, 'Error de red');
+              fallidos++;
+              
+              // Si es el primer pedido y falla por red, puede ser que realmente no hay conexión
+              if (i === 0) {
+                console.log('⚠️ [useOfflinePedidos] Primer pedido falló por red - Puede no haber conexión real');
+                // Continuar con los demás por si acaso, pero marcar el error
+              }
+            } else if (requestError.response?.status === 409 || requestError.response?.data?.code === 'DUPLICATE') {
+              // Duplicado detectado en el catch interno
+              console.log(`⚠️ [useOfflinePedidos] Pedido ${tempId} duplicado detectado, removiendo de pendientes`);
+              offlineManager.removePedidoPendiente(tempId);
+              duplicados++;
+              exitosos++;
             } else {
-              throw requestError; // Re-lanzar para manejo general
+              // Otro error - marcar como fallido
+              console.error(`❌ [useOfflinePedidos] Error sincronizando pedido ${tempId}:`, requestError);
+              offlineManager.markPedidoAsFailed(tempId, requestError.message || 'Error desconocido');
+              fallidos++;
             }
           }
           
         } catch (error) {
-          // Verificar si es error de duplicado del backend
-          if (error.response?.status === 409 || error.response?.data?.code === 'DUPLICATE') {
-            console.log(`⚠️ [useOfflinePedidos] Pedido ${pedido.tempId} duplicado detectado por backend, removiendo de pendientes`);
-            offlineManager.removePedidoPendiente(pedido.tempId);
-            duplicados++;
-            exitosos++;
-          } else {
-            console.error(`❌ [useOfflinePedidos] Error sincronizando pedido ${pedido.tempId}:`, error);
-            offlineManager.markPedidoAsFailed(pedido.tempId, error.message || 'Error desconocido');
-            fallidos++;
-          }
+          // Catch general para errores inesperados fuera del try interno
+          console.error(`❌ [useOfflinePedidos] Error inesperado sincronizando pedido ${pedido.tempId}:`, error);
+          offlineManager.markPedidoAsFailed(pedido.tempId, error.message || 'Error inesperado');
+          fallidos++;
         }
       }
 
@@ -595,7 +617,14 @@ export function useOfflinePedidos() {
       }
 
       if (fallidos > 0) {
-        toast.error(`${fallidos} pedidos no se pudieron sincronizar`);
+        // ⚠️ MEJORADO: Mensaje más informativo
+        if (fallidos === pedidosActuales.length) {
+          // Todos fallaron - probablemente no hay conexión
+          toast.error(`No se pudo sincronizar ningún pedido. Verifique su conexión a internet.`, { duration: 5000 });
+        } else {
+          // Algunos fallaron
+          toast.error(`${fallidos} pedidos no se pudieron sincronizar. Los demás se procesaron correctamente.`, { duration: 5000 });
+        }
       }
 
       return { 
@@ -608,8 +637,17 @@ export function useOfflinePedidos() {
 
     } catch (error) {
       console.error('❌ [useOfflinePedidos] Error crítico en sincronización:', error);
-      toast.error('Error durante la sincronización');
-      return { success: false, error: error.message };
+      
+      // ⚠️ MEJORADO: Mensaje de error más específico
+      let mensajeError = 'Error durante la sincronización';
+      if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+        mensajeError = 'Error de conexión. Verifique su internet e intente nuevamente.';
+      } else if (error.message) {
+        mensajeError = `Error: ${error.message}`;
+      }
+      
+      toast.error(mensajeError, { duration: 5000 });
+      return { success: false, error: error.message || 'Error desconocido' };
     } finally {
       // ⚠️ CRÍTICO: SIEMPRE limpiar el lock, incluso si hay errores inesperados
       try {

@@ -125,21 +125,6 @@ export default function Inicio() {
   const handleSyncPedidos = async () => {
     console.log('🔄 [inicio] Sincronizando pedidos pendientes...');
     
-    // ⚠️ ENDURECER: Verificar conexión REAL antes de sincronizar
-    // No confiar solo en navigator.onLine (Safari puede mentir)
-    try {
-      const hayConexion = await checkOnDemand();
-      
-      if (!hayConexion) {
-        toast.error('Sin conexión real para sincronizar pedidos');
-        return;
-      }
-    } catch (error) {
-      console.error('❌ [inicio] Error verificando conexión:', error);
-      toast.error('Error verificando conexión. No se puede sincronizar.');
-      return;
-    }
-    
     // Mostrar confirmación si hay muchos pedidos
     if (cantidadPendientes > 5) {
       const confirmar = window.confirm(
@@ -148,7 +133,10 @@ export default function Inicio() {
       if (!confirmar) return;
     }
     
-    // ⚠️ ENDURECER: Manejar errores sin dejar locks
+    // ⚠️ MEJORADO: Intentar sincronizar directamente
+    // La función syncPedidosPendientes ya verifica conexión internamente
+    // Si falla, mostrará el error apropiado
+    // Esto evita falsos negativos de verificación previa
     try {
       const resultado = await syncPedidosPendientes();
 
@@ -166,15 +154,23 @@ export default function Inicio() {
           );
         } else if (resultado.exitosos > 0) {
           toast.success(`${resultado.exitosos} pedidos sincronizados correctamente`);
+        } else {
+          toast.info('No hay pedidos pendientes para sincronizar');
         }
       } else if (resultado.error) {
-        // Error ya fue mostrado en syncPedidosPendientes, solo loguear
+        // Error ya fue mostrado en syncPedidosPendientes
+        // Solo loguear para debugging
         console.error('❌ [inicio] Error en sincronización:', resultado.error);
+        
+        // Si el error es de conexión, dar opción de reintentar
+        if (resultado.error === 'Sin conexión' || resultado.error.includes('conexión')) {
+          console.log('🔄 [inicio] Error de conexión detectado - Usuario puede reintentar');
+        }
       }
     } catch (error) {
       // ⚠️ ENDURECER: Capturar errores inesperados
       console.error('❌ [inicio] Error inesperado sincronizando:', error);
-      toast.error('Error inesperado durante la sincronización');
+      toast.error('Error inesperado durante la sincronización. Intente nuevamente.');
     }
   };
 
