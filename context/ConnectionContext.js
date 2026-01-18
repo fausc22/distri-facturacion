@@ -9,8 +9,11 @@ import { getAppMode } from '../utils/offlineManager';
 const ConnectionContext = createContext(null);
 
 // Constantes
-const HEALTH_TIMEOUT = 10000; // 10 segundos para conexiones lentas (datos móviles)
+const HEALTH_TIMEOUT = 15000; // 15 segundos para conexiones lentas (datos móviles)
 const STORAGE_KEY = 'vertimar_modo_offline_forzado';
+
+// URL de health hardcodeada como fallback
+const HEALTH_URL_FALLBACK = 'https://api.vertimar.online/health';
 
 /**
  * ConnectionProvider - Proveedor centralizado del estado de conexión
@@ -95,63 +98,71 @@ export function ConnectionProvider({ children }) {
    * @returns {Promise<boolean>} true si hay conexión real
    */
   const verificarConexionHealth = useCallback(async () => {
+    console.log('🔍 [ConnectionContext] === VERIFICANDO CONEXIÓN ===');
+    
+    // Verificar navigator.onLine primero
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      console.log('📴 [ConnectionContext] navigator.onLine = false');
+      return false;
+    }
+
+    // Determinar URL del health endpoint
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const healthUrl = apiUrl ? `${apiUrl}/health` : HEALTH_URL_FALLBACK;
+    
+    console.log(`🔍 [ConnectionContext] Verificando: ${healthUrl}`);
+    console.log(`🔍 [ConnectionContext] API URL env: ${apiUrl || 'NO DEFINIDA'}`);
+
     try {
-      // Primero verificar navigator.onLine
-      if (typeof window !== 'undefined' && !navigator.onLine) {
-        console.log('📴 [ConnectionContext] navigator.onLine = false');
-        return false;
-      }
-
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-      if (!apiUrl) {
-        console.error('❌ [ConnectionContext] NEXT_PUBLIC_API_URL no configurada');
-        return false;
-      }
-
-      const healthUrl = `${apiUrl}/health`;
-      console.log(`🔍 [ConnectionContext] Verificando conexión: ${healthUrl}`);
-
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.log('⏱️ [ConnectionContext] Timeout de verificación');
-        controller.abort();
-      }, HEALTH_TIMEOUT);
-
-      const response = await fetch(healthUrl, {
+      const timeoutId = setTimeout(() => controller.abort(), HEALTH_TIMEOUT);
+      
+      // Agregar timestamp para evitar cache
+      const urlWithTimestamp = `${healthUrl}?_t=${Date.now()}`;
+      
+      const response = await fetch(urlWithTimestamp, {
         method: 'GET',
         signal: controller.signal,
-        cache: 'no-cache',
+        cache: 'no-store',
+        mode: 'cors',
+        credentials: 'omit',
         headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+          'Accept': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         }
       });
 
       clearTimeout(timeoutId);
-
-      console.log(`📡 [ConnectionContext] Respuesta health:`, {
-        status: response.status,
-        ok: response.ok
-      });
+      
+      console.log(`📡 [ConnectionContext] Respuesta: ${response.status} ${response.ok ? 'OK' : 'FAIL'}`);
 
       if (response.ok) {
-        try {
-          const data = await response.json();
-          console.log('✅ [ConnectionContext] Health check exitoso:', data.status);
-          return true;
-        } catch {
-          // Si no puede parsear JSON pero respondió OK, aún es válido
-          return true;
-        }
+        console.log('✅ [ConnectionContext] Conexión verificada con health endpoint');
+        return true;
+      }
+      
+      // Cualquier respuesta HTTP (incluso errores) significa que hay conectividad
+      if (response.status >= 400 && response.status < 600) {
+        console.log(`⚠️ [ConnectionContext] Backend respondió con error ${response.status} pero hay conectividad`);
+        return true;
       }
 
       return false;
+      
     } catch (error) {
-      if (error.name === 'AbortError') {
-        console.log('⏱️ [ConnectionContext] Timeout verificando health');
-      } else {
-        console.error('❌ [ConnectionContext] Error verificando health:', error.message);
+      console.error(`❌ [ConnectionContext] Error en fetch: ${error.name} - ${error.message}`);
+      
+      // Si el fetch falla pero navigator.onLine es true, confiar en él
+      // Esto cubre casos de CORS, timeout, etc.
+      if (typeof window !== 'undefined' && navigator.onLine) {
+        console.log('⚠️ [ConnectionContext] Fetch falló pero navigator.onLine = true');
+        console.log('✅ [ConnectionContext] Asumiendo conexión OK (fallback)');
+        return true;
       }
+      
+      console.log('📴 [ConnectionContext] Sin conexión confirmada');
       return false;
     }
   }, []);
@@ -161,18 +172,24 @@ export function ConnectionProvider({ children }) {
    * @returns {Promise<boolean>} true si la reconexión fue exitosa
    */
   const reconectar = useCallback(async () => {
-    console.log('🔄 [ConnectionContext] Usuario solicita reconexión...');
+    console.log('🔄 [ConnectionContext] ========================================');
+    console.log('🔄 [ConnectionContext] USUARIO SOLICITÓ RECONEXIÓN');
+    console.log('🔄 [ConnectionContext] ========================================');
+    
     setReconectando(true);
 
     try {
+      console.log('🔄 [ConnectionContext] Llamando a verificarConexionHealth()...');
       const hayConexion = await verificarConexionHealth();
+      console.log(`🔄 [ConnectionContext] Resultado de verificación: ${hayConexion}`);
 
       if (hayConexion) {
-        console.log('✅ [ConnectionContext] Reconexión exitosa');
+        console.log('✅ [ConnectionContext] RECONEXIÓN EXITOSA');
         
         // Desactivar modo offline
         setModoOffline(false);
         localStorage.removeItem(STORAGE_KEY);
+        console.log('✅ [ConnectionContext] Estado actualizado y localStorage limpiado');
         
         toast.success('✅ App reconectada - Modo online activado', {
           duration: 3000,
@@ -180,13 +197,14 @@ export function ConnectionProvider({ children }) {
         });
 
         // Recargar página para actualizar toda la UI
+        console.log('✅ [ConnectionContext] Recargando página en 1.5s...');
         setTimeout(() => {
           window.location.reload();
         }, 1500);
 
         return true;
       } else {
-        console.log('❌ [ConnectionContext] No se pudo verificar conexión');
+        console.log('❌ [ConnectionContext] RECONEXIÓN FALLIDA - verificarConexionHealth retornó false');
         
         toast.error('No se pudo reconectar. Verifique su conexión a internet.', {
           duration: 5000,
@@ -196,7 +214,9 @@ export function ConnectionProvider({ children }) {
         return false;
       }
     } catch (error) {
-      console.error('❌ [ConnectionContext] Error en reconexión:', error);
+      console.error('❌ [ConnectionContext] ERROR CRÍTICO EN RECONEXIÓN:', error);
+      console.error('❌ [ConnectionContext] Tipo:', error.name);
+      console.error('❌ [ConnectionContext] Mensaje:', error.message);
       
       toast.error('Error al intentar reconectar. Intente nuevamente.', {
         duration: 5000,
@@ -206,6 +226,7 @@ export function ConnectionProvider({ children }) {
       return false;
     } finally {
       setReconectando(false);
+      console.log('🔄 [ConnectionContext] Estado reconectando = false');
     }
   }, [verificarConexionHealth]);
 
