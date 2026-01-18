@@ -292,10 +292,17 @@ export default function Inicio() {
         }
         
         console.log('🔍 [inicio] Verificando conexión real con backend...');
+        console.log('🔍 [inicio] Estado actual:', {
+          navigatorOnLine: navigator.onLine,
+          modoOfflineForzado: modoOfflineForzado,
+          apiUrl: process.env.NEXT_PUBLIC_API_URL || 'NO CONFIGURADA'
+        });
         
         // ⚠️ SEGUNDO: Verificar conexión REAL con timeout más largo (10s)
         // Usar timeout más largo para conexiones lentas
         const hayConexion = await checkOnDemand(10000); // 10 segundos de timeout
+        
+        console.log('🔍 [inicio] Resultado de checkOnDemand:', hayConexion);
         
         if (hayConexion) {
           console.log('✅ [inicio] Conexión confirmada - Desactivando modo offline forzado');
@@ -332,6 +339,11 @@ export default function Inicio() {
           return true; // Reconexión exitosa
         } else {
           console.log('❌ [inicio] checkOnDemand retornó false - Sin conexión real');
+          console.log('❌ [inicio] Debug info:', {
+            navigatorOnLine: navigator.onLine,
+            apiUrl: process.env.NEXT_PUBLIC_API_URL || 'NO CONFIGURADA',
+            timestamp: new Date().toISOString()
+          });
           return false;
         }
       } catch (error) {
@@ -339,7 +351,8 @@ export default function Inicio() {
         console.error('❌ [inicio] Detalles del error:', {
           name: error.name,
           message: error.message,
-          stack: error.stack
+          stack: error.stack,
+          apiUrl: process.env.NEXT_PUBLIC_API_URL || 'NO CONFIGURADA'
         });
         return false;
       }

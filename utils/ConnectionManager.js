@@ -108,25 +108,68 @@ class ConnectionManager {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
       
       if (!apiUrl) {
-        console.warn('⚠️ [ConnectionManager] NEXT_PUBLIC_API_URL no configurado');
+        console.error('❌ [ConnectionManager] NEXT_PUBLIC_API_URL no configurado');
+        console.error('❌ [ConnectionManager] Variables de entorno disponibles:', {
+          NODE_ENV: process.env.NODE_ENV,
+          hasApiUrl: !!process.env.NEXT_PUBLIC_API_URL
+        });
         clearTimeout(timeoutId);
         this.isOnline = false;
         return false;
       }
       
-      console.log(`🌐 [ConnectionManager] Intentando conectar a: ${apiUrl}/ping`);
+      // Intentar primero con /ping, si falla intentar con /health
+      let pingUrl = `${apiUrl}/ping`;
+      console.log(`🌐 [ConnectionManager] Intentando conectar a: ${pingUrl}`);
+      console.log(`🌐 [ConnectionManager] Método: GET, Timeout: ${timeout}ms`);
       
-      const response = await fetch(`${apiUrl}/ping`, {
-        method: 'GET',
-        signal: controller.signal,
-        cache: 'no-cache',
-        headers: {
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
+      const startTime = Date.now();
+      let response;
+      let lastError;
+      
+      try {
+        response = await fetch(pingUrl, {
+          method: 'GET',
+          signal: controller.signal,
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        });
+      } catch (pingError) {
+        // Si /ping falla, intentar con /health como alternativa
+        console.log(`⚠️ [ConnectionManager] /ping falló, intentando con /health...`);
+        lastError = pingError;
+        
+        pingUrl = `${apiUrl}/health`;
+        try {
+          response = await fetch(pingUrl, {
+            method: 'GET',
+            signal: controller.signal,
+            cache: 'no-cache',
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          });
+        } catch (healthError) {
+          // Si ambos fallan, lanzar el error original
+          throw pingError;
         }
-      });
+      }
       
+      const responseTime = Date.now() - startTime;
       clearTimeout(timeoutId);
+      
+      console.log(`📡 [ConnectionManager] Respuesta recibida:`, {
+        url: pingUrl,
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok,
+        responseTime: `${responseTime}ms`,
+        headers: Object.fromEntries(response.headers.entries())
+      });
       
       // Cualquier respuesta HTTP (200-599) significa que hay conectividad
       // Solo fetch fallido o timeout significa OFFLINE
@@ -139,10 +182,10 @@ class ConnectionManager {
         if (response.status >= 500) {
           console.warn(`⚠️ [ConnectionManager] Backend responde con error ${response.status} - Considerado ONLINE`);
         } else {
-          console.log(`✅ [ConnectionManager] Verificación exitosa: ONLINE (status: ${response.status})`);
+          console.log(`✅ [ConnectionManager] Verificación exitosa: ONLINE (status: ${response.status}, tiempo: ${responseTime}ms)`);
         }
       } else {
-        console.log(`❌ [ConnectionManager] Status fuera de rango: ${response.status}`);
+        console.error(`❌ [ConnectionManager] Status fuera de rango: ${response.status}`);
       }
       
       // NO disparar eventos automáticos - el componente maneja el resultado
@@ -151,11 +194,16 @@ class ConnectionManager {
     } catch (error) {
       // Solo errores de red (fetch fallido, timeout) se consideran OFFLINE
       if (error.name === 'AbortError') {
-        console.log(`⏱️ [ConnectionManager] Timeout después de ${timeout}ms - Sin conexión`);
+        console.error(`⏱️ [ConnectionManager] Timeout después de ${timeout}ms - Sin conexión`);
+        console.error(`⏱️ [ConnectionManager] URL intentada: ${process.env.NEXT_PUBLIC_API_URL || 'NO CONFIGURADA'}/ping`);
+      } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        console.error(`❌ [ConnectionManager] Error de red (fetch fallido): ${error.message}`);
+        console.error(`❌ [ConnectionManager] URL intentada: ${process.env.NEXT_PUBLIC_API_URL || 'NO CONFIGURADA'}/ping`);
+        console.error(`❌ [ConnectionManager] Posibles causas: CORS, URL incorrecta, servidor no disponible`);
       } else {
-        console.log(`❌ [ConnectionManager] Verificación falló (sin conectividad): ${error.name} - ${error.message}`);
+        console.error(`❌ [ConnectionManager] Verificación falló: ${error.name} - ${error.message}`);
         if (error.stack) {
-          console.log(`❌ [ConnectionManager] Stack trace:`, error.stack);
+          console.error(`❌ [ConnectionManager] Stack trace:`, error.stack);
         }
       }
       this.isOnline = false;
