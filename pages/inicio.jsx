@@ -273,7 +273,7 @@ export default function Inicio() {
     }
   };
 
-  // ⚠️ MANEJAR RECONEXIÓN MANUAL - Intentar por 10 segundos
+  // ⚠️ MANEJAR RECONEXIÓN MANUAL - Intentar por 10 segundos con verificación robusta
   const handleReconectarApp = () => {
     console.log('🔄 [inicio] Usuario solicita reconectar app - Intentando por 10 segundos...');
     setReconectando(true);
@@ -281,16 +281,34 @@ export default function Inicio() {
     const TIEMPO_MAXIMO = 10000; // 10 segundos
     const INTERVALO_VERIFICACION = 1000; // Verificar cada 1 segundo
     const inicio = Date.now();
+    let intervaloId = null;
     
     const intentarReconectar = async () => {
       try {
-        // Verificar conexión REAL
-        const hayConexion = await checkOnDemand();
+        // ⚠️ PRIMERO: Verificar navigator.onLine (rápido)
+        if (typeof window !== 'undefined' && !navigator.onLine) {
+          console.log('📴 [inicio] navigator.onLine = false - Sin conexión de red');
+          return false;
+        }
+        
+        console.log('🔍 [inicio] Verificando conexión real con backend...');
+        
+        // ⚠️ SEGUNDO: Verificar conexión REAL con timeout más largo (10s)
+        // Usar timeout más largo para conexiones lentas
+        const hayConexion = await checkOnDemand(10000); // 10 segundos de timeout
         
         if (hayConexion) {
           console.log('✅ [inicio] Conexión confirmada - Desactivando modo offline forzado');
+          
+          // Limpiar intervalo si existe
+          if (intervaloId) {
+            clearInterval(intervaloId);
+            intervaloId = null;
+          }
+          
           setModoOfflineForzado(false);
           setMostrarBotonReconectar(false);
+          setReconectando(false);
           
           // Limpiar estado guardado
           localStorage.removeItem('vertimar_modo_offline_forzado');
@@ -312,11 +330,17 @@ export default function Inicio() {
           }, 1500);
           
           return true; // Reconexión exitosa
+        } else {
+          console.log('❌ [inicio] checkOnDemand retornó false - Sin conexión real');
+          return false;
         }
-        
-        return false; // Aún sin conexión
       } catch (error) {
         console.error('❌ [inicio] Error verificando conexión:', error);
+        console.error('❌ [inicio] Detalles del error:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
         return false;
       }
     };
@@ -326,20 +350,28 @@ export default function Inicio() {
       // Intentar reconectar inmediatamente
       const exitoInmediato = await intentarReconectar();
       if (exitoInmediato) {
-        setReconectando(false);
         return;
       }
       
       // Si no hay conexión inmediata, intentar durante 10 segundos
-      const intervaloId = setInterval(async () => {
+      intervaloId = setInterval(async () => {
         const tiempoTranscurrido = Date.now() - inicio;
         
         if (tiempoTranscurrido >= TIEMPO_MAXIMO) {
           // Tiempo agotado
-          clearInterval(intervaloId);
+          if (intervaloId) {
+            clearInterval(intervaloId);
+            intervaloId = null;
+          }
           setReconectando(false);
           
           console.log('❌ [inicio] Tiempo agotado (10s) - Sin conexión');
+          console.log('❌ [inicio] Estado final:', {
+            navigatorOnLine: typeof window !== 'undefined' ? navigator.onLine : 'N/A',
+            modoOfflineForzado: modoOfflineForzado,
+            tiempoTranscurrido
+          });
+          
           toast.error('No se pudo reconectar después de 10 segundos. Verifique su conexión a internet.', {
             duration: 5000,
             icon: '❌',
@@ -350,8 +382,7 @@ export default function Inicio() {
         // Intentar reconectar
         const exito = await intentarReconectar();
         if (exito) {
-          clearInterval(intervaloId);
-          setReconectando(false);
+          // Ya se limpió el intervalo en intentarReconectar
           return;
         }
         
@@ -361,9 +392,6 @@ export default function Inicio() {
           console.log(`🔄 [inicio] Intentando reconectar... ${segundosRestantes}s restantes`);
         }
       }, INTERVALO_VERIFICACION);
-      
-      // Guardar intervaloId para poder limpiarlo si es necesario
-      // (aunque normalmente se limpiará automáticamente cuando se reconecte o se agote el tiempo)
     };
     
     // Iniciar el proceso de reconexión

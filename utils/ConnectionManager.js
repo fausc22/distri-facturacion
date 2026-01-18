@@ -88,20 +88,41 @@ class ConnectionManager {
    * @returns {Promise<boolean>} - true si hay conexión real, false si no
    */
   async checkConnectionOnDemand(timeout = 5000) {
-    console.log('🔍 [ConnectionManager] Verificación de conexión REAL bajo demanda...');
+    console.log(`🔍 [ConnectionManager] Verificación de conexión REAL bajo demanda (timeout: ${timeout}ms)...`);
+    
+    // ⚠️ PRIMERO: Verificar navigator.onLine (rápido)
+    if (typeof window !== 'undefined' && !navigator.onLine) {
+      console.log('📴 [ConnectionManager] navigator.onLine = false - Sin conexión de red');
+      this.isOnline = false;
+      return false;
+    }
     
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
+      const timeoutId = setTimeout(() => {
+        console.log(`⏱️ [ConnectionManager] Timeout después de ${timeout}ms`);
+        controller.abort();
+      }, timeout);
       
       // Usar /ping (liviano) - cualquier respuesta HTTP significa conectividad
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+      
+      if (!apiUrl) {
+        console.warn('⚠️ [ConnectionManager] NEXT_PUBLIC_API_URL no configurado');
+        clearTimeout(timeoutId);
+        this.isOnline = false;
+        return false;
+      }
+      
+      console.log(`🌐 [ConnectionManager] Intentando conectar a: ${apiUrl}/ping`);
+      
       const response = await fetch(`${apiUrl}/ping`, {
         method: 'GET',
         signal: controller.signal,
         cache: 'no-cache',
         headers: {
-          'Cache-Control': 'no-cache'
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         }
       });
       
@@ -112,15 +133,16 @@ class ConnectionManager {
       const hasConnection = response.status >= 200 && response.status < 600;
       
       // Actualizar estado interno
-      const wasOnline = this.isOnline;
       this.isOnline = hasConnection;
       
       if (hasConnection) {
         if (response.status >= 500) {
           console.warn(`⚠️ [ConnectionManager] Backend responde con error ${response.status} - Considerado ONLINE`);
         } else {
-          console.log(`✅ [ConnectionManager] Verificación exitosa: ONLINE`);
+          console.log(`✅ [ConnectionManager] Verificación exitosa: ONLINE (status: ${response.status})`);
         }
+      } else {
+        console.log(`❌ [ConnectionManager] Status fuera de rango: ${response.status}`);
       }
       
       // NO disparar eventos automáticos - el componente maneja el resultado
@@ -128,7 +150,14 @@ class ConnectionManager {
       
     } catch (error) {
       // Solo errores de red (fetch fallido, timeout) se consideran OFFLINE
-      console.log(`❌ [ConnectionManager] Verificación falló (sin conectividad): ${error.name} - ${error.message}`);
+      if (error.name === 'AbortError') {
+        console.log(`⏱️ [ConnectionManager] Timeout después de ${timeout}ms - Sin conexión`);
+      } else {
+        console.log(`❌ [ConnectionManager] Verificación falló (sin conectividad): ${error.name} - ${error.message}`);
+        if (error.stack) {
+          console.log(`❌ [ConnectionManager] Stack trace:`, error.stack);
+        }
+      }
       this.isOnline = false;
       return false;
     }
