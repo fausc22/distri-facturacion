@@ -90,9 +90,11 @@ export default function Inicio() {
     }
   }, [isPWA]);
 
-  // ⚠️ INICIALIZACIÓN: Detectar modo offline al cargar
+  // ⚠️ INICIALIZACIÓN: Detectar modo offline al cargar usando health endpoint
   useEffect(() => {
     if (isPWA) {
+      const HEALTH_URL = 'https://api.vertimar.online/health';
+      
       // Verificar si hay estado guardado de modo offline forzado
       const modoGuardado = localStorage.getItem('vertimar_modo_offline_forzado');
       const tieneConexion = navigator.onLine;
@@ -101,13 +103,23 @@ export default function Inicio() {
         console.log('📴 [inicio] Activando modo offline forzado (guardado o sin conexión)');
         setModoOfflineForzado(true);
         
-        // Si hay conexión pero modo guardado, verificar y mostrar botón
+        // Si hay conexión pero modo guardado, verificar con health y mostrar botón
         if (tieneConexion && modoGuardado === 'true') {
-          checkOnDemand().then(hayConexion => {
-            if (hayConexion) {
-              setMostrarBotonReconectar(true);
-            }
-          }).catch(() => {});
+          // Verificar conexión real con health endpoint
+          fetch(HEALTH_URL, {
+            method: 'GET',
+            cache: 'no-cache',
+            headers: { 'Cache-Control': 'no-cache' }
+          })
+            .then(response => {
+              if (response.ok) {
+                console.log('✅ [inicio] Health OK en inicialización - Mostrando botón reconectar');
+                setMostrarBotonReconectar(true);
+              }
+            })
+            .catch(() => {
+              console.log('⚠️ [inicio] Health no disponible en inicialización');
+            });
         }
       } else {
         setModoOfflineForzado(false);
@@ -128,36 +140,54 @@ export default function Inicio() {
     }
   }, [eventType, isPWA]);
 
-  // ⚠️ MONITOREAR CONEXIÓN: Actualizar indicador visual del botón (pero el botón SIEMPRE visible)
+  // ⚠️ MONITOREAR CONEXIÓN: Actualizar indicador visual del botón usando health endpoint
   useEffect(() => {
     if (!isPWA || !modoOfflineForzado) return;
 
-    const verificarConexion = async () => {
-      const tieneConexion = typeof window !== 'undefined' ? navigator.onLine : false;
+    const HEALTH_URL = 'https://api.vertimar.online/health';
+
+    // ✅ Verificar conexión real usando health endpoint
+    const verificarConexionConHealth = async () => {
+      const tieneConexionNavegador = typeof window !== 'undefined' ? navigator.onLine : false;
       
-      if (tieneConexion) {
-        // Si navigator.onLine dice que hay conexión, verificar realmente
-        try {
-          const hayConexionReal = await checkOnDemand();
-          setMostrarBotonReconectar(hayConexionReal);
-          
-          if (hayConexionReal) {
-            console.log('✅ [inicio] Conexión real detectada - Botón mostrará indicador verde');
-          } else {
-            console.log('⚠️ [inicio] navigator.onLine = true pero sin conexión real - Botón mostrará indicador naranja');
+      if (!tieneConexionNavegador) {
+        setMostrarBotonReconectar(false);
+        return;
+      }
+
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout para verificación
+        
+        const response = await fetch(HEALTH_URL, {
+          method: 'GET',
+          signal: controller.signal,
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
           }
-        } catch (error) {
-          console.log('❌ [inicio] Error verificando conexión:', error);
-          setMostrarBotonReconectar(false);
+        });
+        
+        clearTimeout(timeoutId);
+        
+        const hayConexionReal = response.ok;
+        setMostrarBotonReconectar(hayConexionReal);
+        
+        if (hayConexionReal) {
+          console.log('✅ [inicio] Conexión real detectada via health - Botón mostrará indicador verde');
+        } else {
+          console.log('⚠️ [inicio] Health respondió con error - Botón mostrará indicador naranja');
         }
-      } else {
+      } catch (error) {
+        console.log('⚠️ [inicio] No se pudo verificar health:', error.name);
         setMostrarBotonReconectar(false);
       }
     };
 
     const handleOnline = () => {
-      console.log('🌐 [inicio] Evento "online" detectado - Verificando conexión real...');
-      setTimeout(verificarConexion, 2000); // Delay para estabilizar
+      console.log('🌐 [inicio] Evento "online" detectado - Verificando con health...');
+      setTimeout(verificarConexionConHealth, 2000); // Delay para estabilizar
     };
 
     const handleOffline = () => {
@@ -166,24 +196,24 @@ export default function Inicio() {
     };
 
     // Verificar estado inicial
-    verificarConexion();
+    verificarConexionConHealth();
 
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Verificar periódicamente (cada 5 segundos) si hay conexión
+    // Verificar periódicamente (cada 10 segundos) si hay conexión
     const intervaloVerificacion = setInterval(() => {
       if (modoOfflineForzado && navigator.onLine) {
-        verificarConexion();
+        verificarConexionConHealth();
       }
-    }, 5000);
+    }, 10000); // Cada 10 segundos para no sobrecargar
 
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       clearInterval(intervaloVerificacion);
     };
-  }, [modoOfflineForzado, isPWA, checkOnDemand]);
+  }, [modoOfflineForzado, isPWA]);
 
   // Handlers para los botones PWA - OFFLINE-FIRST
   const handleUpdateCatalog = async () => {
@@ -273,142 +303,119 @@ export default function Inicio() {
     }
   };
 
-  // ⚠️ MANEJAR RECONEXIÓN MANUAL - Intentar por 10 segundos con verificación robusta
-  const handleReconectarApp = () => {
-    console.log('🔄 [inicio] Usuario solicita reconectar app - Intentando por 10 segundos...');
+  // ⚠️ MANEJAR RECONEXIÓN MANUAL - Usa endpoint de health para verificar conexión real
+  const handleReconectarApp = async () => {
+    console.log('🔄 [inicio] Usuario solicita reconectar app...');
     setReconectando(true);
     
-    const TIEMPO_MAXIMO = 10000; // 10 segundos
-    const INTERVALO_VERIFICACION = 1000; // Verificar cada 1 segundo
-    const inicio = Date.now();
-    let intervaloId = null;
+    // ✅ URL DE HEALTH PARA VERIFICAR CONEXIÓN REAL
+    const HEALTH_URL = 'https://api.vertimar.online/health';
+    const TIMEOUT = 10000; // 10 segundos de timeout
     
-    const intentarReconectar = async () => {
+    /**
+     * Verificar conexión usando el endpoint de health
+     * Retorna true si el servidor responde correctamente
+     */
+    const verificarConexionConHealth = async () => {
       try {
-        // ⚠️ PRIMERO: Verificar navigator.onLine (rápido)
-        if (typeof window !== 'undefined' && !navigator.onLine) {
-          console.log('📴 [inicio] navigator.onLine = false - Sin conexión de red');
-          return false;
-        }
+        console.log(`🔍 [inicio] Verificando conexión con: ${HEALTH_URL}`);
         
-        console.log('🔍 [inicio] Verificando conexión real con backend...');
-        console.log('🔍 [inicio] Estado actual:', {
-          navigatorOnLine: navigator.onLine,
-          modoOfflineForzado: modoOfflineForzado,
-          apiUrl: process.env.NEXT_PUBLIC_API_URL || 'NO CONFIGURADA'
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => {
+          console.log('⏱️ [inicio] Timeout de verificación');
+          controller.abort();
+        }, TIMEOUT);
+        
+        const response = await fetch(HEALTH_URL, {
+          method: 'GET',
+          signal: controller.signal,
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
         });
         
-        // ⚠️ SEGUNDO: Verificar conexión REAL con timeout más largo (10s)
-        // Usar timeout más largo para conexiones lentas
-        const hayConexion = await checkOnDemand(10000); // 10 segundos de timeout
+        clearTimeout(timeoutId);
         
-        console.log('🔍 [inicio] Resultado de checkOnDemand:', hayConexion);
+        console.log(`📡 [inicio] Respuesta de health:`, {
+          status: response.status,
+          ok: response.ok
+        });
         
-        if (hayConexion) {
-          console.log('✅ [inicio] Conexión confirmada - Desactivando modo offline forzado');
-          
-          // Limpiar intervalo si existe
-          if (intervaloId) {
-            clearInterval(intervaloId);
-            intervaloId = null;
+        if (response.ok) {
+          // Opcional: parsear respuesta para confirmar que es el endpoint correcto
+          try {
+            const data = await response.json();
+            console.log('✅ [inicio] Health check exitoso:', data);
+            return data.status === '✅ Healthy' || response.ok;
+          } catch {
+            // Si no puede parsear JSON pero respondió OK, aún es válido
+            return true;
           }
-          
-          setModoOfflineForzado(false);
-          setMostrarBotonReconectar(false);
-          setReconectando(false);
-          
-          // Limpiar estado guardado
-          localStorage.removeItem('vertimar_modo_offline_forzado');
-          
-          toast.success('✅ App reconectada - Modo online activado', {
-            duration: 3000,
-            icon: '✅',
-          });
-          
-          // Recargar estadísticas
-          if (isPWA) {
-            const stats = offlineManager.getStorageStats();
-            setCatalogStats(stats);
-          }
-          
-          // Recargar página para actualizar toda la UI
-          setTimeout(() => {
-            window.location.reload();
-          }, 1500);
-          
-          return true; // Reconexión exitosa
-        } else {
-          console.log('❌ [inicio] checkOnDemand retornó false - Sin conexión real');
-          console.log('❌ [inicio] Debug info:', {
-            navigatorOnLine: navigator.onLine,
-            apiUrl: process.env.NEXT_PUBLIC_API_URL || 'NO CONFIGURADA',
-            timestamp: new Date().toISOString()
-          });
-          return false;
         }
+        
+        return false;
       } catch (error) {
-        console.error('❌ [inicio] Error verificando conexión:', error);
-        console.error('❌ [inicio] Detalles del error:', {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-          apiUrl: process.env.NEXT_PUBLIC_API_URL || 'NO CONFIGURADA'
-        });
+        if (error.name === 'AbortError') {
+          console.log('⏱️ [inicio] Timeout verificando health');
+        } else {
+          console.error('❌ [inicio] Error verificando health:', error.message);
+        }
         return false;
       }
     };
     
-    // Función para intentar reconectar con timeout
-    const iniciarIntentoReconexion = async () => {
-      // Intentar reconectar inmediatamente
-      const exitoInmediato = await intentarReconectar();
-      if (exitoInmediato) {
-        return;
-      }
+    try {
+      // Verificar conexión usando el endpoint de health
+      const hayConexion = await verificarConexionConHealth();
       
-      // Si no hay conexión inmediata, intentar durante 10 segundos
-      intervaloId = setInterval(async () => {
-        const tiempoTranscurrido = Date.now() - inicio;
+      if (hayConexion) {
+        console.log('✅ [inicio] Conexión confirmada con health endpoint');
         
-        if (tiempoTranscurrido >= TIEMPO_MAXIMO) {
-          // Tiempo agotado
-          if (intervaloId) {
-            clearInterval(intervaloId);
-            intervaloId = null;
-          }
-          setReconectando(false);
-          
-          console.log('❌ [inicio] Tiempo agotado (10s) - Sin conexión');
-          console.log('❌ [inicio] Estado final:', {
-            navigatorOnLine: typeof window !== 'undefined' ? navigator.onLine : 'N/A',
-            modoOfflineForzado: modoOfflineForzado,
-            tiempoTranscurrido
-          });
-          
-          toast.error('No se pudo reconectar después de 10 segundos. Verifique su conexión a internet.', {
-            duration: 5000,
-            icon: '❌',
-          });
-          return;
+        // ✅ RECONEXIÓN EXITOSA
+        setModoOfflineForzado(false);
+        setMostrarBotonReconectar(false);
+        setReconectando(false);
+        
+        // Limpiar estado guardado
+        localStorage.removeItem('vertimar_modo_offline_forzado');
+        
+        toast.success('✅ App reconectada - Modo online activado', {
+          duration: 3000,
+          icon: '✅',
+        });
+        
+        // Recargar estadísticas
+        if (isPWA) {
+          const stats = offlineManager.getStorageStats();
+          setCatalogStats(stats);
         }
         
-        // Intentar reconectar
-        const exito = await intentarReconectar();
-        if (exito) {
-          // Ya se limpió el intervalo en intentarReconectar
-          return;
-        }
+        // Recargar página para actualizar toda la UI
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
         
-        // Mostrar progreso cada 2 segundos
-        const segundosRestantes = Math.ceil((TIEMPO_MAXIMO - tiempoTranscurrido) / 1000);
-        if (tiempoTranscurrido % 2000 < INTERVALO_VERIFICACION) {
-          console.log(`🔄 [inicio] Intentando reconectar... ${segundosRestantes}s restantes`);
-        }
-      }, INTERVALO_VERIFICACION);
-    };
-    
-    // Iniciar el proceso de reconexión
-    iniciarIntentoReconexion();
+      } else {
+        // ❌ SIN CONEXIÓN
+        console.log('❌ [inicio] No se pudo verificar conexión con health endpoint');
+        setReconectando(false);
+        
+        toast.error('No se pudo reconectar. Verifique su conexión a internet.', {
+          duration: 5000,
+          icon: '❌',
+        });
+      }
+    } catch (error) {
+      console.error('❌ [inicio] Error en reconexión:', error);
+      setReconectando(false);
+      
+      toast.error('Error al intentar reconectar. Intente nuevamente.', {
+        duration: 5000,
+        icon: '❌',
+      });
+    }
   };
 
   // ⚠️ DETERMINAR SI ESTAMOS EN MODO OFFLINE (forzado o real)
