@@ -349,6 +349,18 @@ class OfflineManager {
     ]);
   }
 
+  /**
+   * ⚠️ ACTUALIZAR STOCK LOCAL - SOLO DESPUÉS DE CONFIRMACIÓN DEL BACKEND
+   * 
+   * PRINCIPIO OFFLINE-FIRST: Stock conservador
+   * - NO se debe llamar al guardar pedido offline
+   * - SOLO se debe llamar después de confirmar que el pedido se guardó en el servidor
+   * - Esto garantiza que el stock local nunca se desincronice
+   * 
+   * @param {number} productoId - ID del producto
+   * @param {number} cantidadRestar - Cantidad a restar del stock
+   * @returns {Promise<boolean>} - true si se actualizó correctamente
+   */
   async updateLocalStock(productoId, cantidadRestar) {
     try {
       if (!isClient()) return false;
@@ -357,7 +369,7 @@ class OfflineManager {
       const productoIndex = productos.findIndex(p => p.id === productoId);
       
       if (productoIndex === -1) {
-        console.warn(`Producto ${productoId} no encontrado en stock local`);
+        console.warn(`⚠️ [offlineManager] Producto ${productoId} no encontrado en stock local`);
         return false;
       }
       
@@ -370,17 +382,61 @@ class OfflineManager {
       const success = await this.saveProductos(productos);
       
       if (success) {
-        console.log(`📦 Stock local actualizado - Producto ${productoId}: ${stockActual} → ${nuevoStock}`);
+        console.log(`📦 [offlineManager] Stock local actualizado - Producto ${productoId}: ${stockActual} → ${nuevoStock}`);
       }
       
       return success;
     } catch (error) {
-      console.error('❌ Error actualizando stock local:', error);
+      console.error('❌ [offlineManager] Error actualizando stock local:', error);
       return false;
     }
   }
 
-// ✅ RESTAURAR STOCK LOCAL AL ANULAR PEDIDO
+  /**
+   * Actualizar stock DESPUÉS de sincronización exitosa
+   * 
+   * Esta función debe ser llamada SOLO después de confirmar que un pedido
+   * se guardó exitosamente en el backend.
+   * 
+   * @param {Array} productos - Array de productos con {id, cantidad}
+   * @returns {Promise<Object>} - {exitosos, fallidos}
+   */
+  async updateStockAfterSync(productos) {
+    try {
+      if (!isClient() || !productos || productos.length === 0) {
+        return { exitosos: 0, fallidos: 0 };
+      }
+
+      let exitosos = 0;
+      let fallidos = 0;
+      
+      console.log(`📦 [offlineManager] Actualizando stock después de sincronización: ${productos.length} productos`);
+      
+      for (const producto of productos) {
+        const success = await this.updateLocalStock(producto.id, producto.cantidad);
+        if (success) {
+          exitosos++;
+        } else {
+          fallidos++;
+          console.warn(`⚠️ [offlineManager] No se pudo actualizar stock para producto ${producto.id}`);
+        }
+      }
+      
+      console.log(`✅ [offlineManager] Stock actualizado: ${exitosos} exitosos, ${fallidos} fallidos`);
+      return { exitosos, fallidos };
+    } catch (error) {
+      console.error('❌ [offlineManager] Error actualizando stock después de sincronización:', error);
+      return { exitosos: 0, fallidos: productos.length };
+    }
+  }
+
+  /**
+   * Restaurar stock local (usado al anular pedido offline)
+   * 
+   * @param {number} productoId - ID del producto
+   * @param {number} cantidadRestaurar - Cantidad a restaurar
+   * @returns {Promise<boolean>} - true si se restauró correctamente
+   */
   async restoreLocalStock(productoId, cantidadRestaurar) {
     try {
       if (!isClient()) return false;
@@ -389,7 +445,7 @@ class OfflineManager {
       const productoIndex = productos.findIndex(p => p.id === productoId);
       
       if (productoIndex === -1) {
-        console.warn(`Producto ${productoId} no encontrado en stock local`);
+        console.warn(`⚠️ [offlineManager] Producto ${productoId} no encontrado en stock local`);
         return false;
       }
       
@@ -402,36 +458,13 @@ class OfflineManager {
       const success = await this.saveProductos(productos);
       
       if (success) {
-        console.log(`📦 Stock local restaurado - Producto ${productoId}: ${stockActual} → ${nuevoStock}`);
+        console.log(`📦 [offlineManager] Stock local restaurado - Producto ${productoId}: ${stockActual} → ${nuevoStock}`);
       }
       
       return success;
     } catch (error) {
-      console.error('❌ Error restaurando stock local:', error);
+      console.error('❌ [offlineManager] Error restaurando stock local:', error);
       return false;
-    }
-  }
-
-// ✅ PROCESAR STOCK PARA MÚLTIPLES PRODUCTOS
-  async updateMultipleLocalStock(productos) {
-    try {
-      let exitosos = 0;
-      let fallidos = 0;
-      
-      for (const producto of productos) {
-        const success = await this.updateLocalStock(producto.id, producto.cantidad);
-        if (success) {
-          exitosos++;
-        } else {
-          fallidos++;
-        }
-      }
-      
-      console.log(`📦 Stock múltiple actualizado: ${exitosos} exitosos, ${fallidos} fallidos`);
-      return { exitosos, fallidos };
-    } catch (error) {
-      console.error('❌ Error actualizando stock múltiple:', error);
-      return { exitosos: 0, fallidos: productos.length };
     }
   }
 

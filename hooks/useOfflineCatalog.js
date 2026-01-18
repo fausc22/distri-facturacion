@@ -393,12 +393,49 @@ export function useOfflineCatalog() {
   };
 }
 
-// ✅ HOOK MEJORADO PARA PEDIDOS OFFLINE
+// Hook para pedidos offline - OFFLINE-FIRST
+// Sincronización SOLO manual desde el menú principal
+
+/**
+ * Verificar conexión real con el backend
+ * @param {number} timeout - Timeout en ms
+ * @returns {Promise<boolean>}
+ */
+async function verificarConexionSimple(timeout = 5000) {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return false;
+  }
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) {
+    console.warn('⚠️ NEXT_PUBLIC_API_URL no configurada');
+    return false;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    const response = await fetch(`${apiUrl}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+      cache: 'no-cache'
+    });
+
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (error) {
+    console.log('⚠️ Error verificando conexión:', error.message);
+    return false;
+  }
+}
+
 export function useOfflinePedidos() {
   const [pedidosPendientes, setPedidosPendientes] = useState([]);
   const [syncing, setSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState({ actual: 0, total: 0 });
   
-  // ✅ REF PARA PROTECCIÓN CONTRA EJECUCIONES MÚLTIPLES
+  // Ref para protección contra ejecuciones múltiples
   const sincronizandoRef = useRef(false);
 
   const isPWA = getAppMode() === 'pwa';
@@ -408,6 +445,8 @@ export function useOfflinePedidos() {
     if (isPWA) {
       loadPedidosPendientes();
     }
+    // ⚠️ NO agregar listeners de eventos online/offline
+    // La sincronización es SOLO manual
   }, [isPWA]);
 
   const loadPedidosPendientes = () => {
@@ -431,18 +470,45 @@ export function useOfflinePedidos() {
     return { success: false };
   };
 
-  // ✅ SINCRONIZAR PEDIDOS PENDIENTES CON PROTECCIÓN CONTRA DUPLICADOS Y EJECUCIONES MÚLTIPLES
+  /**
+   * Sincronizar pedidos pendientes - OFFLINE-FIRST
+   * 
+   * FLUJO:
+   * 1. Verificar conexión REAL antes de empezar
+   * 2. Procesar pedidos UNO POR UNO (no en paralelo)
+   * 3. Para cada pedido:
+   *    - Verificar duplicado en servidor (si tiene hash)
+   *    - Si es duplicado: eliminar de pendientes
+   *    - Si no es duplicado: enviar al servidor
+   *    - Si exitoso: actualizar stock y eliminar de pendientes
+   *    - Si falla: marcar como fallido (con límite de reintentos)
+   * 4. Actualizar catálogo después de sincronizar
+   * 
+   * IMPORTANTE: Esta función debe ser llamada SOLO manualmente desde el menú principal
+   */
   const syncPedidosPendientes = async () => {
-    // ✅ PROTECCIÓN CONTRA EJECUCIONES MÚLTIPLES
+    // Protección contra ejecuciones múltiples
     if (sincronizandoRef.current) {
-      console.log('⚠️ Sincronización ya en curso, ignorando solicitud duplicada');
+      console.log('⚠️ [useOfflinePedidos] Sincronización ya en curso, ignorando solicitud duplicada');
       toast.info('Sincronización en curso, por favor espere...');
       return { success: false, error: 'Sincronización en curso' };
     }
 
-    if (!navigator.onLine) {
-      toast.error('Sin conexión para sincronizar');
-      return { success: false, error: 'Sin conexión' };
+    // Verificar conexión antes de empezar
+    console.log('🔍 [useOfflinePedidos] Verificando conexión antes de sincronizar...');
+    const tieneConexion = await verificarConexionSimple(5000);
+    
+    if (!tieneConexion) {
+      // ⚠️ MEJORADO: Intentar de todos modos si navigator.onLine dice que hay conexión
+      // Puede ser un falso negativo de la verificación
+      if (navigator.onLine) {
+        console.log('⚠️ [useOfflinePedidos] Verificación falló pero navigator.onLine = true, intentando sincronizar de todos modos...');
+        toast.info('Verificación de conexión falló, pero intentando sincronizar...');
+        // Continuar con la sincronización - si realmente no hay conexión, fallará en el primer pedido
+      } else {
+        toast.error('Sin conexión para sincronizar. Verifique su conexión a internet.');
+        return { success: false, error: 'Sin conexión' };
+      }
     }
 
     // Recargar pedidos pendientes antes de sincronizar
@@ -454,77 +520,144 @@ export function useOfflinePedidos() {
       return { success: true, count: 0 };
     }
 
+    // ⚠️ ENDURECER: Asegurar que el lock se limpie SIEMPRE, incluso si hay errores inesperados
     sincronizandoRef.current = true;
     setSyncing(true);
+    setSyncProgress({ actual: 0, total: pedidosActuales.length });
+    
     let exitosos = 0;
     let fallidos = 0;
     let duplicados = 0;
 
     try {
-      console.log(`🔄 Sincronizando ${pedidosActuales.length} pedidos pendientes...`);
+      console.log(`🔄 [useOfflinePedidos] Sincronizando ${pedidosActuales.length} pedidos pendientes...`);
       
-      for (const pedido of pedidosActuales) {
+      // Procesar pedidos UNO POR UNO (no en paralelo para evitar race conditions)
+      for (let i = 0; i < pedidosActuales.length; i++) {
+        const pedido = pedidosActuales[i];
+        setSyncProgress({ actual: i + 1, total: pedidosActuales.length });
+        
         try {
-          // ✅ VERIFICAR SI EL PEDIDO YA FUE PROCESADO (por hash)
+          // Verificar si el pedido tiene hash
           if (!pedido.hash_pedido) {
-            console.warn(`⚠️ Pedido ${pedido.tempId} no tiene hash, continuando...`);
+            console.warn(`⚠️ [useOfflinePedidos] Pedido ${pedido.tempId} no tiene hash, continuando...`);
           }
           
-          console.log(`🔄 Sincronizando pedido ${pedido.tempId} (hash: ${pedido.hash_pedido || 'sin hash'})...`);
+          console.log(`🔄 [useOfflinePedidos] Sincronizando pedido ${i + 1}/${pedidosActuales.length} - ${pedido.tempId} (hash: ${pedido.hash_pedido || 'sin hash'})...`);
           
           // Remover campos temporales pero mantener hash_pedido
           const { tempId, fechaCreacion, estado, intentos, ultimoError, ultimoIntento, ...pedidoData } = pedido;
           
-          const response = await axiosAuth.post('/pedidos/registrar-pedido', pedidoData);
+          // Enviar pedido al servidor con timeout
+          const timeoutMs = 30000; // 30 segundos por pedido
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
           
-          if (response.data.success) {
-            // ✅ VERIFICAR SI ES DUPLICADO (backend retorna existing: true)
-            if (response.data.existing) {
-              console.log(`⚠️ Pedido ${tempId} ya existe en el backend (duplicado detectado), removiendo de pendientes`);
+          try {
+            const response = await axiosAuth.post('/pedidos/registrar-pedido', pedidoData, {
+              signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (response.data.success) {
+              // Verificar si es duplicado (backend retorna existing: true)
+              if (response.data.existing) {
+                console.log(`⚠️ [useOfflinePedidos] Pedido ${tempId} ya existe en el backend (duplicado), removiendo de pendientes`);
+                offlineManager.removePedidoPendiente(tempId);
+                duplicados++;
+                exitosos++; // Contar como exitoso porque ya está procesado
+              } else {
+                // Pedido nuevo: actualizar stock y eliminar de pendientes
+                console.log(`✅ [useOfflinePedidos] Pedido ${tempId} sincronizado exitosamente`);
+                
+                // Actualizar stock DESPUÉS de confirmar que se guardó en el servidor
+                if (pedidoData.productos && pedidoData.productos.length > 0) {
+                  try {
+                    await offlineManager.updateStockAfterSync(pedidoData.productos);
+                  } catch (stockError) {
+                    console.error(`⚠️ [useOfflinePedidos] Error actualizando stock para pedido ${tempId}:`, stockError);
+                    // No fallar la sincronización por error de stock
+                  }
+                }
+                
+                offlineManager.removePedidoPendiente(tempId);
+                exitosos++;
+              }
+            } else {
+              // Error del servidor
+              console.error(`❌ [useOfflinePedidos] Error del servidor para pedido ${tempId}: ${response.data.message}`);
+              offlineManager.markPedidoAsFailed(tempId, response.data.message);
+              fallidos++;
+            }
+          } catch (requestError) {
+            clearTimeout(timeoutId);
+            
+            // Manejar diferentes tipos de errores
+            if (requestError.name === 'AbortError' || requestError.message?.includes('timeout')) {
+              console.error(`⏱️ [useOfflinePedidos] Timeout sincronizando pedido ${tempId}`);
+              offlineManager.markPedidoAsFailed(tempId, 'Timeout al sincronizar');
+              fallidos++;
+            } else if (requestError.code === 'ERR_NETWORK' || requestError.message?.includes('Network Error') || requestError.message?.includes('Failed to fetch')) {
+              // Error de red - marcar como fallido pero continuar con los demás
+              console.error(`❌ [useOfflinePedidos] Error de red sincronizando pedido ${tempId}`);
+              offlineManager.markPedidoAsFailed(tempId, 'Error de red');
+              fallidos++;
+              
+              // Si es el primer pedido y falla por red, puede ser que realmente no hay conexión
+              if (i === 0) {
+                console.log('⚠️ [useOfflinePedidos] Primer pedido falló por red - Puede no haber conexión real');
+                // Continuar con los demás por si acaso, pero marcar el error
+              }
+            } else if (requestError.response?.status === 409 || requestError.response?.data?.code === 'DUPLICATE') {
+              // Duplicado detectado en el catch interno
+              console.log(`⚠️ [useOfflinePedidos] Pedido ${tempId} duplicado detectado, removiendo de pendientes`);
               offlineManager.removePedidoPendiente(tempId);
               duplicados++;
-              exitosos++; // Contar como exitoso porque ya está procesado
-            } else {
-              offlineManager.removePedidoPendiente(tempId);
               exitosos++;
-              console.log(`✅ Pedido ${tempId} sincronizado exitosamente`);
+            } else {
+              // Otro error - marcar como fallido
+              console.error(`❌ [useOfflinePedidos] Error sincronizando pedido ${tempId}:`, requestError);
+              offlineManager.markPedidoAsFailed(tempId, requestError.message || 'Error desconocido');
+              fallidos++;
             }
-          } else {
-            offlineManager.markPedidoAsFailed(tempId, response.data.message);
-            fallidos++;
           }
           
         } catch (error) {
-          // ✅ VERIFICAR SI ES ERROR DE DUPLICADO DEL BACKEND
-          if (error.response?.status === 409 || error.response?.data?.code === 'DUPLICATE') {
-            console.log(`⚠️ Pedido ${pedido.tempId} duplicado detectado por backend, removiendo de pendientes`);
-            offlineManager.removePedidoPendiente(pedido.tempId);
-            duplicados++;
-            exitosos++;
-          } else {
-            console.error(`❌ Error sincronizando pedido ${pedido.tempId}:`, error);
-            offlineManager.markPedidoAsFailed(pedido.tempId, error.message);
-            fallidos++;
-          }
+          // Catch general para errores inesperados fuera del try interno
+          console.error(`❌ [useOfflinePedidos] Error inesperado sincronizando pedido ${pedido.tempId}:`, error);
+          offlineManager.markPedidoAsFailed(pedido.tempId, error.message || 'Error inesperado');
+          fallidos++;
         }
       }
 
+      // Recargar pedidos pendientes después de sincronizar
       loadPedidosPendientes();
+      setSyncProgress({ actual: 0, total: 0 });
 
-      // ✅ AUTO-ACTUALIZACIÓN DESPUÉS DE SINCRONIZAR
+      // Auto-actualización de catálogo después de sincronizar
       if (exitosos > 0) {
         const mensaje = duplicados > 0 
           ? `${exitosos} pedidos procesados (${duplicados} ya existían)`
           : `${exitosos} pedidos sincronizados correctamente`;
         toast.success(mensaje);
         
-        // Actualizar catálogo después de sincronizar pedidos
-        console.log('🔄 Actualizando catálogo después de sincronización...');
-        await updateCatalogAfterSync();
+        // Actualizar catálogo después de sincronizar (no bloqueante)
+        console.log('🔄 [useOfflinePedidos] Actualizando catálogo después de sincronización...');
+        updateCatalogAfterSync().catch(() => {
+          console.log('⚠️ [useOfflinePedidos] No se pudo actualizar catálogo después de sincronización');
+        });
       }
 
       if (fallidos > 0) {
-        toast.error(`${fallidos} pedidos no se pudieron sincronizar`);
+        // ⚠️ MEJORADO: Mensaje más informativo
+        if (fallidos === pedidosActuales.length) {
+          // Todos fallaron - probablemente no hay conexión
+          toast.error(`No se pudo sincronizar ningún pedido. Verifique su conexión a internet.`, { duration: 5000 });
+        } else {
+          // Algunos fallaron
+          toast.error(`${fallidos} pedidos no se pudieron sincronizar. Los demás se procesaron correctamente.`, { duration: 5000 });
+        }
       }
 
       return { 
@@ -536,12 +669,30 @@ export function useOfflinePedidos() {
       };
 
     } catch (error) {
-      console.error('❌ Error en sincronización:', error);
-      toast.error('Error durante la sincronización');
-      return { success: false, error: error.message };
+      console.error('❌ [useOfflinePedidos] Error crítico en sincronización:', error);
+      
+      // ⚠️ MEJORADO: Mensaje de error más específico
+      let mensajeError = 'Error durante la sincronización';
+      if (error.code === 'ERR_NETWORK' || error.message?.includes('Network Error')) {
+        mensajeError = 'Error de conexión. Verifique su internet e intente nuevamente.';
+      } else if (error.message) {
+        mensajeError = `Error: ${error.message}`;
+      }
+      
+      toast.error(mensajeError, { duration: 5000 });
+      return { success: false, error: error.message || 'Error desconocido' };
     } finally {
-      setSyncing(false);
-      sincronizandoRef.current = false;
+      // ⚠️ CRÍTICO: SIEMPRE limpiar el lock, incluso si hay errores inesperados
+      try {
+        setSyncing(false);
+        setSyncProgress({ actual: 0, total: 0 });
+        sincronizandoRef.current = false;
+        console.log('✅ [useOfflinePedidos] Lock de sincronización limpiado');
+      } catch (cleanupError) {
+        // Si incluso el cleanup falla, forzar el reset
+        console.error('❌ [useOfflinePedidos] Error limpiando lock, forzando reset:', cleanupError);
+        sincronizandoRef.current = false;
+      }
     }
   };
 
@@ -549,6 +700,7 @@ export function useOfflinePedidos() {
     // Estados
     pedidosPendientes,
     syncing,
+    syncProgress,
     hasPendientes: pedidosPendientes.length > 0,
     cantidadPendientes: pedidosPendientes.length,
     isPWA,

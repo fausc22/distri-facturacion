@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { axiosAuth } from '../../utils/apiClient';
 import { toast } from 'react-hot-toast';
 import { usePaginacion } from '../usePaginacion';
-
+//arrancar con el hook usePaginacion
 export const useVentasComprobantes = () => {
   const [ventas, setVentas] = useState([]);
   const [loading, setLoading] = useState(true);

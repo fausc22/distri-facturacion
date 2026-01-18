@@ -1,33 +1,49 @@
-// utils/pedidoHash.js - Generación de hash único para detección de duplicados
-// Función simple pero efectiva para generar hash determinístico de un pedido
+// utils/pedidoHash.js - Generación de hash idempotente para detección de duplicados
+// OFFLINE-FIRST: Hash robusto que garantiza idempotencia total
 
 /**
- * Genera un hash único determinístico de un pedido basado en su contenido
- * El mismo pedido siempre generará el mismo hash
+ * Genera un hash único determinístico e idempotente de un pedido
+ * 
+ * CARACTERÍSTICAS:
+ * - El mismo pedido siempre genera el mismo hash
+ * - Incluye fecha para permitir mismo pedido en días diferentes
+ * - Incluye todos los campos críticos del pedido
+ * - Ordena productos para consistencia
+ * 
+ * @param {Object} pedidoData - Datos del pedido
+ * @returns {string} Hash único del pedido
  */
 export function generarHashPedido(pedidoData) {
   try {
-    // Normalizar datos para hash consistente
+    // Normalizar y ordenar datos para hash consistente
     const datosNormalizados = {
-      cliente_id: pedidoData.cliente_id,
+      cliente_id: parseInt(pedidoData.cliente_id) || 0,
+      empleado_id: parseInt(pedidoData.empleado_id) || 1,
+      // Totales normalizados a 2 decimales
       subtotal: parseFloat(pedidoData.subtotal || 0).toFixed(2),
       iva_total: parseFloat(pedidoData.iva_total || 0).toFixed(2),
       total: parseFloat(pedidoData.total || 0).toFixed(2),
-      empleado_id: pedidoData.empleado_id || 1,
-      // Productos ordenados por ID para consistencia
-      productos: (pedidoData.productos || []).map(p => ({
-        id: p.id,
-        cantidad: parseFloat(p.cantidad || 0),
-        precio: parseFloat(p.precio || 0).toFixed(2),
-        subtotal: parseFloat(p.subtotal || 0).toFixed(2)
-      })).sort((a, b) => a.id - b.id)
+      // Productos normalizados y ordenados por ID para consistencia
+      productos: (pedidoData.productos || [])
+        .map(p => ({
+          id: parseInt(p.id) || 0,
+          cantidad: parseFloat(p.cantidad || 0),
+          precio: parseFloat(p.precio || 0).toFixed(2),
+          subtotal: parseFloat(p.subtotal || 0).toFixed(2),
+          // Incluir descuento si existe
+          descuento_porcentaje: parseFloat(p.descuento_porcentaje || 0).toFixed(2)
+        }))
+        .sort((a, b) => a.id - b.id) // Ordenar por ID para consistencia
     };
+
+    // Agregar fecha del día (YYYY-MM-DD) para permitir mismo pedido en días diferentes
+    const fechaHoy = new Date().toISOString().split('T')[0];
+    datosNormalizados.fecha = fechaHoy;
 
     // Crear string único del pedido
     const stringPedido = JSON.stringify(datosNormalizados);
     
-    // Generar hash simple pero efectivo (no necesitamos crypto, solo consistencia)
-    // Usar una función hash simple basada en el contenido
+    // Generar hash determinístico usando función hash simple pero efectiva
     let hash = 0;
     for (let i = 0; i < stringPedido.length; i++) {
       const char = stringPedido.charCodeAt(i);
@@ -35,14 +51,14 @@ export function generarHashPedido(pedidoData) {
       hash = hash & hash; // Convertir a 32bit integer
     }
     
-    // Convertir a string positivo y agregar timestamp del día (para permitir mismo pedido en días diferentes)
-    const fechaHoy = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    // Convertir a string positivo y agregar prefijo identificador
     const hashFinal = `ped_${Math.abs(hash).toString(36)}_${fechaHoy.replace(/-/g, '')}`;
     
     return hashFinal;
   } catch (error) {
-    console.error('❌ Error generando hash del pedido:', error);
-    // Fallback: hash basado en timestamp y random (menos ideal pero funcional)
+    console.error('❌ [pedidoHash] Error generando hash del pedido:', error);
+    // Fallback: hash basado en timestamp y random (NO ideal, pero funcional)
+    // Este fallback solo se usa si hay error crítico en los datos
     return `ped_fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   }
 }

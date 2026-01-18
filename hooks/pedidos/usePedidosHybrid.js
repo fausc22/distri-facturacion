@@ -1,10 +1,38 @@
-// hooks/pedidos/usePedidosHybrid.js - VERSIÓN MEJORADA con auto-actualización post-pedidos
+// hooks/pedidos/usePedidosHybrid.js - OFFLINE-FIRST: Registro robusto de pedidos
 import { useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 import { getAppMode, offlineManager } from '../../utils/offlineManager';
 import { useOfflineCatalog } from '../useOfflineCatalog';
 import { generarHashPedido } from '../../utils/pedidoHash';
+
+/**
+ * Verificar conexión real con el backend
+ */
+async function verificarConexionReal(timeout = 5000) {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return false;
+  }
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) return false;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    const response = await fetch(`${apiUrl}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+      cache: 'no-cache'
+    });
+
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 export function usePedidosHybrid() {
   const [loading, setLoading] = useState(false);
@@ -94,11 +122,25 @@ export function usePedidosHybrid() {
     }
   };
 
-  // ✅ REGISTRAR PEDIDO HÍBRIDO CON AUTO-ACTUALIZACIÓN Y PROTECCIÓN CONTRA DUPLICADOS
-  const registrarPedido = async (datosFormulario) => {
-    // ✅ PROTECCIÓN CONTRA DOBLE EJECUCIÓN
+  /**
+   * Registrar pedido - OFFLINE-FIRST
+   * 
+   * FLUJO:
+   * 1. Si modoOfflineForzado = true → guardar offline DIRECTAMENTE
+   * 2. Si modoOfflineForzado = false:
+   *    - Verificar conexión REAL
+   *    - Si hay conexión: intentar online (timeout 30s)
+   *    - Si no hay conexión o falla: guardar offline
+   * 3. NUNCA intentar ambos (online Y offline) en la misma ejecución
+   * 
+   * @param {Object} datosFormulario - Datos del formulario
+   * @param {boolean} modoOfflineForzado - Si true, guarda offline directamente
+   * @returns {Promise<Object>} - Resultado del registro
+   */
+  const registrarPedido = async (datosFormulario, modoOfflineForzado = false) => {
+    // Protección contra doble ejecución
     if (registrandoRef.current) {
-      console.log('⚠️ Ya hay un pedido en proceso, ignorando solicitud duplicada');
+      console.log('⚠️ [usePedidosHybrid] Ya hay un pedido en proceso, ignorando solicitud duplicada');
       return { success: false, error: 'Ya hay un pedido en proceso' };
     }
 
@@ -143,19 +185,18 @@ export function usePedidosHybrid() {
       }))
     };
 
-    // ✅ GENERAR HASH ÚNICO DEL PEDIDO PARA IDEMPOTENCIA
+    // Generar hash único del pedido para idempotencia
     const hashPedido = generarHashPedido(pedidoData);
     pedidoData.hash_pedido = hashPedido;
-    console.log(`🔐 Hash del pedido generado: ${hashPedido}`);
+    console.log(`🔐 [usePedidosHybrid] Hash del pedido generado: ${hashPedido}`);
 
-    // ✅ VERIFICAR SI EL PEDIDO YA FUE PROCESADO (offline)
+    // Verificar si el pedido ya fue procesado (offline o online)
     if (appMode === 'pwa') {
       const pedidosPendientes = offlineManager.getPedidosPendientes();
       const pedidoExistente = pedidosPendientes.find(p => p.hash_pedido === hashPedido);
       
       if (pedidoExistente) {
-        console.log(`⚠️ Pedido con hash ${hashPedido} ya existe en pendientes, verificando estado...`);
-        // Si ya está pendiente, no duplicar
+        console.log(`⚠️ [usePedidosHybrid] Pedido con hash ${hashPedido} ya existe en pendientes`);
         toast.info('Este pedido ya está pendiente de sincronización');
         return { 
           success: true, 
@@ -169,39 +210,35 @@ export function usePedidosHybrid() {
     registrandoRef.current = true;
     setLoading(true);
     
-    // ✅ CREAR ABORT CONTROLLER PARA CANCELAR PETICIONES
+    // Crear abort controller para cancelar peticiones
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
     abortControllerRef.current = new AbortController();
 
     try {
-      // ✅ MODO WEB: Directo a DB con auto-actualización
+      // MODO WEB: Directo a DB
       if (appMode === 'web') {
-        console.log('🌐 Web: Registrando pedido directamente');
+        console.log('🌐 [usePedidosHybrid] Modo WEB: Registrando pedido directamente');
         
         const response = await axiosAuth.post('/pedidos/registrar-pedido', pedidoData, {
           signal: abortControllerRef.current.signal
         });
         
         if (response.data.success) {
-          // ✅ VERIFICAR SI ES DUPLICADO (backend retorna existing: true)
           if (response.data.existing) {
-            console.log('⚠️ Pedido duplicado detectado por backend, retornando pedido existente');
+            console.log('⚠️ [usePedidosHybrid] Pedido duplicado detectado por backend');
             toast.info('Este pedido ya fue registrado anteriormente');
             return { success: true, pedidoId: response.data.pedidoId, existing: true };
           }
           
           toast.success('✅ Pedido registrado correctamente');
           
-          // ✅ AUTO-ACTUALIZACIÓN SILENCIOSA DESPUÉS DEL PEDIDO
+          // Auto-actualización silenciosa después del pedido
           if (navigator.onLine) {
-            console.log('🔄 Actualizando catálogo después de pedido web...');
-            try {
-              await updateCatalogSilently();
-            } catch (error) {
-              console.log('⚠️ No se pudo actualizar catálogo después del pedido web');
-            }
+            updateCatalogSilently().catch(() => {
+              console.log('⚠️ [usePedidosHybrid] No se pudo actualizar catálogo después del pedido web');
+            });
           }
           
           return { success: true, pedidoId: response.data.pedidoId };
@@ -211,61 +248,73 @@ export function usePedidosHybrid() {
         }
       }
 
-      // ✅ MODO PWA: Intentar online con auto-actualización, fallback offline
+      // MODO PWA: Lógica offline-first
       if (appMode === 'pwa') {
-        console.log('📱 PWA: Intentando registrar pedido online con timeout de 8 segundos...');
-        
-        if (!navigator.onLine) {
-          console.log('📱 PWA: Sin conexión, guardando offline directamente');
+        // Si modo offline forzado, guardar offline directamente
+        if (modoOfflineForzado) {
+          console.log('📱 [usePedidosHybrid] Modo OFFLINE FORZADO: Guardando offline directamente');
           const resultado = await guardarPedidoOffline(pedidoData);
           registrandoRef.current = false;
           return resultado;
         }
 
+        // Verificar conexión REAL antes de intentar online
+        console.log('🔍 [usePedidosHybrid] Verificando conexión real antes de intentar online...');
+        const tieneConexion = await verificarConexionReal(5000);
+        
+        if (!tieneConexion) {
+          console.log('📴 [usePedidosHybrid] Sin conexión real, guardando offline');
+          const resultado = await guardarPedidoOffline(pedidoData);
+          registrandoRef.current = false;
+          return resultado;
+        }
+
+        // Hay conexión: intentar online con timeout largo (30s para conexiones lentas)
+        console.log('🌐 [usePedidosHybrid] Conexión confirmada, intentando registrar online (timeout 30s)...');
+        
         try {
-          // ✅ TIMEOUT DE 8 SEGUNDOS CON CANCELACIÓN DE PETICIÓN
+          const timeoutMs = 30000; // 30 segundos para conexiones lentas
           let timeoutId;
+          
           const timeoutPromise = new Promise((_, reject) => {
             timeoutId = setTimeout(() => {
-              console.log('⏱️ Timeout de 8 segundos alcanzado, cancelando petición...');
+              console.log(`⏱️ [usePedidosHybrid] Timeout de ${timeoutMs}ms alcanzado`);
               abortControllerRef.current.abort();
-              reject(new Error('Timeout de 8 segundos'));
-            }, 8000);
+              reject(new Error(`Timeout de ${timeoutMs}ms`));
+            }, timeoutMs);
           });
 
           const registroPromise = axiosAuth.post('/pedidos/registrar-pedido', pedidoData, {
             signal: abortControllerRef.current.signal
           });
           
-          // ✅ RACE ENTRE PETICIÓN Y TIMEOUT
           const response = await Promise.race([registroPromise, timeoutPromise]);
           clearTimeout(timeoutId);
           
           if (response.data.success) {
-            // ✅ VERIFICAR SI ES DUPLICADO
+            // Verificar si es duplicado
             if (response.data.existing) {
-              console.log('⚠️ Pedido duplicado detectado por backend');
+              console.log('⚠️ [usePedidosHybrid] Pedido duplicado detectado por backend');
               toast.info('Este pedido ya fue registrado anteriormente');
+              
               // Remover de pendientes si estaba ahí
               const pedidosPendientes = offlineManager.getPedidosPendientes();
               const pedidoPendiente = pedidosPendientes.find(p => p.hash_pedido === hashPedido);
               if (pedidoPendiente) {
                 offlineManager.removePedidoPendiente(pedidoPendiente.tempId);
               }
+              
               registrandoRef.current = false;
               return { success: true, pedidoId: response.data.pedidoId, existing: true };
             }
             
-            console.log('✅ PWA: Pedido registrado online exitosamente');
+            console.log('✅ [usePedidosHybrid] Pedido registrado online exitosamente');
             toast.success('✅ Pedido registrado correctamente');
             
-            // ✅ AUTO-ACTUALIZACIÓN ESPECÍFICA POST-PEDIDO
-            console.log('🔄 Actualizando catálogo después de pedido PWA...');
-            try {
-              await updateCatalogAfterOrder();
-            } catch (error) {
-              console.log('⚠️ No se pudo actualizar catálogo después del pedido PWA');
-            }
+            // Auto-actualización post-pedido (no bloqueante)
+            updateCatalogAfterOrder().catch(() => {
+              console.log('⚠️ [usePedidosHybrid] No se pudo actualizar catálogo después del pedido');
+            });
             
             registrandoRef.current = false;
             return { success: true, pedidoId: response.data.pedidoId };
@@ -274,20 +323,13 @@ export function usePedidosHybrid() {
           }
           
         } catch (error) {
-          // ✅ VERIFICAR SI FUE CANCELADO POR TIMEOUT O ERROR REAL
-          if (error.name === 'AbortError' || error.message === 'Timeout de 8 segundos') {
-            console.log(`📱 PWA: Petición cancelada por timeout, guardando offline...`);
-            // ✅ VERIFICAR SI LA PETICIÓN COMPLETÓ DESPUÉS DEL TIMEOUT
-            // Esperar un momento para ver si la petición completa
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Si llegamos aquí, la petición no completó, guardar offline
-            const resultado = await guardarPedidoOffline(pedidoData);
-            registrandoRef.current = false;
-            return resultado;
+          // Si falla online (timeout, error de red, etc.), guardar offline
+          if (error.name === 'AbortError' || error.message.includes('Timeout')) {
+            console.log(`📱 [usePedidosHybrid] Petición cancelada por timeout, guardando offline...`);
+          } else {
+            console.log(`📱 [usePedidosHybrid] Fallo online (${error.message}), guardando offline...`);
           }
           
-          console.log(`📱 PWA: Fallo online (${error.message}), guardando offline...`);
           const resultado = await guardarPedidoOffline(pedidoData);
           registrandoRef.current = false;
           return resultado;
@@ -295,7 +337,7 @@ export function usePedidosHybrid() {
       }
 
     } catch (error) {
-      console.error('❌ Error inesperado registrando pedido:', error);
+      console.error('❌ [usePedidosHybrid] Error inesperado registrando pedido:', error);
       
       if (appMode === 'pwa') {
         const resultado = await guardarPedidoOffline(pedidoData);
@@ -312,17 +354,27 @@ export function usePedidosHybrid() {
     }
   };
 
-  // ✅ FUNCIÓN HELPER PARA GUARDAR OFFLINE CON VERIFICACIÓN DE DUPLICADOS
+  /**
+   * Guardar pedido offline - OFFLINE-FIRST
+   * 
+   * IMPORTANTE:
+   * - NO actualiza stock local (stock conservador)
+   * - Verifica duplicados antes de guardar
+   * - Stock se actualizará SOLO después de sincronización exitosa
+   * 
+   * @param {Object} pedidoData - Datos del pedido
+   * @returns {Promise<Object>} - Resultado del guardado
+   */
   const guardarPedidoOffline = async (pedidoData) => {
     try {
-      // ✅ VERIFICAR SI YA EXISTE UN PEDIDO CON EL MISMO HASH
+      // Verificar si ya existe un pedido con el mismo hash
       const hashPedido = pedidoData.hash_pedido;
       if (hashPedido) {
         const pedidosPendientes = offlineManager.getPedidosPendientes();
         const pedidoExistente = pedidosPendientes.find(p => p.hash_pedido === hashPedido);
         
         if (pedidoExistente) {
-          console.log(`⚠️ Pedido con hash ${hashPedido} ya existe offline, no duplicar`);
+          console.log(`⚠️ [usePedidosHybrid] Pedido con hash ${hashPedido} ya existe offline, no duplicar`);
           toast.info('Este pedido ya está pendiente de sincronización');
           return { 
             success: true, 
@@ -333,16 +385,18 @@ export function usePedidosHybrid() {
         }
       }
       
+      // Guardar pedido pendiente
       const tempId = await offlineManager.savePedidoPendiente(pedidoData);
       
       if (tempId) {
-        // ✅ ACTUALIZAR STOCK LOCAL INMEDIATAMENTE
-        for (const producto of pedidoData.productos) {
-          await offlineManager.updateLocalStock(producto.id, producto.cantidad);
-        }
+        // ⚠️ NO ACTUALIZAR STOCK LOCAL - Stock conservador
+        // El stock se actualizará SOLO después de confirmar que el pedido se guardó en el servidor
+        // Esto garantiza que el stock local nunca se desincronice
         
         toast.success('📱 Pedido guardado offline');
-        console.log(`📱 Pedido guardado offline con ID: ${tempId}, hash: ${hashPedido}, stock actualizado localmente`);
+        console.log(`📱 [usePedidosHybrid] Pedido guardado offline - ID: ${tempId}, hash: ${hashPedido}`);
+        console.log(`📦 [usePedidosHybrid] Stock NO actualizado (conservador) - Se actualizará después de sincronización`);
+        
         return { 
           success: true, 
           offline: true, 
@@ -357,7 +411,7 @@ export function usePedidosHybrid() {
         };
       }
     } catch (error) {
-      console.error('❌ Error guardando pedido offline:', error);
+      console.error('❌ [usePedidosHybrid] Error guardando pedido offline:', error);
       toast.error('❌ Error al guardar pedido offline');
       return { 
         success: false, 

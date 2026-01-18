@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
-import Link from 'next/link';
 import InstallButton from '../components/InstallButton';
-import { useConnection } from '../utils/ConnectionManager';
+import { useConnectionContext } from '../context/ConnectionContext';
 import { getAppMode, offlineManager } from '../utils/offlineManager';
 import { LinkGuard } from '../components/OfflineGuard';
 import { useOfflineCatalog, useOfflinePedidos } from '../hooks/useOfflineCatalog';
@@ -15,9 +14,8 @@ export default function Inicio() {
   const [loading, setLoading] = useState(true);
   const [catalogStats, setCatalogStats] = useState(null);
 
-  // ✅ CONNECTION MANAGER
-  const { isOnline, eventType } = useConnection();
-  const isPWA = getAppMode() === 'pwa';
+  // ✅ CONEXIÓN CENTRALIZADA - Única fuente de verdad
+  const { modoOffline, reconectando, reconectar, isPWA } = useConnectionContext();
 
   // ✅ HOOKS PARA PWA
   const {
@@ -35,11 +33,12 @@ export default function Inicio() {
     syncing
   } = useOfflinePedidos();
 
-  // ✅ CONDICIONES PARA MOSTRAR PANELES PWA
-  const shouldShowCatalogPanel = isPWA && needsUpdate && isOnline;
-  const shouldShowPedidosPanel = isPWA && hasPendientes && isOnline;
+  // ✅ CONDICIONES PARA MOSTRAR PANELES PWA (solo en modo online)
+  const shouldShowCatalogPanel = isPWA && needsUpdate && !modoOffline;
+  const shouldShowPedidosPanel = isPWA && hasPendientes && !modoOffline;
   const shouldShowPWAPanels = shouldShowCatalogPanel || shouldShowPedidosPanel;
 
+  // Autenticación
   useEffect(() => {
     const checkAuth = () => {
       try {
@@ -76,37 +75,24 @@ export default function Inicio() {
     checkAuth();
   }, [router]);
 
-  // ✅ CARGAR ESTADÍSTICAS DEL CATÁLOGO OFFLINE
+  // Cargar estadísticas del catálogo offline
   useEffect(() => {
     if (isPWA) {
       const stats = offlineManager.getStorageStats();
       setCatalogStats(stats);
-
-      console.log('📊 Estadísticas del catálogo offline:', stats);
+      console.log('📊 [inicio] Estadísticas del catálogo offline:', stats);
     }
   }, [isPWA]);
 
-  // ✅ MANEJO DE EVENTOS DE CONECTIVIDAD SIMPLIFICADO
-  useEffect(() => {
-    if (!eventType) return;
-
-    switch (eventType) {
-      case 'connection_lost_redirect':
-        console.log('📴 Redirección a /offline manejada por OfflineGuard');
-        break;
-
-      case 'connection_restored_normal':
-        console.log('🌐 Conexión restaurada en inicio');
-        break;
-
-      default:
-        break;
-    }
-  }, [eventType]);
-
-  // ✅ HANDLERS PARA LOS BOTONES PWA
+  // Handlers para los botones PWA
   const handleUpdateCatalog = async () => {
-    console.log('🔄 Actualizando catálogo manualmente desde inicio...');
+    console.log('🔄 [inicio] Actualizando catálogo manualmente...');
+    
+    if (modoOffline) {
+      toast.error('Debe reconectar la app primero');
+      return;
+    }
+    
     await updateCatalogManual();
 
     if (isPWA) {
@@ -116,12 +102,47 @@ export default function Inicio() {
   };
 
   const handleSyncPedidos = async () => {
-    console.log('🔄 Sincronizando pedidos pendientes desde inicio...');
-    await syncPedidosPendientes();
+    console.log('🔄 [inicio] Sincronizando pedidos pendientes...');
+    
+    if (modoOffline) {
+      toast.error('Debe reconectar la app primero');
+      return;
+    }
+    
+    // Mostrar confirmación si hay muchos pedidos
+    if (cantidadPendientes > 5) {
+      const confirmar = window.confirm(
+        `¿Desea sincronizar ${cantidadPendientes} pedidos pendientes?`
+      );
+      if (!confirmar) return;
+    }
+    
+    try {
+      const resultado = await syncPedidosPendientes();
 
-    if (isPWA) {
-      const stats = offlineManager.getStorageStats();
-      setCatalogStats(stats);
+      if (isPWA) {
+        const stats = offlineManager.getStorageStats();
+        setCatalogStats(stats);
+      }
+      
+      // Mostrar resultado detallado
+      if (resultado.success) {
+        if (resultado.duplicados > 0) {
+          toast.success(
+            `${resultado.exitosos} pedidos procesados (${resultado.duplicados} ya existían)`,
+            { duration: 4000 }
+          );
+        } else if (resultado.exitosos > 0) {
+          toast.success(`${resultado.exitosos} pedidos sincronizados correctamente`);
+        } else {
+          toast.info('No hay pedidos pendientes para sincronizar');
+        }
+      } else if (resultado.error) {
+        console.error('❌ [inicio] Error en sincronización:', resultado.error);
+      }
+    } catch (error) {
+      console.error('❌ [inicio] Error inesperado sincronizando:', error);
+      toast.error('Error inesperado durante la sincronización. Intente nuevamente.');
     }
   };
 
@@ -143,6 +164,14 @@ export default function Inicio() {
     }
   };
 
+  // ✅ HANDLER DE RECONEXIÓN - Usa el Context centralizado
+  const handleReconectarApp = async () => {
+    await reconectar();
+  };
+
+  // ✅ DETERMINAR SI ESTAMOS EN MODO OFFLINE
+  const estaEnModoOffline = isPWA && modoOffline;
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-screen">
@@ -158,21 +187,21 @@ export default function Inicio() {
         <title>VERTIMAR | INICIO</title>
       </Head>
 
-      {/* ✅ HEADER */}
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl shadow-lg p-6 mb-6">
+      {/* ✅ HEADER - Cambia de color en modo offline */}
+      <div className={`bg-gradient-to-r ${estaEnModoOffline ? 'from-orange-500 to-orange-600' : 'from-blue-500 to-blue-600'} text-white rounded-xl shadow-lg p-6 mb-6`}>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold mb-2">
               {getGreeting()}, {empleado?.nombre} {empleado?.apellido}
             </h1>
-            <p className="text-blue-100">
-              {getRoleDescription(empleado?.rol)}
+            <p className={estaEnModoOffline ? 'text-orange-100' : 'text-blue-100'}>
+              {estaEnModoOffline ? 'Modo Offline - Solo Registrar Pedidos' : getRoleDescription(empleado?.rol)}
             </p>
           </div>
 
           <div className="mt-4 md:mt-0 text-right">
             <InstallButton />
-            <p className="text-blue-100 text-sm mt-2">
+            <p className={`${estaEnModoOffline ? 'text-orange-100' : 'text-blue-100'} text-sm mt-2`}>
               {new Date().toLocaleDateString('es-AR', {
                 weekday: 'long',
                 year: 'numeric',
@@ -184,8 +213,52 @@ export default function Inicio() {
         </div>
       </div>
 
-      {/* ✅ PANELES PWA */}
-      {shouldShowPWAPanels && (
+      {/* ✅ BOTÓN "RECONECTAR APP" - Solo visible cuando está en modo offline */}
+      {estaEnModoOffline && (
+        <div className="mb-6 border-2 rounded-xl p-6 shadow-lg bg-orange-50 border-orange-500">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-full bg-orange-100">
+                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Modo Offline Activo
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Toque el botón cuando tenga conexión estable para reconectar la app
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleReconectarApp}
+              disabled={reconectando}
+              className={`px-6 py-3 rounded-lg font-semibold text-white transition-all ${
+                reconectando
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-orange-600 hover:bg-orange-700 shadow-md hover:shadow-lg'
+              }`}
+            >
+              {reconectando ? (
+                <span className="flex items-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Reconectando...
+                </span>
+              ) : (
+                '🔄 RECONECTAR APP'
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ PANELES PWA - Solo en modo online */}
+      {!estaEnModoOffline && shouldShowPWAPanels && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {shouldShowCatalogPanel && (
             <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
@@ -227,13 +300,13 @@ export default function Inicio() {
         </div>
       )}
 
-      {/* ✅ MÓDULOS PRINCIPALES - Orden por frecuencia de uso */}
+      {/* ✅ MÓDULOS PRINCIPALES - Modo offline: solo VENTAS con Registrar Pedido */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
 
-        {/* 1. VENTAS - Prioridad máxima */}
+        {/* 1. VENTAS - Prioridad máxima - SIEMPRE visible */}
         {(empleado?.rol === 'GERENTE' || empleado?.rol === 'VENDEDOR') && (
-          <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-emerald-200">
-            <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 p-5 md:p-6">
+          <div className={`bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 ${estaEnModoOffline ? 'border-orange-300' : 'border-transparent hover:border-emerald-200'}`}>
+            <div className={`bg-gradient-to-br ${estaEnModoOffline ? 'from-orange-500 to-orange-600' : 'from-emerald-500 to-emerald-600'} p-5 md:p-6`}>
               <div className="flex items-center">
                 <div className="bg-white bg-opacity-25 p-3 md:p-4 rounded-xl backdrop-blur-sm">
                   <svg className="w-7 h-7 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -242,49 +315,58 @@ export default function Inicio() {
                 </div>
                 <h3 className="text-xl md:text-2xl font-bold text-white ml-3">Ventas</h3>
               </div>
-              <p className="text-emerald-50 mt-2 text-sm">Gestión de pedidos y facturación</p>
+              <p className={`${estaEnModoOffline ? 'text-orange-50' : 'text-emerald-50'} mt-2 text-sm`}>
+                {estaEnModoOffline ? 'Modo Offline - Solo Registrar Pedidos' : 'Gestión de pedidos y facturación'}
+              </p>
             </div>
             <div className="p-3 md:p-4 space-y-1">
+              {/* ✅ REGISTRAR PEDIDO - SIEMPRE disponible */}
               <LinkGuard href="/ventas/RegistrarPedido" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
                 <span className="font-medium text-gray-800 group-hover:text-emerald-700">Registrar Nota de Pedido</span>
                 <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
-              <LinkGuard href="/ventas/HistorialPedidos" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-emerald-700">Historial de Pedidos</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </LinkGuard>
-              {empleado?.rol === 'GERENTE' && (
+              
+              {/* ✅ OTRAS OPCIONES DE VENTAS - Solo en modo online */}
+              {!estaEnModoOffline && (
                 <>
-                <LinkGuard href="/ventas/VentaDirecta" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
-                  <span className="font-medium text-gray-800 group-hover:text-emerald-700">Venta Directa</span>
-                  <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </LinkGuard>
-                <LinkGuard href="/ventas/Facturacion" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
-                  <span className="font-medium text-gray-800 group-hover:text-emerald-700">Facturación</span>
-                  <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </LinkGuard>
+                  <LinkGuard href="/ventas/HistorialPedidos" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
+                    <span className="font-medium text-gray-800 group-hover:text-emerald-700">Historial de Pedidos</span>
+                    <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </LinkGuard>
+                  {empleado?.rol === 'GERENTE' && (
+                    <>
+                    <LinkGuard href="/ventas/VentaDirecta" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
+                      <span className="font-medium text-gray-800 group-hover:text-emerald-700">Venta Directa</span>
+                      <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </LinkGuard>
+                    <LinkGuard href="/ventas/Facturacion" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
+                      <span className="font-medium text-gray-800 group-hover:text-emerald-700">Facturación</span>
+                      <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </LinkGuard>
+                    </>
+                  )}
+                  <LinkGuard href="/ventas/comprobantes" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
+                    <span className="font-medium text-gray-800 group-hover:text-emerald-700">Gestión de Comprobantes</span>
+                    <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </LinkGuard>
                 </>
               )}
-              <LinkGuard href="/ventas/comprobantes" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-emerald-700">Gestión de Comprobantes</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </LinkGuard>
             </div>
           </div>
         )}
 
-        {/* 2. INVENTARIO */}
-        {(empleado?.rol === 'GERENTE' || empleado?.rol === 'VENDEDOR') && (
+        {/* 2. INVENTARIO - Solo en modo online */}
+        {!estaEnModoOffline && (empleado?.rol === 'GERENTE' || empleado?.rol === 'VENDEDOR') && (
           <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-blue-200">
             <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-5 md:p-6">
               <div className="flex items-center">
@@ -322,8 +404,8 @@ export default function Inicio() {
           </div>
         )}
 
-        {/* 3. FINANZAS - Solo gerentes, nuevo orden */}
-        {empleado?.rol === 'GERENTE' && (
+        {/* 3. FINANZAS - Solo gerentes, solo en modo online */}
+        {!estaEnModoOffline && empleado?.rol === 'GERENTE' && (
           <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-teal-200">
             <div className="bg-gradient-to-br from-teal-500 to-teal-600 p-5 md:p-6">
               <div className="flex items-center">
@@ -359,8 +441,8 @@ export default function Inicio() {
           </div>
         )}
 
-        {/* 4. ADMINISTRACIÓN - Solo gerentes */}
-        {empleado?.rol === 'GERENTE' && (
+        {/* 4. ADMINISTRACIÓN - Solo gerentes, solo en modo online */}
+        {!estaEnModoOffline && empleado?.rol === 'GERENTE' && (
           <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-purple-200">
             <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-5 md:p-6">
               <div className="flex items-center">
@@ -402,8 +484,8 @@ export default function Inicio() {
           </div>
         )}
 
-        {/* 5. COMPRAS - Al final por menor uso */}
-        {empleado?.rol === 'GERENTE' && (
+        {/* 5. COMPRAS - Al final por menor uso, solo en modo online */}
+        {!estaEnModoOffline && empleado?.rol === 'GERENTE' && (
           <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-amber-200">
             <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-5 md:p-6">
               <div className="flex items-center">
@@ -440,7 +522,8 @@ export default function Inicio() {
         )}
       </div>
 
-      {/* ✅ INFORMACIÓN DEL SISTEMA */}
+      {/* ✅ INFORMACIÓN DEL SISTEMA - Solo en modo online */}
+      {!estaEnModoOffline && (
       <div className="mt-6 md:mt-8 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl shadow-sm p-6 border border-gray-200">
         <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center">
           <svg className="w-5 h-5 mr-2 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -469,7 +552,7 @@ export default function Inicio() {
           </div>
           <div className="bg-white p-3 rounded-lg">
             <strong className="text-gray-600">Estado:</strong>
-            <p className="text-gray-800 font-medium">{isOnline ? '✅ Conectado' : '📴 Sin conexión'}</p>
+            <p className="text-gray-800 font-medium">✅ Conectado</p>
           </div>
           {isPWA && catalogStats && (
             <>
@@ -485,6 +568,7 @@ export default function Inicio() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

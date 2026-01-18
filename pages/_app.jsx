@@ -7,6 +7,7 @@ import { useRouter } from 'next/router'
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../utils/queryClient';
 import { AuthProvider } from '../components/AuthProvider';
+import { ConnectionProvider } from '../context/ConnectionContext';
 import DefaultLayout from '../components/DefaultLayout';
 import AppInitializer from '../components/AppInitializer';
 import OfflineGuard from '../components/OfflineGuard';
@@ -170,8 +171,9 @@ function MyApp({ Component, pageProps }) {
           </PublicLayout>
         ) : (
           // ✅ PÁGINAS PRIVADAS - Layout completo con inicializadores
-          <AppInitializer>
-            <OfflineGuard>
+          <ConnectionProvider>
+            <AppInitializer>
+              <OfflineGuard>
               <div className="bg-secondary-light dark:bg-primary-dark transition duration-300">
                 {getLayout(<Component {...pageProps} />)}
                 
@@ -244,8 +246,9 @@ function MyApp({ Component, pageProps }) {
                   }}
                 />
               </div>
-            </OfflineGuard>
-          </AppInitializer>
+              </OfflineGuard>
+            </AppInitializer>
+          </ConnectionProvider>
         )}
         </AuthProvider>
       </QueryClientProvider>
