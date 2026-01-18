@@ -5,7 +5,7 @@ import useAuth from '../../hooks/useAuth';
 
 import { PedidosProvider, usePedidosContext } from '../../context/PedidosContext';
 import { usePedidosHybrid } from '../../hooks/pedidos/usePedidosHybrid';
-import { useConnection } from '../../utils/ConnectionManager';
+import { useConnectionContext } from '../../context/ConnectionContext';
 import { getAppMode, offlineManager } from '../../utils/offlineManager';
 import { usePedidosFormPersistence } from '../../hooks/useFormPersistence';
 
@@ -57,9 +57,17 @@ function RegistrarPedidoContent() {
   const inicializacionCompletada = useRef(false);
   const formRestaurado = useRef(false);
 
-  // ✅ CONNECTION MANAGER - Solo para estado, NO para cambios automáticos
-  const { isOnline, eventType, checkOnDemand } = useConnection();
-  const isPWA = getAppMode() === 'pwa';
+  // ✅ CONEXIÓN CENTRALIZADA
+  const { modoOffline, isPWA, verificarConexionHealth } = useConnectionContext();
+
+  // ✅ Función auxiliar para verificar conexión bajo demanda
+  const verificarConexion = async () => {
+    try {
+      return await verificarConexionHealth();
+    } catch {
+      return false;
+    }
+  };
 
   // ✅ FORM PERSISTENCE MEJORADO
   const {
@@ -168,7 +176,7 @@ function RegistrarPedidoContent() {
     // ⚠️ OFFLINE-FIRST: Si es PWA y no hay conexión, SIEMPRE activar modo offline
     // Esto garantiza que el usuario pueda registrar pedidos incluso en cold start
     if (isPWA) {
-      if (!isOnline) {
+      if (modoOffline) {
         console.log('📱 [RegistrarPedido] Inicialización OFFLINE - Activando modo offline estable');
         setModoForzadoOffline(true);
         setInterfazLocked(true);
@@ -186,7 +194,7 @@ function RegistrarPedidoContent() {
       setInterfazLocked(false);
     }
 
-    setUltimoEstadoConexion(isOnline);
+    setUltimoEstadoConexion(!modoOffline);
     setEstadoInicializado(true);
     inicializacionCompletada.current = true;
 
@@ -210,17 +218,14 @@ function RegistrarPedidoContent() {
     // El modo offline forzado se mantiene hasta que el usuario:
     // 1. Guarde el pedido (entonces se verifica conexión)
     // 2. Vuelva al menú (entonces se verifica conexión)
-    if (eventType) {
-      console.log(`🔒 [RegistrarPedido] Evento ${eventType} IGNORADO - Modo offline-first activo`);
-      // NO hacer nada - mantener estado actual
-    }
+    // La conexión se maneja de forma centralizada en ConnectionContext
 
     // Solo actualizar estadísticas (no cambiar modo)
     if (isPWA) {
       const stats = offlineManager.getStorageStats();
       setCatalogStats(stats);
     }
-  }, [eventType, estadoInicializado, isPWA]);
+  }, [modoOffline, estadoInicializado, isPWA]);
 
   // ✅ AUTO-RESTORE DE BACKUP FALLBACK (por si localStorage falla)
   useEffect(() => {
@@ -327,7 +332,7 @@ function RegistrarPedidoContent() {
         console.log('📱 [RegistrarPedido] Pedido guardado offline - Verificando conexión disponible...');
         
         // Verificar conexión bajo demanda (solo para mostrar opciones, no cambiar modo)
-        const hayConexion = await checkOnDemand();
+        const hayConexion = await verificarConexion();
         
         if (hayConexion && !modoForzadoOffline) {
           // Hay conexión pero no estamos en modo forzado: Mostrar opción de sincronizar
@@ -355,7 +360,7 @@ function RegistrarPedidoContent() {
     console.log('🔍 [RegistrarPedido] Verificando conexión para ir al menú desde modal...');
     
     // Verificar conexión antes de ir al menú
-    const hayConexion = await checkOnDemand();
+    const hayConexion = await verificarConexion();
     
     if (hayConexion) {
       console.log('🌐 [RegistrarPedido] Conexión confirmada desde modal - Redirigiendo al menú');
@@ -411,7 +416,7 @@ function RegistrarPedidoContent() {
     setLoadingConexion(true);
     
     // Verificar conexión antes de salir
-    const hayConexion = await checkOnDemand();
+    const hayConexion = await verificarConexion();
     
     if (hayConexion) {
       console.log('🌐 [RegistrarPedido] Conexión confirmada para salir - Redirigiendo al menú');
@@ -455,9 +460,9 @@ function RegistrarPedidoContent() {
     }
     
     return {
-      isOffline: !isOnline,
-      showAsOffline: !isOnline,
-      canGoOnline: isOnline,
+      isOffline: modoOffline,
+      showAsOffline: modoOffline,
+      canGoOnline: !modoOffline,
       locked: false
     };
   };
@@ -570,7 +575,7 @@ function RegistrarPedidoContent() {
                     
                     try {
                       // Verificar conexión REAL antes de cambiar modo
-                      const hayConexion = await checkOnDemand();
+                      const hayConexion = await verificarConexion();
                       
                       if (hayConexion) {
                         console.log('✅ [RegistrarPedido] Conexión confirmada - Activando modo online');

@@ -2,9 +2,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
-import Link from 'next/link';
 import InstallButton from '../components/InstallButton';
-import { useConnection } from '../utils/ConnectionManager';
+import { useConnectionContext } from '../context/ConnectionContext';
 import { getAppMode, offlineManager } from '../utils/offlineManager';
 import { LinkGuard } from '../components/OfflineGuard';
 import { useOfflineCatalog, useOfflinePedidos } from '../hooks/useOfflineCatalog';
@@ -14,15 +13,9 @@ export default function Inicio() {
   const [empleado, setEmpleado] = useState(null);
   const [loading, setLoading] = useState(true);
   const [catalogStats, setCatalogStats] = useState(null);
-  
-  // ⚠️ MODO OFFLINE FORZADO - Controlado por usuario
-  const [modoOfflineForzado, setModoOfflineForzado] = useState(false);
-  const [mostrarBotonReconectar, setMostrarBotonReconectar] = useState(false);
-  const [reconectando, setReconectando] = useState(false);
 
-  // Connection Manager
-  const { isOnline, eventType, checkOnDemand } = useConnection();
-  const isPWA = getAppMode() === 'pwa';
+  // ✅ CONEXIÓN CENTRALIZADA - Única fuente de verdad
+  const { modoOffline, reconectando, reconectar, isPWA } = useConnectionContext();
 
   // ✅ HOOKS PARA PWA
   const {
@@ -40,11 +33,12 @@ export default function Inicio() {
     syncing
   } = useOfflinePedidos();
 
-  // ✅ CONDICIONES PARA MOSTRAR PANELES PWA
-  const shouldShowCatalogPanel = isPWA && needsUpdate && isOnline;
-  const shouldShowPedidosPanel = isPWA && hasPendientes && isOnline;
+  // ✅ CONDICIONES PARA MOSTRAR PANELES PWA (solo en modo online)
+  const shouldShowCatalogPanel = isPWA && needsUpdate && !modoOffline;
+  const shouldShowPedidosPanel = isPWA && hasPendientes && !modoOffline;
   const shouldShowPWAPanels = shouldShowCatalogPanel || shouldShowPedidosPanel;
 
+  // Autenticación
   useEffect(() => {
     const checkAuth = () => {
       try {
@@ -90,138 +84,12 @@ export default function Inicio() {
     }
   }, [isPWA]);
 
-  // ⚠️ INICIALIZACIÓN: Detectar modo offline al cargar usando health endpoint
-  useEffect(() => {
-    if (isPWA) {
-      const HEALTH_URL = 'https://api.vertimar.online/health';
-      
-      // Verificar si hay estado guardado de modo offline forzado
-      const modoGuardado = localStorage.getItem('vertimar_modo_offline_forzado');
-      const tieneConexion = navigator.onLine;
-      
-      if (modoGuardado === 'true' || !tieneConexion) {
-        console.log('📴 [inicio] Activando modo offline forzado (guardado o sin conexión)');
-        setModoOfflineForzado(true);
-        
-        // Si hay conexión pero modo guardado, verificar con health y mostrar botón
-        if (tieneConexion && modoGuardado === 'true') {
-          // Verificar conexión real con health endpoint
-          fetch(HEALTH_URL, {
-            method: 'GET',
-            cache: 'no-cache',
-            headers: { 'Cache-Control': 'no-cache' }
-          })
-            .then(response => {
-              if (response.ok) {
-                console.log('✅ [inicio] Health OK en inicialización - Mostrando botón reconectar');
-                setMostrarBotonReconectar(true);
-              }
-            })
-            .catch(() => {
-              console.log('⚠️ [inicio] Health no disponible en inicialización');
-            });
-        }
-      } else {
-        setModoOfflineForzado(false);
-      }
-    }
-  }, []); // Solo al montar
-
-  // ⚠️ DETECTAR DESCONEXIÓN AUTOMÁTICA: Activar modo offline forzado
-  useEffect(() => {
-    if (!isPWA || !eventType) return;
-
-    if (eventType === 'connection_lost') {
-      console.log('📴 [inicio] Conexión perdida - Activando modo offline forzado automáticamente');
-      setModoOfflineForzado(true);
-      setMostrarBotonReconectar(false);
-      // Persistir modo offline forzado
-      localStorage.setItem('vertimar_modo_offline_forzado', 'true');
-    }
-  }, [eventType, isPWA]);
-
-  // ⚠️ MONITOREAR CONEXIÓN: Actualizar indicador visual del botón usando health endpoint
-  useEffect(() => {
-    if (!isPWA || !modoOfflineForzado) return;
-
-    const HEALTH_URL = 'https://api.vertimar.online/health';
-
-    // ✅ Verificar conexión real usando health endpoint
-    const verificarConexionConHealth = async () => {
-      const tieneConexionNavegador = typeof window !== 'undefined' ? navigator.onLine : false;
-      
-      if (!tieneConexionNavegador) {
-        setMostrarBotonReconectar(false);
-        return;
-      }
-
-      try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout para verificación
-        
-        const response = await fetch(HEALTH_URL, {
-          method: 'GET',
-          signal: controller.signal,
-          cache: 'no-cache',
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        });
-        
-        clearTimeout(timeoutId);
-        
-        const hayConexionReal = response.ok;
-        setMostrarBotonReconectar(hayConexionReal);
-        
-        if (hayConexionReal) {
-          console.log('✅ [inicio] Conexión real detectada via health - Botón mostrará indicador verde');
-        } else {
-          console.log('⚠️ [inicio] Health respondió con error - Botón mostrará indicador naranja');
-        }
-      } catch (error) {
-        console.log('⚠️ [inicio] No se pudo verificar health:', error.name);
-        setMostrarBotonReconectar(false);
-      }
-    };
-
-    const handleOnline = () => {
-      console.log('🌐 [inicio] Evento "online" detectado - Verificando con health...');
-      setTimeout(verificarConexionConHealth, 2000); // Delay para estabilizar
-    };
-
-    const handleOffline = () => {
-      console.log('📴 [inicio] Evento "offline" detectado');
-      setMostrarBotonReconectar(false);
-    };
-
-    // Verificar estado inicial
-    verificarConexionConHealth();
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    // Verificar periódicamente (cada 10 segundos) si hay conexión
-    const intervaloVerificacion = setInterval(() => {
-      if (modoOfflineForzado && navigator.onLine) {
-        verificarConexionConHealth();
-      }
-    }, 10000); // Cada 10 segundos para no sobrecargar
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-      clearInterval(intervaloVerificacion);
-    };
-  }, [modoOfflineForzado, isPWA]);
-
-  // Handlers para los botones PWA - OFFLINE-FIRST
+  // Handlers para los botones PWA
   const handleUpdateCatalog = async () => {
     console.log('🔄 [inicio] Actualizando catálogo manualmente...');
     
-    // Verificar conexión antes de actualizar
-    if (!navigator.onLine) {
-      toast.error('Sin conexión para actualizar catálogo');
+    if (modoOffline) {
+      toast.error('Debe reconectar la app primero');
       return;
     }
     
@@ -236,6 +104,11 @@ export default function Inicio() {
   const handleSyncPedidos = async () => {
     console.log('🔄 [inicio] Sincronizando pedidos pendientes...');
     
+    if (modoOffline) {
+      toast.error('Debe reconectar la app primero');
+      return;
+    }
+    
     // Mostrar confirmación si hay muchos pedidos
     if (cantidadPendientes > 5) {
       const confirmar = window.confirm(
@@ -244,10 +117,6 @@ export default function Inicio() {
       if (!confirmar) return;
     }
     
-    // ⚠️ MEJORADO: Intentar sincronizar directamente
-    // La función syncPedidosPendientes ya verifica conexión internamente
-    // Si falla, mostrará el error apropiado
-    // Esto evita falsos negativos de verificación previa
     try {
       const resultado = await syncPedidosPendientes();
 
@@ -269,17 +138,9 @@ export default function Inicio() {
           toast.info('No hay pedidos pendientes para sincronizar');
         }
       } else if (resultado.error) {
-        // Error ya fue mostrado en syncPedidosPendientes
-        // Solo loguear para debugging
         console.error('❌ [inicio] Error en sincronización:', resultado.error);
-        
-        // Si el error es de conexión, dar opción de reintentar
-        if (resultado.error === 'Sin conexión' || resultado.error.includes('conexión')) {
-          console.log('🔄 [inicio] Error de conexión detectado - Usuario puede reintentar');
-        }
       }
     } catch (error) {
-      // ⚠️ ENDURECER: Capturar errores inesperados
       console.error('❌ [inicio] Error inesperado sincronizando:', error);
       toast.error('Error inesperado durante la sincronización. Intente nuevamente.');
     }
@@ -303,123 +164,13 @@ export default function Inicio() {
     }
   };
 
-  // ⚠️ MANEJAR RECONEXIÓN MANUAL - Usa endpoint de health para verificar conexión real
+  // ✅ HANDLER DE RECONEXIÓN - Usa el Context centralizado
   const handleReconectarApp = async () => {
-    console.log('🔄 [inicio] Usuario solicita reconectar app...');
-    setReconectando(true);
-    
-    // ✅ URL DE HEALTH PARA VERIFICAR CONEXIÓN REAL
-    const HEALTH_URL = 'https://api.vertimar.online/health';
-    const TIMEOUT = 10000; // 10 segundos de timeout
-    
-    /**
-     * Verificar conexión usando el endpoint de health
-     * Retorna true si el servidor responde correctamente
-     */
-    const verificarConexionConHealth = async () => {
-      try {
-        console.log(`🔍 [inicio] Verificando conexión con: ${HEALTH_URL}`);
-        
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => {
-          console.log('⏱️ [inicio] Timeout de verificación');
-          controller.abort();
-        }, TIMEOUT);
-        
-        const response = await fetch(HEALTH_URL, {
-          method: 'GET',
-          signal: controller.signal,
-          cache: 'no-cache',
-          headers: {
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache'
-          }
-        });
-        
-        clearTimeout(timeoutId);
-        
-        console.log(`📡 [inicio] Respuesta de health:`, {
-          status: response.status,
-          ok: response.ok
-        });
-        
-        if (response.ok) {
-          // Opcional: parsear respuesta para confirmar que es el endpoint correcto
-          try {
-            const data = await response.json();
-            console.log('✅ [inicio] Health check exitoso:', data);
-            return data.status === '✅ Healthy' || response.ok;
-          } catch {
-            // Si no puede parsear JSON pero respondió OK, aún es válido
-            return true;
-          }
-        }
-        
-        return false;
-      } catch (error) {
-        if (error.name === 'AbortError') {
-          console.log('⏱️ [inicio] Timeout verificando health');
-        } else {
-          console.error('❌ [inicio] Error verificando health:', error.message);
-        }
-        return false;
-      }
-    };
-    
-    try {
-      // Verificar conexión usando el endpoint de health
-      const hayConexion = await verificarConexionConHealth();
-      
-      if (hayConexion) {
-        console.log('✅ [inicio] Conexión confirmada con health endpoint');
-        
-        // ✅ RECONEXIÓN EXITOSA
-        setModoOfflineForzado(false);
-        setMostrarBotonReconectar(false);
-        setReconectando(false);
-        
-        // Limpiar estado guardado
-        localStorage.removeItem('vertimar_modo_offline_forzado');
-        
-        toast.success('✅ App reconectada - Modo online activado', {
-          duration: 3000,
-          icon: '✅',
-        });
-        
-        // Recargar estadísticas
-        if (isPWA) {
-          const stats = offlineManager.getStorageStats();
-          setCatalogStats(stats);
-        }
-        
-        // Recargar página para actualizar toda la UI
-        setTimeout(() => {
-          window.location.reload();
-        }, 1500);
-        
-      } else {
-        // ❌ SIN CONEXIÓN
-        console.log('❌ [inicio] No se pudo verificar conexión con health endpoint');
-        setReconectando(false);
-        
-        toast.error('No se pudo reconectar. Verifique su conexión a internet.', {
-          duration: 5000,
-          icon: '❌',
-        });
-      }
-    } catch (error) {
-      console.error('❌ [inicio] Error en reconexión:', error);
-      setReconectando(false);
-      
-      toast.error('Error al intentar reconectar. Intente nuevamente.', {
-        duration: 5000,
-        icon: '❌',
-      });
-    }
+    await reconectar();
   };
 
-  // ⚠️ DETERMINAR SI ESTAMOS EN MODO OFFLINE (forzado o real)
-  const estaEnModoOffline = isPWA && (modoOfflineForzado || !isOnline);
+  // ✅ DETERMINAR SI ESTAMOS EN MODO OFFLINE
+  const estaEnModoOffline = isPWA && modoOffline;
 
   if (loading) {
     return (
@@ -436,7 +187,7 @@ export default function Inicio() {
         <title>VERTIMAR | INICIO</title>
       </Head>
 
-      {/* ⚠️ HEADER - Cambia de color en modo offline */}
+      {/* ✅ HEADER - Cambia de color en modo offline */}
       <div className={`bg-gradient-to-r ${estaEnModoOffline ? 'from-orange-500 to-orange-600' : 'from-blue-500 to-blue-600'} text-white rounded-xl shadow-lg p-6 mb-6`}>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
           <div>
@@ -462,44 +213,22 @@ export default function Inicio() {
         </div>
       </div>
 
-      {/* ⚠️ BOTÓN "RECONECTAR APP" - SIEMPRE visible cuando está en modo offline */}
-      {isPWA && modoOfflineForzado && (
-        <div className={`mb-6 border-2 rounded-xl p-6 shadow-lg ${
-          mostrarBotonReconectar 
-            ? 'bg-green-50 border-green-500' 
-            : 'bg-orange-50 border-orange-500'
-        }`}>
+      {/* ✅ BOTÓN "RECONECTAR APP" - Solo visible cuando está en modo offline */}
+      {estaEnModoOffline && (
+        <div className="mb-6 border-2 rounded-xl p-6 shadow-lg bg-orange-50 border-orange-500">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className={`p-3 rounded-full ${
-                mostrarBotonReconectar 
-                  ? 'bg-green-100' 
-                  : 'bg-orange-100'
-              }`}>
-                {mostrarBotonReconectar ? (
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
-                  </svg>
-                ) : (
-                  <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-                  </svg>
-                )}
+              <div className="p-3 rounded-full bg-orange-100">
+                <svg className="w-6 h-6 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
               </div>
               <div>
-                <h3 className={`text-lg font-semibold ${
-                  mostrarBotonReconectar 
-                    ? 'text-gray-800' 
-                    : 'text-gray-800'
-                }`}>
-                  {mostrarBotonReconectar 
-                    ? 'Conexión Disponible' 
-                    : 'Modo Offline Activo'}
+                <h3 className="text-lg font-semibold text-gray-800">
+                  Modo Offline Activo
                 </h3>
                 <p className="text-sm text-gray-600">
-                  {mostrarBotonReconectar 
-                    ? 'Haz clic para reconectar la app y acceder a todas las funciones'
-                    : 'Haz clic para intentar reconectar la app (se intentará por 10 segundos)'}
+                  Toque el botón cuando tenga conexión estable para reconectar la app
                 </p>
               </div>
             </div>
@@ -509,9 +238,7 @@ export default function Inicio() {
               className={`px-6 py-3 rounded-lg font-semibold text-white transition-all ${
                 reconectando
                   ? 'bg-gray-400 cursor-not-allowed'
-                  : mostrarBotonReconectar
-                    ? 'bg-green-600 hover:bg-green-700 shadow-md hover:shadow-lg'
-                    : 'bg-orange-600 hover:bg-orange-700 shadow-md hover:shadow-lg'
+                  : 'bg-orange-600 hover:bg-orange-700 shadow-md hover:shadow-lg'
               }`}
             >
               {reconectando ? (
@@ -530,7 +257,7 @@ export default function Inicio() {
         </div>
       )}
 
-      {/* ⚠️ PANELES PWA - Solo en modo online */}
+      {/* ✅ PANELES PWA - Solo en modo online */}
       {!estaEnModoOffline && shouldShowPWAPanels && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {shouldShowCatalogPanel && (
@@ -573,7 +300,7 @@ export default function Inicio() {
         </div>
       )}
 
-      {/* ⚠️ MÓDULOS PRINCIPALES - Modo offline: solo VENTAS con Registrar Pedido */}
+      {/* ✅ MÓDULOS PRINCIPALES - Modo offline: solo VENTAS con Registrar Pedido */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
 
         {/* 1. VENTAS - Prioridad máxima - SIEMPRE visible */}
@@ -593,7 +320,7 @@ export default function Inicio() {
               </p>
             </div>
             <div className="p-3 md:p-4 space-y-1">
-              {/* ⚠️ REGISTRAR PEDIDO - SIEMPRE disponible */}
+              {/* ✅ REGISTRAR PEDIDO - SIEMPRE disponible */}
               <LinkGuard href="/ventas/RegistrarPedido" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
                 <span className="font-medium text-gray-800 group-hover:text-emerald-700">Registrar Nota de Pedido</span>
                 <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -601,7 +328,7 @@ export default function Inicio() {
                 </svg>
               </LinkGuard>
               
-              {/* ⚠️ OTRAS OPCIONES DE VENTAS - Solo en modo online */}
+              {/* ✅ OTRAS OPCIONES DE VENTAS - Solo en modo online */}
               {!estaEnModoOffline && (
                 <>
                   <LinkGuard href="/ventas/HistorialPedidos" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
@@ -795,7 +522,7 @@ export default function Inicio() {
         )}
       </div>
 
-      {/* ⚠️ INFORMACIÓN DEL SISTEMA - Solo en modo online */}
+      {/* ✅ INFORMACIÓN DEL SISTEMA - Solo en modo online */}
       {!estaEnModoOffline && (
       <div className="mt-6 md:mt-8 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl shadow-sm p-6 border border-gray-200">
         <h3 className="text-lg font-semibold mb-4 text-gray-800 flex items-center">
@@ -825,7 +552,7 @@ export default function Inicio() {
           </div>
           <div className="bg-white p-3 rounded-lg">
             <strong className="text-gray-600">Estado:</strong>
-            <p className="text-gray-800 font-medium">{isOnline ? '✅ Conectado' : '📴 Sin conexión'}</p>
+            <p className="text-gray-800 font-medium">✅ Conectado</p>
           </div>
           {isPWA && catalogStats && (
             <>

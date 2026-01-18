@@ -5,7 +5,34 @@ import { axiosAuth } from '../../utils/apiClient';
 import { getAppMode, offlineManager } from '../../utils/offlineManager';
 import { useOfflineCatalog } from '../useOfflineCatalog';
 import { generarHashPedido } from '../../utils/pedidoHash';
-import { verificarConexionReal } from '../../utils/VerificadorConexion';
+
+/**
+ * Verificar conexión real con el backend
+ */
+async function verificarConexionReal(timeout = 5000) {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return false;
+  }
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) return false;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    const response = await fetch(`${apiUrl}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+      cache: 'no-cache'
+    });
+
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 export function usePedidosHybrid() {
   const [loading, setLoading] = useState(false);

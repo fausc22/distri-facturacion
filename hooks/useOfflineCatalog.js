@@ -395,7 +395,40 @@ export function useOfflineCatalog() {
 
 // Hook para pedidos offline - OFFLINE-FIRST
 // Sincronización SOLO manual desde el menú principal
-import { verificarConexionReal } from '../utils/VerificadorConexion';
+
+/**
+ * Verificar conexión real con el backend
+ * @param {number} timeout - Timeout en ms
+ * @returns {Promise<boolean>}
+ */
+async function verificarConexionSimple(timeout = 5000) {
+  if (typeof window === 'undefined' || !navigator.onLine) {
+    return false;
+  }
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+  if (!apiUrl) {
+    console.warn('⚠️ NEXT_PUBLIC_API_URL no configurada');
+    return false;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+    const response = await fetch(`${apiUrl}/health`, {
+      method: 'GET',
+      signal: controller.signal,
+      cache: 'no-cache'
+    });
+
+    clearTimeout(timeoutId);
+    return response.ok;
+  } catch (error) {
+    console.log('⚠️ Error verificando conexión:', error.message);
+    return false;
+  }
+}
 
 export function useOfflinePedidos() {
   const [pedidosPendientes, setPedidosPendientes] = useState([]);
@@ -461,9 +494,9 @@ export function useOfflinePedidos() {
       return { success: false, error: 'Sincronización en curso' };
     }
 
-    // Verificar conexión REAL antes de empezar (con reintentos)
-    console.log('🔍 [useOfflinePedidos] Verificando conexión real antes de sincronizar...');
-    const tieneConexion = await verificarConexionReal(5000, 2); // 5s timeout, 2 reintentos
+    // Verificar conexión antes de empezar
+    console.log('🔍 [useOfflinePedidos] Verificando conexión antes de sincronizar...');
+    const tieneConexion = await verificarConexionSimple(5000);
     
     if (!tieneConexion) {
       // ⚠️ MEJORADO: Intentar de todos modos si navigator.onLine dice que hay conexión
