@@ -3,6 +3,7 @@
 // next-pwa la precachea automáticamente y la sirve como fallback.
 
 import Head from 'next/head';
+import Link from 'next/link';
 
 export default function OfflinePage() {
   const handleRetry = () => {
@@ -59,12 +60,12 @@ export default function OfflinePage() {
           {navigator.onLine ? '🔄 Reintentar' : 'Sin conexión'}
         </button>
 
-        <a
+        <Link
           href="/inicio"
           className="mt-4 block text-orange-600 hover:text-orange-700 font-medium text-sm"
         >
           Ir al inicio
-        </a>
+        </Link>
       </div>
     </div>
   );
