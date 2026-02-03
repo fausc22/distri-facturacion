@@ -2,7 +2,7 @@
 import '../styles/globals.css';
 import { useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { Toaster } from 'react-hot-toast'; 
+import { Toaster, toast } from 'react-hot-toast'; 
 import { useRouter } from 'next/router'
 import { QueryClientProvider } from '@tanstack/react-query';
 import { queryClient } from '../utils/queryClient';
@@ -28,82 +28,93 @@ function MyApp({ Component, pageProps }) {
   );
 
   // ✅ PRECARGA CRÍTICA PARA PWA OFFLINE
+  // router.prefetch() descarga los chunks JS de cada ruta - esencial para que funcione offline
   useEffect(() => {
-    // Solo aplicar lógica PWA en páginas privadas
-    if (isPublicRoute) return;
-    
-    // Solo ejecutar en cliente y si hay Service Worker
-    if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-      // Detectar si es PWA
-      const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
-                    window.navigator.standalone ||
-                    document.referrer.includes('android-app://');
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
 
-      if (isPWA) {
-        console.log('📱 PWA detectada, iniciando precarga crítica...');
-        
-        // Precargar recursos críticos para navegación offline
-        const criticalResources = [
-          '/ventas/RegistrarPedido',
-          '/inicio',
-          '/login',
-          '/',
-        ];
+    const isPWA = window.matchMedia('(display-mode: standalone)').matches ||
+                  window.navigator.standalone ||
+                  document.referrer.includes('android-app://');
 
-        // Precarga con delay para no impactar la carga inicial
-        setTimeout(() => {
-          criticalResources.forEach((url, index) => {
-            setTimeout(() => {
-              fetch(url, { 
-                method: 'GET',
-                credentials: 'include',
-                cache: 'force-cache'
-              }).then(() => {
-                console.log(`✅ Recurso precargado: ${url}`);
-              }).catch((error) => {
-                console.log(`⚠️ Precarga fallida para: ${url}`, error.message);
-              });
-            }, index * 500);
-          });
-        }, 2000);
-      }
+    if (!isPWA) return;
 
-      // ✅ LISTENER PARA UPDATES DEL SERVICE WORKER
-      navigator.serviceWorker.addEventListener('controllerchange', () => {
-        console.log('🔄 Service Worker actualizado, recargando página...');
-        window.location.reload();
-      });
+    const PRECACHE_KEY = 'vertimar_precarga_completa';
+    const RUTAS_CRITICAS = ['/ventas/RegistrarPedido', '/inicio', '/login', '/'];
 
-      // ✅ REGISTRAR SERVICE WORKER SI NO ESTÁ REGISTRADO
-      navigator.serviceWorker.getRegistration().then((registration) => {
-        if (registration) {
-          console.log('✅ Service Worker ya registrado');
-          
-          registration.addEventListener('updatefound', () => {
-            console.log('🔄 Nueva versión del Service Worker disponible');
-          });
-        } else {
-          console.log('⚠️ Service Worker no registrado, next-pwa debería manejarlo');
-        }
-      });
+    const ejecutarPrecarga = async () => {
+      if (!navigator.onLine) return;
 
-      // ✅ PRECARGAR CHUNKS CRÍTICOS DE JAVASCRIPT
-      const precargeCriticalChunks = () => {
-        const links = document.querySelectorAll('link[rel="preload"][as="script"]');
-        links.forEach(link => {
-          if (link.href.includes('ventas') || link.href.includes('pages')) {
-            const script = document.createElement('script');
-            script.src = link.href;
-            script.async = true;
-            script.onload = () => console.log(`✅ Chunk precargado: ${link.href}`);
-            script.onerror = () => console.log(`⚠️ Error precargando chunk: ${link.href}`);
+      console.log('📱 [PWA] Iniciando precarga de rutas críticas...');
+
+      try {
+        // 1. router.prefetch() - CRÍTICO: descarga los chunks JS de cada página
+        for (const ruta of RUTAS_CRITICAS) {
+          try {
+            await router.prefetch(ruta);
+            console.log(`✅ [PWA] Chunks precargados: ${ruta}`);
+          } catch (e) {
+            console.warn(`⚠️ [PWA] Prefetch ${ruta}:`, e.message);
           }
-        });
-      };
+        }
 
-      setTimeout(precargeCriticalChunks, 3000);
-    }
+        // 2. fetch() adicional para cachear el documento HTML (el SW lo intercepta)
+        const delay = (ms) => new Promise((r) => setTimeout(r, ms));
+        for (let i = 0; i < RUTAS_CRITICAS.length; i++) {
+          await delay(300);
+          fetch(RUTAS_CRITICAS[i], {
+            method: 'GET',
+            credentials: 'include',
+            cache: 'force-cache',
+          }).catch(() => {});
+        }
+
+        const primeraVez = !localStorage.getItem(PRECACHE_KEY);
+        localStorage.setItem(PRECACHE_KEY, Date.now().toString());
+        console.log('✅ [PWA] Precarga completa - App lista para offline');
+        if (primeraVez) {
+          toast.success('📱 App lista para usar sin conexión', { duration: 3000, icon: '✅' });
+        }
+      } catch (error) {
+        console.warn('⚠️ [PWA] Error en precarga:', error.message);
+      }
+    };
+
+    // Ejecutar tras carga inicial (no bloquear)
+    const timer = setTimeout(() => {
+      ejecutarPrecarga();
+    }, 1500);
+
+    return () => clearTimeout(timer);
+  }, [router]);
+
+  // ✅ LISTENER SERVICE WORKER (solo en rutas privadas)
+  useEffect(() => {
+    if (isPublicRoute || typeof window === 'undefined') return;
+
+    const onControllerChange = () => {
+      console.log('🔄 Service Worker actualizado, recargando...');
+      window.location.reload();
+    };
+
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+
+    return () => {
+      navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+    };
   }, [isPublicRoute]);
+
+  // ✅ VERIFICAR REGISTRO DEL SERVICE WORKER
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    navigator.serviceWorker.getRegistration().then((reg) => {
+      if (reg) {
+        reg.addEventListener('updatefound', () => {
+          console.log('🔄 Nueva versión del Service Worker disponible');
+        });
+      }
+    });
+  }, []);
 
   // ✅ MANEJO DE ERRORES DE RED GLOBAL
   useEffect(() => {

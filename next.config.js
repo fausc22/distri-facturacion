@@ -4,9 +4,18 @@ const withPWA = require('next-pwa')({
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development',
   buildExcludes: [/middleware-manifest\.json$/],
-  
-  // ✅ CACHE OBLIGATORIO DE TODAS LAS PÁGINAS CRÍTICAS
+
+  // ✅ Página offline de respaldo (pages/_offline.jsx)
+  fallbacks: {
+    document: '/_offline',
+  },
+
+  // ✅ Cache al navegar con next/link - ayuda a cachear RegistrarPedido cuando el usuario hace clic
+  cacheOnFrontEndNav: true,
+
+  // ✅ Precache de rutas críticas al instalar el SW
   additionalManifestEntries: [
+    { url: '/_offline', revision: null },
     { url: '/ventas/RegistrarPedido', revision: null },
     { url: '/inicio', revision: null },
     { url: '/login', revision: null },
