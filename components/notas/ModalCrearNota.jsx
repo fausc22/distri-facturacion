@@ -287,7 +287,7 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
                       ➕ Producto Manual
                     </button>
                   </div>
-                  <ProductoSelector />
+                  <ProductoSelector mostrarPreciosConIva />
                 </div>
 
                 {/* Carrito de productos */}

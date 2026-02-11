@@ -2,6 +2,11 @@ import { useState } from 'react';
 import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
 import { ModalEditarProductoVentaDirecta } from '../ventas/ModalEditarProductoVentaDirecta';
 
+const formatearMoneda = (monto) => `$${Number(monto || 0).toFixed(2)}`;
+
+const calcularConIva = (montoBase, porcentajeIva) =>
+  Number(montoBase || 0) * (1 + (Number(porcentajeIva || 0) / 100));
+
 function ControlCantidad({ cantidad, onCantidadChange }) {
   const formatearCantidad = (cantidad) => {
     const cantidadNum = parseFloat(cantidad);
@@ -71,6 +76,9 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
               const descuentoPorcentaje = Number(prod.descuento_porcentaje) || 0;
               const subtotalBase = prod.cantidad * prod.precio;
               const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
+              const porcentajeIva = Number(prod.porcentaje_iva) || 21;
+              const precioUnitarioFinal = calcularConIva(prod.precio, porcentajeIva);
+              const subtotalFinal = Number(prod.subtotal || 0) + Number(prod.iva_calculado || 0);
 
               return (
                 <tr
@@ -94,7 +102,14 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
                       />
                     </div>
                   </td>
-                  <td className="p-3 text-center font-medium">${Number(prod.precio).toFixed(2)}</td>
+                  <td className="p-3 text-center">
+                    <div className="text-sm text-gray-600">Neto</div>
+                    <div className="font-medium">{formatearMoneda(prod.precio)}</div>
+                    <div className="mt-1 text-sm text-gray-600">Final c/IVA</div>
+                    <div className="font-semibold text-green-700">
+                      {formatearMoneda(precioUnitarioFinal)}
+                    </div>
+                  </td>
                   <td className="p-3 text-center">
                     {/* ✅ INPUT EDITABLE PARA DESCUENTO */}
                     <input
@@ -118,7 +133,10 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
                   </td>
                   <td className="p-3 text-center">{prod.porcentaje_iva}%</td>
                   <td className="p-3 text-center">
-                    <div className="font-bold text-green-600">${prod.subtotal.toFixed(2)}</div>
+                    <div className="text-sm text-gray-600">Neto</div>
+                    <div className="font-medium">{formatearMoneda(prod.subtotal)}</div>
+                    <div className="mt-1 text-sm text-gray-600">Final c/IVA</div>
+                    <div className="font-bold text-green-600">{formatearMoneda(subtotalFinal)}</div>
                     {descuentoPorcentaje > 0 && (
                       <div className="text-xs text-orange-600">Con desc.</div>
                     )}
@@ -176,6 +194,9 @@ function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento,
           const descuentoPorcentaje = Number(prod.descuento_porcentaje) || 0;
           const subtotalBase = prod.cantidad * prod.precio;
           const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
+          const porcentajeIva = Number(prod.porcentaje_iva) || 21;
+          const precioUnitarioFinal = calcularConIva(prod.precio, porcentajeIva);
+          const subtotalFinal = Number(prod.subtotal || 0) + Number(prod.iva_calculado || 0);
 
           return (
             <div key={idx} className="bg-white p-4 rounded-lg shadow border">
@@ -223,7 +244,10 @@ function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento,
                   </div>
                   <div>
                     <span className="text-gray-600 text-sm">Precio unitario:</span>
-                    <div className="font-medium">${Number(prod.precio).toFixed(2)}</div>
+                    <div className="font-medium">Neto: {formatearMoneda(prod.precio)}</div>
+                    <div className="font-semibold text-green-700">
+                      Final c/IVA: {formatearMoneda(precioUnitarioFinal)}
+                    </div>
                   </div>
                   <div>
                     <span className="text-gray-600 text-sm">IVA:</span>
@@ -257,7 +281,10 @@ function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento,
                   </div>
                   <div>
                     <span className="text-gray-600 text-sm">Subtotal:</span>
-                    <div className="font-bold text-green-600 text-lg">${prod.subtotal.toFixed(2)}</div>
+                    <div className="font-medium">Neto: {formatearMoneda(prod.subtotal)}</div>
+                    <div className="font-bold text-green-600 text-lg">
+                      Final c/IVA: {formatearMoneda(subtotalFinal)}
+                    </div>
                     {descuentoPorcentaje > 0 && (
                       <div className="text-xs text-orange-600">Con descuento</div>
                     )}
@@ -377,7 +404,7 @@ export default function ProductosCarrito() {
               })()}
               <hr className="my-2" />
               <div className="flex justify-between items-center text-lg">
-                <span className="font-semibold">Total (con IVA):</span>
+                <span className="font-semibold">Total final a cobrar (con IVA):</span>
                 <span className="font-bold text-green-600">${total.toFixed(2)}</span>
               </div>
             </div>

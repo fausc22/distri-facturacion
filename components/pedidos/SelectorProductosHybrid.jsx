@@ -4,11 +4,21 @@ import { usePedidosContext } from '../../context/PedidosContext';
 import { useProductoSearchHybrid } from '../../hooks/useProductSearchHybrid';
 
 
-  const formatearStock = (stock) => {
-    const stockNum = parseFloat(stock);
-    // Si es entero, mostrar sin decimales. Si es decimal, mostrar con decimales
-    return stockNum % 1 === 0 ? stockNum.toString() : stockNum.toFixed(1);
-  };
+const formatearStock = (stock) => {
+  const stockNum = parseFloat(stock);
+  // Si es entero, mostrar sin decimales. Si es decimal, mostrar con decimales
+  return stockNum % 1 === 0 ? stockNum.toString() : stockNum.toFixed(1);
+};
+
+const formatearMoneda = (monto) => `$${Number(monto || 0).toFixed(2)}`;
+
+const obtenerPorcentajeIva = (producto) => {
+  const iva = Number(producto?.iva ?? producto?.porcentaje_iva ?? 21);
+  return Number.isFinite(iva) && iva >= 0 ? iva : 21;
+};
+
+const calcularMontoConIva = (montoBase, porcentajeIva) =>
+  Number(montoBase || 0) * (1 + porcentajeIva / 100);
 
 
 function ControlCantidad({ cantidad, onCantidadChange, stockDisponible, className = "" }) {
@@ -82,10 +92,24 @@ function ControlCantidad({ cantidad, onCantidadChange, stockDisponible, classNam
   );
 }
 
-function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAgregar, isPWA, isOnline }) {
+function DetallesProducto({
+  producto,
+  cantidad,
+  subtotal,
+  onCantidadChange,
+  onAgregar,
+  isPWA,
+  isOnline,
+  mostrarPreciosConIva = true
+}) {
   if (!producto) return null;
 
   const stockInsuficiente = cantidad > producto.stock_actual;
+  const porcentajeIva = obtenerPorcentajeIva(producto);
+  const precioNeto = Number(producto.precio) || 0;
+  const precioFinal = calcularMontoConIva(precioNeto, porcentajeIva);
+  const subtotalNeto = Number(subtotal) || 0;
+  const subtotalFinal = calcularMontoConIva(subtotalNeto, porcentajeIva);
 
   return (
     <div className="mt-4">
@@ -99,8 +123,18 @@ function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAg
           </span>
         )}
       </div>
-      <div className="mb-2 text-black">
-        Precio unitario: ${parseFloat(producto.precio).toFixed(2)}
+
+      <div className="mb-3 rounded-md border border-gray-200 bg-gray-50 p-3 text-black">
+        <p className="text-sm text-gray-600">Precio unitario sin IVA</p>
+        <p className="text-base font-semibold">{formatearMoneda(precioNeto)}</p>
+        {mostrarPreciosConIva && (
+          <>
+            <p className="mt-2 text-sm text-gray-600">
+              Precio final con IVA ({porcentajeIva}%)
+            </p>
+            <p className="text-lg font-bold text-green-700">{formatearMoneda(precioFinal)}</p>
+          </>
+        )}
       </div>
       
       <div className="flex items-center gap-4 mb-4">
@@ -121,8 +155,15 @@ function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAg
         </div>
       )}
 
-      <div className="text-black font-semibold mb-4">
-        Subtotal: ${parseFloat(subtotal).toFixed(2)}
+      <div className="mb-4 rounded-md border border-green-200 bg-green-50 p-3 text-black">
+        <p className="text-sm text-gray-600">Subtotal sin IVA</p>
+        <p className="font-semibold">{formatearMoneda(subtotalNeto)}</p>
+        {mostrarPreciosConIva && (
+          <>
+            <p className="mt-1 text-sm text-gray-600">Subtotal final con IVA</p>
+            <p className="text-lg font-bold text-green-700">{formatearMoneda(subtotalFinal)}</p>
+          </>
+        )}
       </div>
 
       <button
@@ -151,7 +192,8 @@ function ModalProductos({
   onCerrar, 
   loading,
   isPWA,
-  isOnline
+  isOnline,
+  mostrarPreciosConIva = true
 }) {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
@@ -188,8 +230,19 @@ function ModalProductos({
                 }`}
                 onClick={() => onSeleccionar(producto)}
               >
-                <div className="flex justify-between items-center">
-                  <span>{producto.nombre} - ${producto.precio}</span>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium truncate">{producto.nombre}</p>
+                    <p className="text-sm text-gray-700">
+                      Neto: {formatearMoneda(producto.precio)}
+                    </p>
+                    {mostrarPreciosConIva && (
+                      <p className="text-sm font-semibold text-green-700">
+                        Final c/IVA ({obtenerPorcentajeIva(producto)}%):{" "}
+                        {formatearMoneda(calcularMontoConIva(producto.precio, obtenerPorcentajeIva(producto)))}
+                      </p>
+                    )}
+                  </div>
                   <div className="text-right">
                     <span className={`text-sm ${
                       producto.stock_actual > 0 ? 'text-green-600' : 'text-red-600'
@@ -220,6 +273,7 @@ function ModalProductos({
           onAgregar={onAgregar}
           isPWA={isPWA}
           isOnline={isOnline}
+          mostrarPreciosConIva={mostrarPreciosConIva}
         />
 
         <button
@@ -233,7 +287,7 @@ function ModalProductos({
   );
 }
 
-export default function ProductoSelectorHybrid() {
+export default function ProductoSelectorHybrid({ mostrarPreciosConIva = true }) {
   const { addProducto } = usePedidosContext();
   const {
     busqueda,
@@ -359,6 +413,7 @@ export default function ProductoSelectorHybrid() {
           loading={loading}
           isPWA={isPWA}
           isOnline={isOnline}
+          mostrarPreciosConIva={mostrarPreciosConIva}
         />
       )}
     </div>

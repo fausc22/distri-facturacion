@@ -2,6 +2,8 @@ export function ModalConfirmacionPedido({
   mostrar, 
   cliente, 
   totalProductos, 
+  subtotal = 0,
+  totalIva = 0,
   total, 
   onConfirmar, 
   onCancelar,
@@ -20,6 +22,23 @@ export function ModalConfirmacionPedido({
             <span className="font-bold">{totalProductos}</span> productos y un total de{' '}
             <span className="font-bold text-green-700">${Number(total).toFixed(2)}</span>?
           </p>
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-left">
+            <p className="text-sm text-gray-600">Resumen del monto informado al cliente</p>
+            <div className="mt-2 space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span>Subtotal sin IVA</span>
+                <span className="font-medium">${Number(subtotal).toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>IVA total</span>
+                <span className="font-medium">${Number(totalIva).toFixed(2)}</span>
+              </div>
+              <div className="mt-2 flex justify-between border-t pt-2 text-base">
+                <span className="font-semibold">Total final a cobrar</span>
+                <span className="font-bold text-green-700">${Number(total).toFixed(2)}</span>
+              </div>
+            </div>
+          </div>
         </div>
         
         {/* ✅ INDICADOR DE PROCESAMIENTO */}
