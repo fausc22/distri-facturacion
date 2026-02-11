@@ -6,10 +6,13 @@ export function BotonFlotanteAcciones({ cantidadSeleccionados, onScrollToActions
   return (
     <>
       {/* Solo visible en móvil y tablet */}
-      <div className="lg:hidden fixed bottom-20 right-4 z-40">
+      <div
+        className="lg:hidden fixed right-4 z-40"
+        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+      >
         <button
           onClick={onScrollToActions}
-          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg p-4 flex flex-col items-center justify-center gap-1 transition-all transform hover:scale-105 active:scale-95"
+          className="bg-blue-600 hover:bg-blue-700 text-white rounded-full shadow-lg p-4 min-h-[52px] min-w-[52px] flex flex-col items-center justify-center gap-1 transition-all transform hover:scale-105 active:scale-95"
           aria-label="Ir a botones de acción"
         >
           <div className="flex items-center gap-1">

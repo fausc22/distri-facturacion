@@ -7,7 +7,15 @@ const DefaultLayout = ({ children }) => {
 		<>
 			
 			<AppHeader />
-			<div>{children}</div>
+			<div
+				className="pwa-safe-bottom"
+				style={{
+					paddingLeft: 'max(0px, env(safe-area-inset-left))',
+					paddingRight: 'max(0px, env(safe-area-inset-right))',
+				}}
+			>
+				{children}
+			</div>
 			
 		</>
 	);

@@ -11,9 +11,18 @@ export function ModalConfirmacionPedido({
 }) {
   if (!mostrar) return null;
 
+  const handleOverlayClick = (e) => {
+    if (!loading && e.target === e.currentTarget) {
+      onCancelar();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+      onClick={handleOverlayClick}
+    >
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold mb-4 text-center">Confirmar Pedido</h3>
         <div className="text-center mb-6">
           <p className="mb-2">
@@ -55,7 +64,7 @@ export function ModalConfirmacionPedido({
           <button
             onClick={onConfirmar}
             disabled={loading}
-            className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white px-6 py-2 rounded font-semibold transition-colors flex items-center gap-2"
+            className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white px-6 py-3 min-h-[44px] rounded font-semibold transition-colors flex items-center gap-2"
           >
             {loading && (
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -65,7 +74,7 @@ export function ModalConfirmacionPedido({
           <button
             onClick={onCancelar}
             disabled={loading}
-            className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-2 rounded font-semibold transition-colors"
+            className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 min-h-[44px] rounded font-semibold transition-colors"
           >
             No, Cancelar
           </button>
@@ -80,9 +89,18 @@ export function ModalConfirmacionPedido({
 export function ModalConfirmacionSalidaPedidos({ mostrar, onConfirmar, onCancelar }) {
   if (!mostrar) return null;
 
+  const handleOverlayClick = (e) => {
+    if (e.target === e.currentTarget) {
+      onCancelar();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+      onClick={handleOverlayClick}
+    >
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold mb-4 text-center">
           ¿Estás seguro que deseas salir?
         </h3>
@@ -92,13 +110,13 @@ export function ModalConfirmacionSalidaPedidos({ mostrar, onConfirmar, onCancela
         <div className="flex justify-center gap-4">
           <button
             onClick={onConfirmar}
-            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold"
+            className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 min-h-[44px] rounded font-semibold"
           >
             Sí, Salir
           </button>
           <button
             onClick={onCancelar}
-            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold"
+            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 min-h-[44px] rounded font-semibold"
           >
             No, Cancelar
           </button>
@@ -127,9 +145,18 @@ export function ModalConfirmacionCambioEstado({
     }
   };
 
+  const handleOverlayClick = (e) => {
+    if (!loading && e.target === e.currentTarget) {
+      onCancelar();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+      onClick={handleOverlayClick}
+    >
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold mb-4 text-center">Confirmar Cambio de Estado</h3>
         <div className="text-center mb-6">
           <p className="mb-2">
@@ -143,14 +170,14 @@ export function ModalConfirmacionCambioEstado({
           <button
             onClick={onConfirmar}
             disabled={loading}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold disabled:opacity-50"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 min-h-[44px] rounded font-semibold disabled:opacity-50"
           >
             {loading ? 'Procesando...' : 'Sí, Cambiar'}
           </button>
           <button
             onClick={onCancelar}
             disabled={loading}
-            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold disabled:opacity-50"
+            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 min-h-[44px] rounded font-semibold disabled:opacity-50"
           >
             No, Cancelar
           </button>
@@ -169,9 +196,18 @@ export function ModalConfirmacionEliminarMultiple({
 }) {
   if (!mostrar) return null;
 
+  const handleOverlayClick = (e) => {
+    if (!loading && e.target === e.currentTarget) {
+      onCancelar();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50"
+      onClick={handleOverlayClick}
+    >
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
         <h3 className="text-xl font-bold mb-4 text-center text-red-600">⚠️ Confirmar Eliminación</h3>
         <div className="text-center mb-6">
           <p className="mb-2">
@@ -186,14 +222,14 @@ export function ModalConfirmacionEliminarMultiple({
           <button
             onClick={onConfirmar}
             disabled={loading}
-            className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold disabled:opacity-50"
+            className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 min-h-[44px] rounded font-semibold disabled:opacity-50"
           >
             {loading ? 'Eliminando...' : 'Sí, Eliminar'}
           </button>
           <button
             onClick={onCancelar}
             disabled={loading}
-            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold disabled:opacity-50"
+            className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 min-h-[44px] rounded font-semibold disabled:opacity-50"
           >
             No, Cancelar
           </button>
@@ -219,9 +255,18 @@ export function ModalConfirmacionAnularPedidoIndividual({
   const ivaTotal = productos.reduce((acc, prod) => acc + (Number(prod.iva) || 0), 0);
   const total = subtotal + ivaTotal;
 
+  const handleOverlayClick = (e) => {
+    if (!loading && e.target === e.currentTarget) {
+      onCancelar();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-4">
-      <div className="bg-white rounded-lg max-w-md w-full mx-4">
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-4"
+      onClick={handleOverlayClick}
+    >
+      <div className="bg-white rounded-lg max-w-md w-full mx-4" onClick={(e) => e.stopPropagation()}>
         <div className="p-6">
           <h3 className="text-xl font-bold mb-4 text-center text-red-600">
             ⚠️ CONFIRMAR ANULACIÓN DE PEDIDO
@@ -260,7 +305,7 @@ export function ModalConfirmacionAnularPedidoIndividual({
             <button
               onClick={onConfirmar}
               disabled={loading}
-              className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 min-h-[44px] rounded font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {loading ? (
                 <div className="flex items-center">
@@ -277,7 +322,7 @@ export function ModalConfirmacionAnularPedidoIndividual({
             <button
               onClick={onCancelar}
               disabled={loading}
-              className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded font-semibold disabled:opacity-50 transition-colors"
+              className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-3 min-h-[44px] rounded font-semibold disabled:opacity-50 transition-colors"
             >
               NO, CANCELAR
             </button>

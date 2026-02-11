@@ -2,11 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+	--safe-area-top: env(safe-area-inset-top, 0px);
+	--safe-area-right: env(safe-area-inset-right, 0px);
+	--safe-area-bottom: env(safe-area-inset-bottom, 0px);
+	--safe-area-left: env(safe-area-inset-left, 0px);
+}
+
 html,
 body {
 	padding: 0;
 	margin: 0;
 	font-family: 'GeneralSans-Variable';
+	overflow-x: hidden;
 }
 
 a {
@@ -16,6 +24,33 @@ a {
 
 * {
 	box-sizing: border-box;
+}
+
+html {
+	-webkit-text-size-adjust: 100%;
+}
+
+button,
+[role='button'],
+a {
+	touch-action: manipulation;
+	-webkit-tap-highlight-color: transparent;
+}
+
+input:not([type='checkbox']):not([type='radio']),
+select,
+textarea {
+	font-size: 16px;
+}
+
+.pwa-safe-bottom {
+	padding-bottom: max(12px, var(--safe-area-bottom));
+}
+
+.pwa-toast {
+	width: min(92vw, 420px);
+	max-width: 420px;
+	border-radius: 10px;
 }
 
 /* Fonts */

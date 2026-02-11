@@ -26,7 +26,7 @@ function ControlCantidad({ cantidad, onCantidadChange }) {
   return (
     <div className="flex items-center justify-center space-x-2">
       <button 
-        className={`w-6 h-6 rounded flex items-center justify-center ${
+        className={`w-11 h-11 rounded flex items-center justify-center text-base ${
           cantidad <= 0.5 
             ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
             : 'bg-gray-300 hover:bg-gray-400 text-black'
@@ -40,7 +40,7 @@ function ControlCantidad({ cantidad, onCantidadChange }) {
         {formatearCantidad(cantidad)}
       </span>
       <button 
-        className="bg-gray-300 hover:bg-gray-400 text-black w-6 h-6 rounded flex items-center justify-center"
+        className="bg-gray-300 hover:bg-gray-400 text-black w-11 h-11 rounded flex items-center justify-center text-base"
         onClick={incrementar}
       >
         +
@@ -144,7 +144,7 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
                   <td className="p-3 text-center">
                     <div className="flex items-center justify-center gap-2">
                       <button
-                        className="bg-blue-500 hover:bg-blue-700 text-white px-2 py-1 rounded transition-colors"
+                        className="bg-blue-500 hover:bg-blue-700 text-white px-3 py-2 min-h-[44px] rounded transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
                           onEditar(idx);
@@ -154,7 +154,7 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
                         ✏️
                       </button>
                       <button
-                        className="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded transition-colors"
+                        className="bg-red-500 hover:bg-red-700 text-white px-3 py-2 min-h-[44px] rounded transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
                           onEliminar(idx);
@@ -215,14 +215,14 @@ function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento,
                 </div>
                 <div className="flex gap-1">
                   <button
-                    className="bg-blue-500 hover:bg-blue-700 text-white px-2 py-1 rounded transition-colors text-xs"
+                    className="bg-blue-500 hover:bg-blue-700 text-white px-3 py-2 min-h-[44px] rounded transition-colors text-xs"
                     onClick={() => onEditar(idx)}
                     title="Editar producto"
                   >
                     ✏️
                   </button>
                   <button
-                    className="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded transition-colors text-xs"
+                    className="bg-red-500 hover:bg-red-700 text-white px-3 py-2 min-h-[44px] rounded transition-colors text-xs"
                     onClick={() => onEliminar(idx)}
                     title="Eliminar producto"
                   >

@@ -45,7 +45,7 @@ function ControlCantidad({ cantidad, onCantidadChange, stockDisponible, classNam
   return (
     <div className={`flex items-center space-x-2 ${className}`}>
       <button 
-        className={`w-8 h-8 rounded flex items-center justify-center font-bold ${
+        className={`w-11 h-11 rounded flex items-center justify-center font-bold ${
           cantidad <= 0.5 
             ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
             : 'bg-gray-300 hover:bg-gray-400 text-black'
@@ -62,7 +62,8 @@ function ControlCantidad({ cantidad, onCantidadChange, stockDisponible, classNam
         min="0.5"
         step="0.5"
         max={stockDisponible}
-        className="w-20 p-2 rounded text-black border border-gray-300 text-center"
+        inputMode="decimal"
+        className="w-24 min-h-[44px] p-2 rounded text-black border border-gray-300 text-center text-base"
         onBlur={(e) => {
           const valor = parseFloat(e.target.value);
           if (isNaN(valor) || valor < 0.5) {
@@ -71,7 +72,7 @@ function ControlCantidad({ cantidad, onCantidadChange, stockDisponible, classNam
         }}
       />
       <button 
-        className={`w-8 h-8 rounded flex items-center justify-center font-bold ${
+        className={`w-11 h-11 rounded flex items-center justify-center font-bold ${
           cantidad >= stockDisponible
             ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
             : 'bg-gray-300 hover:bg-gray-400 text-black'
@@ -291,14 +292,16 @@ export default function ProductoSelector({ onAddProducto = null, mostrarPreciosC
         <input
           type="text"
           placeholder="Buscar producto"
-          className="flex-1 p-2 rounded text-black"
+          className="flex-1 p-2 min-h-[44px] rounded text-black text-base"
+          autoCapitalize="none"
+          autoCorrect="off"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
         />
         <button
           onClick={buscarProducto}
           disabled={loading}
-          className="p-2 rounded bg-white text-blue-900 hover:bg-sky-300 transition disabled:opacity-50"
+          className="p-2 min-h-[44px] min-w-[44px] rounded bg-white text-blue-900 hover:bg-sky-300 transition disabled:opacity-50"
           title="Buscar producto"
         >
           <MdSearch size={24} />
