@@ -12,6 +12,7 @@ import DefaultLayout from '../components/DefaultLayout';
 import AppInitializer from '../components/AppInitializer';
 import OfflineGuard from '../components/OfflineGuard';
 import PublicLayout from '../components/PublicLayout';
+import { Z_INDEX } from '../constants/zIndex';
 
 function MyApp({ Component, pageProps }) {
   const router = useRouter();
@@ -195,7 +196,7 @@ function MyApp({ Component, pageProps }) {
                     top: 'calc(12px + env(safe-area-inset-top))',
                     left: 12,
                     right: 12,
-                    zIndex: 9999,
+                    zIndex: Z_INDEX.TOAST,
                   }}
                   toastOptions={{
                     duration: 2000,

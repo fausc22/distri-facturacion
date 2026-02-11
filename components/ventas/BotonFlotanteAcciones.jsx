@@ -1,4 +1,5 @@
 import { MdKeyboardArrowDown } from 'react-icons/md';
+import { Z_INDEX } from '../../constants/zIndex';
 
 export function BotonFlotanteAcciones({ cantidadSeleccionados, onScrollToActions }) {
   if (cantidadSeleccionados === 0) return null;
@@ -7,8 +8,11 @@ export function BotonFlotanteAcciones({ cantidadSeleccionados, onScrollToActions
     <>
       {/* Solo visible en móvil y tablet */}
       <div
-        className="lg:hidden fixed right-4 z-40"
-        style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom))' }}
+        className="lg:hidden fixed right-4"
+        style={{
+          zIndex: Z_INDEX.FAB,
+          bottom: 'calc(5rem + env(safe-area-inset-bottom))'
+        }}
       >
         <button
           onClick={onScrollToActions}

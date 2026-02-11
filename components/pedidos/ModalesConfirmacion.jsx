@@ -1,4 +1,7 @@
 import ModalBase from '../common/ModalBase';
+import LoadingButton from '../common/LoadingButton';
+import LoadingSpinner from '../common/LoadingSpinner';
+import { Z_INDEX } from '../../constants/zIndex';
 
 export function ModalConfirmacionPedido({ 
   mostrar, 
@@ -52,23 +55,21 @@ export function ModalConfirmacionPedido({
       {loading && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+            <LoadingSpinner size="md" colorClass="border-blue-600" className="mr-3" />
             <span className="text-blue-700 font-medium">Procesando pedido...</span>
           </div>
         </div>
       )}
       
       <div className="flex justify-center gap-4">
-        <button
+        <LoadingButton
           onClick={onConfirmar}
-          disabled={loading}
+          loading={loading}
+          loadingText="Procesando..."
           className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white px-6 py-3 min-h-[44px] rounded font-semibold transition-colors flex items-center gap-2"
         >
-          {loading && (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-          )}
-          {loading ? 'Procesando...' : 'Sí, Confirmar'}
-        </button>
+          Sí, Confirmar
+        </LoadingButton>
         <button
           onClick={onCancelar}
           disabled={loading}
@@ -154,13 +155,14 @@ export function ModalConfirmacionCambioEstado({
         <p className="text-sm text-gray-600">Esta acción se aplicará a todos los pedidos seleccionados.</p>
       </div>
       <div className="flex justify-center gap-4">
-        <button
+        <LoadingButton
           onClick={onConfirmar}
-          disabled={loading}
+          loading={loading}
+          loadingText="Procesando..."
           className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 min-h-[44px] rounded font-semibold disabled:opacity-50"
         >
-          {loading ? 'Procesando...' : 'Sí, Cambiar'}
-        </button>
+          Sí, Cambiar
+        </LoadingButton>
         <button
           onClick={onCancelar}
           disabled={loading}
@@ -202,13 +204,14 @@ export function ModalConfirmacionEliminarMultiple({
         </p>
       </div>
       <div className="flex justify-center gap-4">
-        <button
+        <LoadingButton
           onClick={onConfirmar}
-          disabled={loading}
+          loading={loading}
+          loadingText="Eliminando..."
           className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 min-h-[44px] rounded font-semibold disabled:opacity-50"
         >
-          {loading ? 'Eliminando...' : 'Sí, Eliminar'}
-        </button>
+          Sí, Eliminar
+        </LoadingButton>
         <button
           onClick={onCancelar}
           disabled={loading}
@@ -246,7 +249,7 @@ export function ModalConfirmacionAnularPedidoIndividual({
       loading={loading}
       closeOnOverlay
       closeOnEscape
-      zIndexClass="z-[60]"
+      zIndex={Z_INDEX.MODAL_NESTED}
       panelClassName="mx-4"
     >
       <div className="text-center mb-6 space-y-3">
@@ -279,23 +282,14 @@ export function ModalConfirmacionAnularPedidoIndividual({
       </div>
       
       <div className="flex justify-center gap-4">
-        <button
+        <LoadingButton
           onClick={onConfirmar}
-          disabled={loading}
+          loading={loading}
+          loadingText="Anulando..."
           className="bg-red-600 hover:bg-red-700 text-white px-6 py-3 min-h-[44px] rounded font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
         >
-          {loading ? (
-            <div className="flex items-center">
-              <svg className="animate-spin -ml-1 mr-3 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Anulando...
-            </div>
-          ) : (
-            'SÍ, ANULAR PEDIDO'
-          )}
-        </button>
+          SÍ, ANULAR PEDIDO
+        </LoadingButton>
         <button
           onClick={onCancelar}
           disabled={loading}

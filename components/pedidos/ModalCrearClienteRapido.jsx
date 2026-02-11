@@ -4,6 +4,8 @@ import { useClientes } from '../../hooks/useClientes';
 import { MdClose, MdPersonAdd, MdEdit } from 'react-icons/md';
 import CiudadAutocomplete from '../common/CiudadAutocomplete';
 import ModalBase from '../common/ModalBase';
+import LoadingButton from '../common/LoadingButton';
+import { Z_INDEX } from '../../constants/zIndex';
 
 export default function ModalCrearClienteRapido({
   isOpen,
@@ -136,7 +138,7 @@ export default function ModalCrearClienteRapido({
       closeOnOverlay
       closeOnEscape
       panelClassName="p-0 max-w-[95vw] sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh]"
-      zIndexClass="z-50"
+      zIndex={Z_INDEX.MODAL_BASE}
       showHeader={false}
     >
         {/* Header */}
@@ -149,8 +151,9 @@ export default function ModalCrearClienteRapido({
           </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
+            className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             disabled={loading}
+            aria-label="Cerrar modal de cliente"
           >
             <MdClose size={20} className="sm:w-6 sm:h-6" />
           </button>
@@ -397,27 +400,21 @@ export default function ModalCrearClienteRapido({
             >
               Cancelar
             </button>
-            <button
+            <LoadingButton
               type="submit"
+              loading={loading}
+              loadingText={modo === 'editar' ? 'Guardando...' : 'Creando...'}
               className={`w-full sm:w-auto px-6 py-2 text-white rounded-md flex items-center justify-center gap-2 ${
                 loading
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-green-600 hover:bg-green-700'
               } transition-colors`}
-              disabled={loading}
             >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  {modo === 'editar' ? 'Guardando...' : 'Creando...'}
-                </>
-              ) : (
-                <>
-                  {modo === 'editar' ? <MdEdit size={20} /> : <MdPersonAdd size={20} />}
-                  {modo === 'editar' ? 'Guardar Cambios' : 'Crear Cliente'}
-                </>
-              )}
-            </button>
+              <>
+                {modo === 'editar' ? <MdEdit size={20} /> : <MdPersonAdd size={20} />}
+                {modo === 'editar' ? 'Guardar Cambios' : 'Crear Cliente'}
+              </>
+            </LoadingButton>
           </div>
         </form>
     </ModalBase>

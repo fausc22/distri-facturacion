@@ -16,6 +16,8 @@ import ObservacionesPedido from '../pedidos/ObservacionesPedido';
 import { ModalFacturacionNota } from './ModalFacturacionNota';
 import { ModalBuscarVenta } from './ModalBuscarVenta';
 import { ModalProductoManual } from './ModalProductoManual';
+import ModalBase from '../common/ModalBase';
+import { Z_INDEX } from '../../constants/zIndex';
 
 function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
   const { user } = useAuth();
@@ -180,9 +182,17 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
 
   return (
     <>
-      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-2 sm:p-4">
-        <div className="bg-white rounded-lg w-full max-w-6xl max-h-[95vh] overflow-y-auto">
-          <div className="p-4 sm:p-6">
+      <ModalBase
+        isOpen={mostrar}
+        onClose={onClose}
+        title={titulo}
+        size="2xl"
+        closeOnOverlay
+        closeOnEscape
+        zIndex={Z_INDEX.MODAL_BASE}
+        panelClassName="w-full max-w-6xl max-h-[95vh] p-4 sm:p-6"
+        showHeader={false}
+      >
             {/* Header */}
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
@@ -190,7 +200,8 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
               </h2>
               <button 
                 onClick={onClose}
-                className="text-gray-500 hover:text-gray-700 text-xl p-1"
+                className="text-gray-500 hover:text-gray-700 text-xl p-1 min-h-[44px] min-w-[44px] transition-transform active:scale-95"
+                aria-label="Cerrar modal de nota"
               >
                 ✕
               </button>
@@ -328,9 +339,7 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
                 </div>
               </>
             )}
-          </div>
-        </div>
-      </div>
+      </ModalBase>
 
       {/* Modal de buscar venta */}
       <ModalBuscarVenta

@@ -1,6 +1,9 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import ModalBase from '../common/ModalBase';
+import LoadingButton from '../common/LoadingButton';
+import LoadingSpinner from '../common/LoadingSpinner';
+import { Z_INDEX } from '../../constants/zIndex';
 
 // Modal de descuentos (SIN CAMBIOS)
 export function ModalDescuentosVentaDirecta({
@@ -65,7 +68,7 @@ export function ModalDescuentosVentaDirecta({
       size="sm"
       closeOnOverlay
       closeOnEscape
-      zIndexClass="z-[70]"
+      zIndex={Z_INDEX.MODAL_NESTED}
       panelClassName="max-w-xs sm:max-w-md"
     >
         <div className="p-0">
@@ -155,13 +158,13 @@ export function ModalDescuentosVentaDirecta({
           )}
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <button
+            <LoadingButton
               onClick={handleAplicar}
               disabled={!valorDescuento || valorDescuento === '' || parseFloat(valorDescuento) <= 0}
               className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors text-sm w-full sm:w-auto"
             >
               Aplicar Descuento
-            </button>
+            </LoadingButton>
             <button
               onClick={handleClose}
               className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition-colors text-sm w-full sm:w-auto"
@@ -308,7 +311,7 @@ export function ModalFacturacionVentaDirecta({
         size="2xl"
         closeOnOverlay
         closeOnEscape
-        zIndexClass="z-[60]"
+        zIndex={Z_INDEX.MODAL_BASE}
         panelClassName="w-full max-w-xs sm:max-w-lg lg:max-w-2xl max-h-[95vh]"
       >
           <div className="p-0 sm:p-0">
@@ -394,6 +397,7 @@ export function ModalFacturacionVentaDirecta({
                       onClick={limpiarDescuento}
                       className="text-red-600 hover:text-red-800 text-sm ml-2"
                       title="Quitar descuento"
+                      aria-label="Quitar descuento aplicado"
                     >
                       ✕
                     </button>
@@ -441,12 +445,12 @@ export function ModalFacturacionVentaDirecta({
             
             {/* Botones de acción */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <button
+              <LoadingButton
                 onClick={handleConfirmar}
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2"
               >
                 CONFIRMAR VENTA
-              </button>
+              </LoadingButton>
               <button
                 onClick={handleClose}
                 className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2"
@@ -509,23 +513,21 @@ export function ModalConfirmacionVentaDirecta({
       {loading && (
         <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
           <div className="flex items-center justify-center">
-            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
+            <LoadingSpinner size="md" colorClass="border-blue-600" className="mr-3" />
             <span className="text-blue-700 font-medium">Procesando venta directa...</span>
           </div>
         </div>
       )}
       
       <div className="flex justify-center gap-4">
-        <button
+        <LoadingButton
           onClick={onConfirmar}
-          disabled={loading}
+          loading={loading}
+          loadingText="Procesando..."
           className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white px-6 py-3 min-h-[44px] rounded font-semibold transition-colors flex items-center gap-2"
         >
-          {loading && (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-          )}
-          {loading ? 'Procesando...' : 'Sí, Continuar'}
-        </button>
+          Sí, Continuar
+        </LoadingButton>
         <button
           onClick={onCancelar}
           disabled={loading}
