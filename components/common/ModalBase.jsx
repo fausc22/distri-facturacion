@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect, useId } from 'react';
+import { useScrollLock } from '../../hooks/shared/useScrollLock';
 
 /**
  * Componente modal base reutilizable
@@ -15,8 +16,26 @@ export default function ModalBase({
   title, 
   children, 
   loading = false,
-  size = 'md' 
+  size = 'md',
+  closeOnOverlay = false,
+  closeOnEscape = false
 }) {
+  useScrollLock(isOpen);
+  const titleId = useId();
+
+  useEffect(() => {
+    if (!isOpen || !closeOnEscape) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape' && !loading) {
+        onClose?.();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, closeOnEscape, loading, onClose]);
+
   if (!isOpen) return null;
 
   const sizeClasses = {
@@ -26,17 +45,33 @@ export default function ModalBase({
     xl: 'max-w-4xl'
   };
 
+  const handleOverlayClick = (event) => {
+    if (closeOnOverlay && !loading && event.target === event.currentTarget) {
+      onClose?.();
+    }
+  };
+
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className={`bg-white rounded-lg p-6 w-full ${sizeClasses[size]} max-h-[90vh] overflow-y-auto`}>
+    <div
+      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      onClick={handleOverlayClick}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={title ? titleId : undefined}
+    >
+      <div
+        className={`bg-white rounded-lg p-6 w-full ${sizeClasses[size]} max-h-[min(90dvh,90vh)] overflow-y-auto`}
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 id={titleId} className="text-xl font-bold text-gray-900">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+            className="text-gray-400 hover:text-gray-600 text-2xl font-bold min-h-[44px] min-w-[44px]"
             disabled={loading}
+            aria-label="Cerrar modal"
           >
             ×
           </button>
