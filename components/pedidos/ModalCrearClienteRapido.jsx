@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useClientes } from '../../hooks/useClientes';
 import { MdClose, MdPersonAdd, MdEdit } from 'react-icons/md';
 import CiudadAutocomplete from '../common/CiudadAutocomplete';
+import ModalBase from '../common/ModalBase';
 
 export default function ModalCrearClienteRapido({
   isOpen,
@@ -126,8 +127,18 @@ export default function ModalCrearClienteRapido({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-[95vw] sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+    <ModalBase
+      isOpen={isOpen}
+      onClose={onClose}
+      title={modo === 'editar' ? 'Editar Cliente' : 'Crear Cliente'}
+      size="lg"
+      loading={loading}
+      closeOnOverlay
+      closeOnEscape
+      panelClassName="p-0 max-w-[95vw] sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh]"
+      zIndexClass="z-50"
+      showHeader={false}
+    >
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-green-600 to-green-700 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-t-lg flex justify-between items-center">
           <div className="flex items-center gap-1 sm:gap-2">
@@ -409,7 +420,6 @@ export default function ModalCrearClienteRapido({
             </button>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalBase>
   );
 }

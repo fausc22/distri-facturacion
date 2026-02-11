@@ -18,7 +18,11 @@ export default function ModalBase({
   loading = false,
   size = 'md',
   closeOnOverlay = false,
-  closeOnEscape = false
+  closeOnEscape = false,
+  zIndexClass = 'z-50',
+  panelClassName = '',
+  contentClassName = '',
+  showHeader = true
 }) {
   useScrollLock(isOpen);
   const titleId = useId();
@@ -42,7 +46,8 @@ export default function ModalBase({
     sm: 'max-w-md',
     md: 'max-w-lg',
     lg: 'max-w-2xl',
-    xl: 'max-w-4xl'
+    xl: 'max-w-4xl',
+    '2xl': 'max-w-6xl'
   };
 
   const handleOverlayClick = (event) => {
@@ -53,31 +58,33 @@ export default function ModalBase({
 
   return (
     <div
-      className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4"
+      className={`fixed inset-0 bg-black bg-opacity-50 ${zIndexClass} flex items-center justify-center p-4`}
       onClick={handleOverlayClick}
       role="dialog"
       aria-modal="true"
       aria-labelledby={title ? titleId : undefined}
     >
       <div
-        className={`bg-white rounded-lg p-6 w-full ${sizeClasses[size]} max-h-[min(90dvh,90vh)] overflow-y-auto`}
+        className={`bg-white rounded-lg p-6 w-full ${sizeClasses[size]} max-h-[min(90dvh,90vh)] overflow-y-auto ${panelClassName}`}
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex justify-between items-center mb-6">
-          <h2 id={titleId} className="text-xl font-bold text-gray-900">
-            {title}
-          </h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl font-bold min-h-[44px] min-w-[44px]"
-            disabled={loading}
-            aria-label="Cerrar modal"
-          >
-            ×
-          </button>
-        </div>
+        {showHeader && (
+          <div className="flex justify-between items-center mb-6">
+            <h2 id={titleId} className="text-xl font-bold text-gray-900">
+              {title}
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-gray-400 hover:text-gray-600 text-2xl font-bold min-h-[44px] min-w-[44px]"
+              disabled={loading}
+              aria-label="Cerrar modal"
+            >
+              ×
+            </button>
+          </div>
+        )}
         
-        <div>
+        <div className={contentClassName}>
           {children}
         </div>
       </div>
