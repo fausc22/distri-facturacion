@@ -8,6 +8,10 @@ import useAuth from '../../hooks/useAuth';
 import { useFacturacion } from '../../hooks/pedidos/useFacturacion';
 import { ModalPDFUniversal, BotonGenerarPDFUniversal } from '../shared/ModalPDFUniversal';
 import { ModalFacturacion } from './ModalFacturacion';
+import ModalBase from '../common/ModalBase';
+import LoadingButton from '../common/LoadingButton';
+import LoadingSpinner from '../common/LoadingSpinner';
+import { Z_INDEX } from '../../constants/zIndex';
 
 // ✅ MODAL DE DESCUENTOS CORREGIDO - APLICA % SOBRE SUBTOTAL
 export function ModalDescuentos({
@@ -67,10 +71,18 @@ export function ModalDescuentos({
   const nuevoTotal = (totalConIva || 0) - descuentoCalculado;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-2 sm:p-4">
-      <div className="bg-white rounded-lg max-w-xs sm:max-w-md w-full">
-        <div className="p-4 sm:p-6">
-          <h3 className="text-lg sm:text-xl font-bold mb-4 text-center">Aplicar Descuento</h3>
+    <ModalBase
+      isOpen={mostrar}
+      onClose={handleClose}
+      title="Aplicar Descuento"
+      size="sm"
+      closeOnOverlay
+      closeOnEscape
+      zIndex={Z_INDEX.MODAL_NESTED}
+      panelClassName="max-w-xs sm:max-w-md"
+    >
+        <div className="p-0">
+          <h3 className="text-lg sm:text-xl font-bold mb-4 text-center sr-only">Aplicar Descuento</h3>
           
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -158,23 +170,22 @@ export function ModalDescuentos({
           )}
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <button
+            <LoadingButton
               onClick={handleAplicar}
               disabled={!valorDescuento || valorDescuento === '' || parseFloat(valorDescuento) <= 0}
               className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors text-sm w-full sm:w-auto"
             >
-              ✅ Aplicar Descuento
-            </button>
+              Aplicar Descuento
+            </LoadingButton>
             <button
               onClick={handleClose}
               className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition-colors text-sm w-full sm:w-auto"
             >
-              ❌ Cancelar
+              Cancelar
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </ModalBase>
   );
 }
 
@@ -450,22 +461,14 @@ export function InformacionAdicional({
               
               {/* Botones de acción - Responsivos */}
               <div className="flex flex-col sm:flex-row gap-2">
-                <button
+                <LoadingButton
                   onClick={guardarObservaciones}
-                  disabled={guardandoObservaciones}
+                  loading={guardandoObservaciones}
+                  loadingText="Guardando..."
                   className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white px-3 py-1 rounded text-sm transition-colors flex items-center justify-center gap-1"
                 >
-                  {guardandoObservaciones ? (
-                    <>
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                      <span className="hidden sm:inline">Guardando...</span>
-                    </>
-                  ) : (
-                    <>
-                      ✅ <span className="hidden sm:inline">Guardar</span>
-                    </>
-                  )}
-                </button>
+                  ✅ <span className="hidden sm:inline">Guardar</span>
+                </LoadingButton>
                 
                 <button
                   onClick={cancelarEdicionObservaciones}
@@ -611,9 +614,16 @@ export function ModalAgregarProductoPedido({
   const botonDeshabilitado = productoEsDuplicado || !stockSuficiente || agregandoProducto;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
-      <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-        <div className="p-4 md:p-6">
+    <ModalBase
+      isOpen={mostrar}
+      onClose={handleClose}
+      title="Buscar Producto"
+      size="xl"
+      zIndex={Z_INDEX.MODAL_NESTED}
+      panelClassName="w-full max-w-4xl max-h-[90vh] p-4 md:p-6"
+      showHeader={false}
+      loading={agregandoProducto}
+    >
           <h2 className="text-xl font-bold mb-4 text-center">Buscar Producto</h2>
           
           <div className="flex items-center gap-2 mb-6">
@@ -639,7 +649,7 @@ export function ModalAgregarProductoPedido({
               <h3 className="font-bold mb-2">Productos Encontrados</h3>
               {loading ? (
                 <div className="flex justify-center items-center h-32">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+                  <LoadingSpinner size="lg" colorClass="border-blue-600" />
                 </div>
               ) : resultados.length > 0 ? (
                 resultados.map((product, index) => {
@@ -693,7 +703,7 @@ export function ModalAgregarProductoPedido({
                   {agregandoProducto && (
                     <div className="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded">
                       <div className="flex items-center">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                        <LoadingSpinner size="sm" colorClass="border-blue-600" className="mr-2" />
                         <span>Agregando producto al pedido...</span>
                       </div>
                     </div>
@@ -747,28 +757,24 @@ export function ModalAgregarProductoPedido({
                     <p className="font-semibold">Subtotal (sin IVA): ${subtotal.toFixed(2)}</p>
                   </div>
                   
-                  <button 
+                  <LoadingButton
                     onClick={handleAgregarProducto}
-                    disabled={botonDeshabilitado}
+                    loading={agregandoProducto}
+                    loadingText="Agregando..."
+                    disabled={productoEsDuplicado || !stockSuficiente}
                     className={`mt-4 px-4 py-2 rounded w-full transition-colors flex items-center justify-center gap-2 ${
                       botonDeshabilitado
                         ? 'bg-gray-400 cursor-not-allowed text-gray-700'
                         : 'bg-blue-600 hover:bg-blue-700 text-white'
                     }`}
                   >
-                    {agregandoProducto && (
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    )}
-                    
-                    {agregandoProducto 
-                      ? 'Agregando...'
-                      : productoEsDuplicado 
+                    {productoEsDuplicado 
                         ? 'Producto ya agregado' 
                         : !stockSuficiente 
                           ? 'Stock insuficiente'
                           : `Agregar ${formatearCantidad(productQuantity)} unidades`
                     }
-                  </button>
+                  </LoadingButton>
                 </div>
               ) : (
                 <p className="text-gray-500 text-sm">Seleccione un producto de la lista</p>
@@ -777,17 +783,16 @@ export function ModalAgregarProductoPedido({
           </div>
           
           <div className="flex justify-end mt-4">
-            <button 
+            <LoadingButton
               onClick={handleClose}
-              disabled={agregandoProducto}
+              loading={agregandoProducto}
+              loadingText="Procesando..."
               className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors"
             >
-              {agregandoProducto ? 'Procesando...' : 'Cancelar'}
-            </button>
+              Cancelar
+            </LoadingButton>
           </div>
-        </div>
-      </div>
-    </div>
+    </ModalBase>
   );
 }
 
@@ -984,23 +989,20 @@ export function ModalEditarProductoPedido({
     onClose();
   };
 
-  const handleOverlayClick = (e) => {
-    if (e.target === e.currentTarget && !guardando) {
-      handleCerrarClick();
-    }
-  };
-
   // ✅ RENDER
   return (
-    <div 
-      className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4"
-      onClick={handleOverlayClick}
+    <ModalBase
+      isOpen={Boolean(producto && inicializado)}
+      onClose={handleCerrarClick}
+      title="Editar Producto"
+      size="lg"
+      zIndex={Z_INDEX.MODAL_NESTED}
+      closeOnOverlay
+      closeOnEscape
+      loading={guardando}
+      panelClassName="max-w-lg max-h-[90vh] shadow-xl p-4 md:p-6"
+      showHeader={false}
     >
-      <div 
-        className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="p-4 md:p-6">
           {/* Header */}
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg sm:text-xl font-bold">🔧 Editar Producto</h2>
@@ -1009,6 +1011,7 @@ export function ModalEditarProductoPedido({
               onClick={handleCerrarClick}
               disabled={guardando}
               className="text-gray-500 hover:text-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed text-xl p-1 rounded-full hover:bg-gray-100 transition-colors"
+              aria-label="Cerrar modal de edición de producto"
             >
               ✕
             </button>
@@ -1245,7 +1248,7 @@ export function ModalEditarProductoPedido({
             {guardando && (
               <div className="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded">
                 <div className="flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
+                  <LoadingSpinner size="sm" colorClass="border-blue-600" className="mr-2" />
                   <span className="font-medium">Guardando cambios...</span>
                 </div>
               </div>
@@ -1254,25 +1257,22 @@ export function ModalEditarProductoPedido({
           
           {/* Botones */}
           <div className="flex flex-col sm:flex-row justify-center gap-3 mt-8">
-            <button 
+            <LoadingButton
               type="button"
               onClick={handleGuardarClick}
-              disabled={botonesDeshabilitados}
+              loading={guardando}
+              loadingText="Guardando..."
+              disabled={!stockSuficiente || localPrecio <= 0}
               className={`px-6 py-3 rounded-lg text-sm font-bold transition-colors w-full sm:w-auto min-w-[160px] flex items-center justify-center gap-2 ${
                 botonesDeshabilitados
                   ? 'bg-gray-400 cursor-not-allowed text-gray-700'
                   : 'bg-green-600 hover:bg-green-700 text-white shadow-lg'
               }`}
             >
-              {guardando && (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              )}
-              
-              {guardando ? 'Guardando...' :
-               !stockSuficiente ? '❌ Stock Insuficiente' : 
+              {!stockSuficiente ? '❌ Stock Insuficiente' : 
                localPrecio <= 0 ? '❌ Precio Inválido' : 
                '✅ GUARDAR CAMBIOS'}
-            </button>
+            </LoadingButton>
 
             <button 
               type="button"
@@ -1287,9 +1287,7 @@ export function ModalEditarProductoPedido({
               ❌ CANCELAR
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+    </ModalBase>
   );
 }
 
@@ -1325,9 +1323,16 @@ export function ModalEliminarProductoPedido({
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full">
-        <div className="p-4 md:p-6">
+    <ModalBase
+      isOpen={Boolean(producto)}
+      onClose={handleClose}
+      title="Confirmar Eliminación"
+      size="sm"
+      zIndex={Z_INDEX.MODAL_NESTED}
+      loading={eliminandoProducto}
+      panelClassName="max-w-md p-4 md:p-6"
+      showHeader={false}
+    >
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-bold">⚠️ Confirmar Eliminación</h2>
             <button 
@@ -1336,6 +1341,7 @@ export function ModalEliminarProductoPedido({
               disabled={eliminandoProducto} // ✅ DESHABILITAR DURANTE PROCESAMIENTO
               className="text-gray-500 hover:text-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed text-xl p-1 rounded-full hover:bg-gray-100 transition-colors"
               title={eliminandoProducto ? "Procesando..." : "Cerrar"}
+              aria-label="Cerrar confirmación de eliminación"
             >
               ✕
             </button>
@@ -1348,28 +1354,24 @@ export function ModalEliminarProductoPedido({
           
           
           <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
-            <button 
+            <LoadingButton
               onClick={handleConfirmar}
-              disabled={eliminandoProducto} // ✅ DESHABILITAR DURANTE PROCESAMIENTO
+              loading={eliminandoProducto}
+              loadingText="Eliminando..."
               className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors flex items-center justify-center gap-2"
             >
-              {/* ✅ SPINNER EN EL BOTÓN CUANDO ESTÁ PROCESANDO */}
-              {eliminandoProducto && (
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              )}
-              {eliminandoProducto ? 'Eliminando...' : 'Sí, eliminar'}
-            </button>
-            <button 
+              Sí, eliminar
+            </LoadingButton>
+            <LoadingButton
               onClick={handleClose}
-              disabled={eliminandoProducto} // ✅ DESHABILITAR DURANTE PROCESAMIENTO
+              loading={eliminandoProducto}
+              loadingText="Procesando..."
               className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors"
             >
-              {eliminandoProducto ? 'Procesando...' : 'No, cancelar'}
-            </button>
+              No, cancelar
+            </LoadingButton>
           </div>
-        </div>
-      </div>
-    </div>
+    </ModalBase>
   );
 }
 
@@ -1486,6 +1488,7 @@ export function TarjetasProductosMovil({ productos, onEditarProducto, onEliminar
                   className="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded ml-2 transition-colors text-xs"
                   onClick={() => onEliminarProducto(producto)}
                   title="Eliminar producto"
+                  aria-label={`Eliminar producto ${producto.producto_nombre}`}
                 >
                   ✕
                 </button>
@@ -1552,7 +1555,7 @@ export function TablaProductos({ productos, onEditarProducto, onEliminarProducto
   if (loading) {
     return (
       <div className="flex justify-center items-center h-32">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+        <LoadingSpinner size="lg" colorClass="border-blue-600" />
         <span className="ml-2">Cargando productos...</span>
       </div>
     );
@@ -1790,16 +1793,24 @@ export function ModalDetallePedido({
 
   return (
     <>
-      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-2 sm:p-4">
-        <div className="bg-white rounded-lg w-full max-w-xs sm:max-w-2xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
-          <div className="p-3 sm:p-4 lg:p-6">
+      <ModalBase
+        isOpen
+        onClose={onClose}
+        title={`Pedido #${pedido.id}`}
+        size="xl"
+        closeOnOverlay
+        closeOnEscape
+        panelClassName="w-full max-w-xs sm:max-w-2xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] p-3 sm:p-4 lg:p-6"
+        showHeader={false}
+      >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">
                 Pedido #{pedido.id}
               </h2>
               <button 
                 onClick={onClose}
-                className="text-gray-500 hover:text-gray-700 text-xl sm:text-2xl p-1"
+                className="text-gray-500 hover:text-gray-700 text-xl sm:text-2xl p-1 min-h-[44px] min-w-[44px] transition-transform active:scale-95"
+                aria-label="Cerrar detalle del pedido"
               >
                 ✕
               </button>
@@ -1930,9 +1941,7 @@ export function ModalDetallePedido({
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
+      </ModalBase>
 
       <ModalPDFUniversal
         mostrar={mostrarModalPDF}
@@ -1943,7 +1952,7 @@ export function ModalDetallePedido({
         onDescargar={onDescargarPDF}
         onCompartir={onCompartirPDF}
         onCerrar={onCerrarModalPDF}
-        zIndex={70}
+        zIndex={Z_INDEX.MODAL_NESTED}
       />
     </>
   );

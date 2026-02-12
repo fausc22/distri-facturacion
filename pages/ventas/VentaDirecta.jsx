@@ -24,6 +24,8 @@ function VentaDirectaContent() {
     cliente, 
     productos, 
     observaciones,
+    subtotal,
+    totalIva,
     total, 
     totalProductos,
     clearPedido,
@@ -211,7 +213,7 @@ function VentaDirectaContent() {
         {/* Selectores */}
         <div className="flex flex-col md:flex-row gap-6">
           <ClienteSelector />
-          <ProductoSelector />
+          <ProductoSelector mostrarPreciosConIva />
         </div>
 
         {/* Carrito */}
@@ -225,7 +227,9 @@ function VentaDirectaContent() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
             <div className="text-lg font-semibold text-gray-800">
               <p>Total de productos: <span className="text-blue-600">{totalProductos}</span></p>
-              <p>Total de la venta: <span className="text-green-600">${total.toFixed(2)}</span></p>
+              <p>Subtotal sin IVA: <span className="text-gray-700">${subtotal.toFixed(2)}</span></p>
+              <p>IVA total: <span className="text-gray-700">${totalIva.toFixed(2)}</span></p>
+              <p>Total final de la venta: <span className="text-green-600">${total.toFixed(2)}</span></p>
             </div>
           </div>
           

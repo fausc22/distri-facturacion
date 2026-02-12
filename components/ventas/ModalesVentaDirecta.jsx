@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import ModalBase from '../common/ModalBase';
+import LoadingButton from '../common/LoadingButton';
+import LoadingSpinner from '../common/LoadingSpinner';
+import { Z_INDEX } from '../../constants/zIndex';
 
 // Modal de descuentos (SIN CAMBIOS)
 export function ModalDescuentosVentaDirecta({
@@ -57,10 +61,18 @@ export function ModalDescuentosVentaDirecta({
   const nuevoTotal = (totalConIva || 0) - descuentoCalculado;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-2 sm:p-4">
-      <div className="bg-white rounded-lg max-w-xs sm:max-w-md w-full">
-        <div className="p-4 sm:p-6">
-          <h3 className="text-lg sm:text-xl font-bold mb-4 text-center">Aplicar Descuento</h3>
+    <ModalBase
+      isOpen={mostrar}
+      onClose={handleClose}
+      title="Aplicar Descuento"
+      size="sm"
+      closeOnOverlay
+      closeOnEscape
+      zIndex={Z_INDEX.MODAL_NESTED}
+      panelClassName="max-w-xs sm:max-w-md"
+    >
+        <div className="p-0">
+          <h3 className="text-lg sm:text-xl font-bold mb-4 text-center sr-only">Aplicar Descuento</h3>
           
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -146,13 +158,13 @@ export function ModalDescuentosVentaDirecta({
           )}
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <button
+            <LoadingButton
               onClick={handleAplicar}
               disabled={!valorDescuento || valorDescuento === '' || parseFloat(valorDescuento) <= 0}
               className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors text-sm w-full sm:w-auto"
             >
               Aplicar Descuento
-            </button>
+            </LoadingButton>
             <button
               onClick={handleClose}
               className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition-colors text-sm w-full sm:w-auto"
@@ -161,8 +173,7 @@ export function ModalDescuentosVentaDirecta({
             </button>
           </div>
         </div>
-      </div>
-    </div>
+    </ModalBase>
   );
 }
 
@@ -293,20 +304,17 @@ export function ModalFacturacionVentaDirecta({
 
   return (
     <>
-      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-2 sm:p-4">
-        <div className="bg-white rounded-lg w-full max-w-xs sm:max-w-lg lg:max-w-2xl max-h-[95vh] overflow-y-auto">
-          <div className="p-4 sm:p-6">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-800">
-                Completar Venta Directa
-              </h2>
-              <button 
-                onClick={handleClose}
-                className="text-gray-500 hover:text-gray-700 text-xl p-1"
-              >
-                ✕
-              </button>
-            </div>
+      <ModalBase
+        isOpen={mostrar}
+        onClose={handleClose}
+        title="Completar Venta Directa"
+        size="2xl"
+        closeOnOverlay
+        closeOnEscape
+        zIndex={Z_INDEX.MODAL_BASE}
+        panelClassName="w-full max-w-xs sm:max-w-lg lg:max-w-2xl max-h-[95vh]"
+      >
+          <div className="p-0 sm:p-0">
             
             {/* Información del cliente */}
             <div className="mb-6 p-4 bg-blue-50 rounded-lg">
@@ -389,6 +397,7 @@ export function ModalFacturacionVentaDirecta({
                       onClick={limpiarDescuento}
                       className="text-red-600 hover:text-red-800 text-sm ml-2"
                       title="Quitar descuento"
+                      aria-label="Quitar descuento aplicado"
                     >
                       ✕
                     </button>
@@ -436,12 +445,12 @@ export function ModalFacturacionVentaDirecta({
             
             {/* Botones de acción */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <button
+              <LoadingButton
                 onClick={handleConfirmar}
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2"
               >
                 CONFIRMAR VENTA
-              </button>
+              </LoadingButton>
               <button
                 onClick={handleClose}
                 className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2"
@@ -450,8 +459,7 @@ export function ModalFacturacionVentaDirecta({
               </button>
             </div>
           </div>
-        </div>
-      </div>
+      </ModalBase>
        
       {/* Modal de descuentos */}
       {mostrarModalDescuentos && (
@@ -481,50 +489,53 @@ export function ModalConfirmacionVentaDirecta({
   if (!mostrar) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
-        <h3 className="text-xl font-bold mb-4 text-center">Confirmar Venta Directa</h3>
-        <div className="text-center mb-6">
-          <p className="mb-2">
-            ¿Deseas proceder con la venta directa para el cliente{' '}
-            <span className="font-bold">{cliente?.nombre}</span> con{' '}
-            <span className="font-bold">{totalProductos}</span> productos y un total de{' '}
-            <span className="font-bold text-green-700">${Number(total).toFixed(2)}</span>?
-          </p>
-          <p className="text-sm text-gray-600 mt-2">
-            Se generará automáticamente: Pedido + Venta + Remito
-          </p>
-        </div>
-        
-        {loading && (
-          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center justify-center">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600 mr-3"></div>
-              <span className="text-blue-700 font-medium">Procesando venta directa...</span>
-            </div>
-          </div>
-        )}
-        
-        <div className="flex justify-center gap-4">
-          <button
-            onClick={onConfirmar}
-            disabled={loading}
-            className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white px-6 py-2 rounded font-semibold transition-colors flex items-center gap-2"
-          >
-            {loading && (
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            )}
-            {loading ? 'Procesando...' : 'Sí, Continuar'}
-          </button>
-          <button
-            onClick={onCancelar}
-            disabled={loading}
-            className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-2 rounded font-semibold transition-colors"
-          >
-            No, Cancelar
-          </button>
-        </div>
+    <ModalBase
+      isOpen={mostrar}
+      onClose={onCancelar}
+      title="Confirmar Venta Directa"
+      size="sm"
+      loading={loading}
+      closeOnOverlay
+      closeOnEscape
+    >
+      <div className="text-center mb-6">
+        <p className="mb-2">
+          ¿Deseas proceder con la venta directa para el cliente{' '}
+          <span className="font-bold">{cliente?.nombre}</span> con{' '}
+          <span className="font-bold">{totalProductos}</span> productos y un total de{' '}
+          <span className="font-bold text-green-700">${Number(total).toFixed(2)}</span>?
+        </p>
+        <p className="text-sm text-gray-600 mt-2">
+          Se generará automáticamente: Pedido + Venta + Remito
+        </p>
       </div>
-    </div>
+      
+      {loading && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-center">
+            <LoadingSpinner size="md" colorClass="border-blue-600" className="mr-3" />
+            <span className="text-blue-700 font-medium">Procesando venta directa...</span>
+          </div>
+        </div>
+      )}
+      
+      <div className="flex justify-center gap-4">
+        <LoadingButton
+          onClick={onConfirmar}
+          loading={loading}
+          loadingText="Procesando..."
+          className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 disabled:cursor-not-allowed text-white px-6 py-3 min-h-[44px] rounded font-semibold transition-colors flex items-center gap-2"
+        >
+          Sí, Continuar
+        </LoadingButton>
+        <button
+          onClick={onCancelar}
+          disabled={loading}
+          className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 min-h-[44px] rounded font-semibold transition-colors"
+        >
+          No, Cancelar
+        </button>
+      </div>
+    </ModalBase>
   );
 }

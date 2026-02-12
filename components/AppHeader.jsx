@@ -7,6 +7,7 @@ import { toast } from 'react-hot-toast';
 import { getAppMode } from '../utils/offlineManager';
 import { useConnectionContext } from '../context/ConnectionContext';
 import { LinkGuard } from './OfflineGuard';
+import { Z_INDEX } from '../constants/zIndex';
 
 function AppHeader() {
   const [showMenu, setShowMenu] = useState(false);
@@ -210,7 +211,10 @@ function AppHeader() {
 
   return (
     <>
-      <nav className={`${getNavbarTheme()} text-white py-4 sticky top-0 z-50 transition-colors duration-300`}>
+      <nav
+        className={`${getNavbarTheme()} text-white py-4 sticky top-0 transition-colors duration-300`}
+        style={{ zIndex: Z_INDEX.HEADER_STICKY }}
+      >
         <div className="container mx-auto flex justify-between items-center">
           {/* Logo */}
           <motion.div

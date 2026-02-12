@@ -1,6 +1,8 @@
 // components/notas/ModalProductoManual.jsx
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import ModalBase from '../common/ModalBase';
+import { Z_INDEX } from '../../constants/zIndex';
 
 export function ModalProductoManual({ mostrar, onClose, onGuardar }) {
   const [nombre, setNombre] = useState('');
@@ -92,16 +94,25 @@ export function ModalProductoManual({ mostrar, onClose, onGuardar }) {
   const total = subtotal + ivaCalculado;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[80] p-2 sm:p-4">
-      <div className="bg-white rounded-lg max-w-lg w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-4 sm:p-6">
+    <ModalBase
+      isOpen={mostrar}
+      onClose={handleClose}
+      title="Agregar Producto Manual"
+      size="lg"
+      closeOnOverlay
+      closeOnEscape
+      zIndex={Z_INDEX.MODAL_CRITICAL}
+      panelClassName="max-w-lg max-h-[90vh] p-4 sm:p-6"
+      showHeader={false}
+    >
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg sm:text-xl font-bold text-gray-800">
               Agregar Producto Manual
             </h2>
             <button 
               onClick={handleClose}
-              className="text-gray-500 hover:text-gray-700 text-xl p-1"
+              className="text-gray-500 hover:text-gray-700 text-xl p-1 min-h-[44px] min-w-[44px] transition-transform active:scale-95"
+              aria-label="Cerrar producto manual"
             >
               ✕
             </button>
@@ -252,9 +263,7 @@ export function ModalProductoManual({ mostrar, onClose, onGuardar }) {
               CANCELAR
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+    </ModalBase>
   );
 }
 

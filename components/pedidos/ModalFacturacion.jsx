@@ -1,6 +1,9 @@
 // components/pedidos/ModalFacturacion.jsx - ✅ CON VALIDACIÓN DE CONDICIÓN IVA
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
+import ModalBase from '../common/ModalBase';
+import LoadingButton from '../common/LoadingButton';
+import { Z_INDEX } from '../../constants/zIndex';
 
 // ✅ MODAL DE DESCUENTOS (sin cambios)
 export function ModalDescuentos({
@@ -58,9 +61,17 @@ export function ModalDescuentos({
   const nuevoTotal = (totalConIva || 0) - descuentoCalculado;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-2 sm:p-4">
-      <div className="bg-white rounded-lg max-w-xs sm:max-w-md w-full">
-        <div className="p-4 sm:p-6">
+    <ModalBase
+      isOpen={mostrar}
+      onClose={handleClose}
+      title="Aplicar Descuento"
+      size="sm"
+      closeOnOverlay
+      closeOnEscape
+      zIndex={Z_INDEX.MODAL_NESTED}
+      panelClassName="max-w-xs sm:max-w-md p-4 sm:p-6"
+      showHeader={false}
+    >
           <h3 className="text-lg sm:text-xl font-bold mb-4 text-center">Aplicar Descuento</h3>
           
           <div className="mb-4">
@@ -147,23 +158,21 @@ export function ModalDescuentos({
           )}
 
           <div className="flex flex-col sm:flex-row gap-2">
-            <button
+            <LoadingButton
               onClick={handleAplicar}
               disabled={!valorDescuento || valorDescuento === '' || parseFloat(valorDescuento) <= 0}
               className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors text-sm w-full sm:w-auto"
             >
-              ✅ Aplicar Descuento
-            </button>
+              Aplicar Descuento
+            </LoadingButton>
             <button
               onClick={handleClose}
               className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded transition-colors text-sm w-full sm:w-auto"
             >
-              ❌ Cancelar
+              Cancelar
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+    </ModalBase>
   );
 }
 
@@ -314,16 +323,26 @@ export function ModalFacturacion({
 
   return (
     <>
-      <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-2 sm:p-4">
-        <div className="bg-white rounded-lg w-full max-w-xs sm:max-w-lg lg:max-w-2xl max-h-[95vh] overflow-y-auto">
-          <div className="p-4 sm:p-6">
+      <ModalBase
+        isOpen={mostrar}
+        onClose={handleClose}
+        title={`Facturar Pedido #${pedido?.id}`}
+        size="2xl"
+        closeOnOverlay
+        closeOnEscape
+        loading={procesando || loading}
+        zIndex={Z_INDEX.MODAL_BASE}
+        panelClassName="w-full max-w-xs sm:max-w-lg lg:max-w-2xl max-h-[95vh] p-4 sm:p-6"
+        showHeader={false}
+      >
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-lg sm:text-xl font-bold text-gray-800">
                 Facturar Pedido #{pedido?.id}
               </h2>
               <button 
                 onClick={handleClose}
-                className="text-gray-500 hover:text-gray-700 text-xl p-1"
+                className="text-gray-500 hover:text-gray-700 text-xl p-1 min-h-[44px] min-w-[44px] transition-transform active:scale-95"
+                aria-label="Cerrar facturación de pedido"
               >
                 ✕
               </button>
@@ -453,27 +472,18 @@ export function ModalFacturacion({
             
             {/* Botones de acción */}
             <div className="flex flex-col sm:flex-row gap-4">
-              <button
+              <LoadingButton
                 onClick={handleConfirmar}
-                disabled={procesando || loading}
+                loading={procesando || loading}
+                loadingText="Facturando..."
                 className={`${
                   procesando || loading
                     ? 'bg-gray-400 cursor-not-allowed'
                     : 'bg-green-600 hover:bg-green-700'
                 } text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2 flex items-center justify-center`}
               >
-                {procesando || loading ? (
-                  <div className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Facturando...
-                  </div>
-                ) : (
-                  'CONFIRMAR FACTURACIÓN'
-                )}
-              </button>
+                CONFIRMAR FACTURACIÓN
+              </LoadingButton>
               <button
                 onClick={handleClose}
                 disabled={procesando || loading}
@@ -486,9 +496,7 @@ export function ModalFacturacion({
                 CANCELAR
               </button>
             </div>
-          </div>
-        </div>
-      </div>
+      </ModalBase>
        
       {/* Modal de descuentos */}
       {mostrarModalDescuentos && (

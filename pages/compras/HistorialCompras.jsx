@@ -5,6 +5,7 @@ import { toast, Toaster } from 'react-hot-toast';
 import Head from 'next/head';
 import useAuth from '../../hooks/useAuth';
 import { useComprobantes } from '../../hooks/useComprobantes'; // Importar el hook
+import { formatearCantidad } from '../../utils/formatearCantidad';
 
 export default function HistorialCompras() {
   // Estado para controlar las pestañas
@@ -934,7 +935,7 @@ export default function HistorialCompras() {
                           <td className="p-2">{producto.producto_id}</td>
                           <td className="p-2">{producto.producto_nombre}</td>
                           <td className="p-2">{producto.producto_um}</td>
-                          <td className="p-2">{producto.cantidad}</td>
+                          <td className="p-2">{formatearCantidad(producto.cantidad)}</td>
                           <td className="p-2">{formatCurrency(producto.precio_costo)}</td>
                           <td className="p-2">{formatCurrency(producto.precio_venta)}</td>
                           <td className="p-2">{formatCurrency(producto.subtotal)}</td>

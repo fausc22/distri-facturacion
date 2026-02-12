@@ -12,6 +12,7 @@ import DefaultLayout from '../components/DefaultLayout';
 import AppInitializer from '../components/AppInitializer';
 import OfflineGuard from '../components/OfflineGuard';
 import PublicLayout from '../components/PublicLayout';
+import { Z_INDEX } from '../constants/zIndex';
 
 function MyApp({ Component, pageProps }) {
   const router = useRouter();
@@ -190,11 +191,12 @@ function MyApp({ Component, pageProps }) {
                 
                 {/* ✅ TOASTER MEJORADO PARA PWA */}
                 <Toaster
-                  position="top-left"
+                  position="top-center"
                   containerStyle={{
-                    top: 20,
-                    right: 20,
-                    zIndex: 9999,
+                    top: 'calc(12px + env(safe-area-inset-top))',
+                    left: 12,
+                    right: 12,
+                    zIndex: Z_INDEX.TOAST,
                   }}
                   toastOptions={{
                     duration: 2000,
@@ -202,7 +204,7 @@ function MyApp({ Component, pageProps }) {
                     style: {
                       background: '#363636',
                       color: '#fff',
-                      fontSize: '14px',
+                      fontSize: '15px',
                       borderRadius: '8px',
                       padding: '12px 16px',
                       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',

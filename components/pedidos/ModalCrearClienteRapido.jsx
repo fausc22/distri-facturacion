@@ -3,6 +3,9 @@ import { useState, useEffect } from 'react';
 import { useClientes } from '../../hooks/useClientes';
 import { MdClose, MdPersonAdd, MdEdit } from 'react-icons/md';
 import CiudadAutocomplete from '../common/CiudadAutocomplete';
+import ModalBase from '../common/ModalBase';
+import LoadingButton from '../common/LoadingButton';
+import { Z_INDEX } from '../../constants/zIndex';
 
 export default function ModalCrearClienteRapido({
   isOpen,
@@ -126,8 +129,18 @@ export default function ModalCrearClienteRapido({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-2 sm:p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-[95vw] sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-y-auto">
+    <ModalBase
+      isOpen={isOpen}
+      onClose={onClose}
+      title={modo === 'editar' ? 'Editar Cliente' : 'Crear Cliente'}
+      size="lg"
+      loading={loading}
+      closeOnOverlay
+      closeOnEscape
+      panelClassName="p-0 max-w-[95vw] sm:max-w-2xl max-h-[95vh] sm:max-h-[90vh]"
+      zIndex={Z_INDEX.MODAL_BASE}
+      showHeader={false}
+    >
         {/* Header */}
         <div className="sticky top-0 bg-gradient-to-r from-green-600 to-green-700 text-white px-3 sm:px-4 py-2 sm:py-3 rounded-t-lg flex justify-between items-center">
           <div className="flex items-center gap-1 sm:gap-2">
@@ -138,8 +151,9 @@ export default function ModalCrearClienteRapido({
           </div>
           <button
             onClick={onClose}
-            className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
+            className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
             disabled={loading}
+            aria-label="Cerrar modal de cliente"
           >
             <MdClose size={20} className="sm:w-6 sm:h-6" />
           </button>
@@ -386,30 +400,23 @@ export default function ModalCrearClienteRapido({
             >
               Cancelar
             </button>
-            <button
+            <LoadingButton
               type="submit"
+              loading={loading}
+              loadingText={modo === 'editar' ? 'Guardando...' : 'Creando...'}
               className={`w-full sm:w-auto px-6 py-2 text-white rounded-md flex items-center justify-center gap-2 ${
                 loading
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-green-600 hover:bg-green-700'
               } transition-colors`}
-              disabled={loading}
             >
-              {loading ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  {modo === 'editar' ? 'Guardando...' : 'Creando...'}
-                </>
-              ) : (
-                <>
-                  {modo === 'editar' ? <MdEdit size={20} /> : <MdPersonAdd size={20} />}
-                  {modo === 'editar' ? 'Guardar Cambios' : 'Crear Cliente'}
-                </>
-              )}
-            </button>
+              <>
+                {modo === 'editar' ? <MdEdit size={20} /> : <MdPersonAdd size={20} />}
+                {modo === 'editar' ? 'Guardar Cambios' : 'Crear Cliente'}
+              </>
+            </LoadingButton>
           </div>
         </form>
-      </div>
-    </div>
+    </ModalBase>
   );
 }

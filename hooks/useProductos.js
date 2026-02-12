@@ -66,6 +66,28 @@ export const useProductos = () => {
     }
   };
 
+  // Eliminar producto
+  const eliminarProducto = async (id) => {
+    setLoading(true);
+    try {
+      const response = await axiosAuth.delete(`/productos/eliminar-producto/${id}`);
+
+      if (response.data.success) {
+        toast.success('Producto eliminado correctamente');
+        return { success: true, data: response.data.data || response.data };
+      }
+
+      return { success: false, error: 'No se pudo eliminar el producto' };
+    } catch (error) {
+      console.error('Error al eliminar producto:', error);
+      const message = error.response?.data?.message || 'Error al eliminar producto';
+      toast.error(message);
+      return { success: false, error: message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Obtener categorías
   const obtenerCategorias = async () => {
     try {
@@ -133,6 +155,7 @@ export const useProductos = () => {
     crearProducto,
     buscarProductos,
     actualizarProducto,
+    eliminarProducto,
     obtenerCategorias,
     validarDatosProducto
   };
