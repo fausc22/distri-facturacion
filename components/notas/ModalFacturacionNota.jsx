@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
+import ModalBase from '../common/ModalBase';
+import { Z_INDEX } from '../../constants/zIndex';
 
 export function ModalFacturacionNota({ 
   mostrar, 
@@ -130,16 +132,25 @@ export function ModalFacturacionNota({
   const titulo = tipoNota === 'NOTA_DEBITO' ? 'Completar Nota de Débito' : 'Completar Nota de Crédito';
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-2 sm:p-4">
-      <div className="bg-white rounded-lg w-full max-w-xs sm:max-w-lg lg:max-w-2xl max-h-[95vh] overflow-y-auto">
-        <div className="p-4 sm:p-6">
+    <ModalBase
+      isOpen={mostrar}
+      onClose={handleClose}
+      title={titulo}
+      size="2xl"
+      closeOnOverlay
+      closeOnEscape
+      zIndex={Z_INDEX.MODAL_NESTED}
+      panelClassName="w-full max-w-xs sm:max-w-lg lg:max-w-2xl max-h-[95vh] p-4 sm:p-6"
+      showHeader={false}
+    >
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-lg sm:text-xl font-bold text-gray-800">
               {titulo}
             </h2>
             <button 
               onClick={handleClose}
-              className="text-gray-500 hover:text-gray-700 text-xl p-1"
+              className="text-gray-500 hover:text-gray-700 text-xl p-1 min-h-[44px] min-w-[44px] transition-transform active:scale-95"
+              aria-label="Cerrar facturación de nota"
             >
               ✕
             </button>
@@ -239,9 +250,7 @@ export function ModalFacturacionNota({
               CANCELAR
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+    </ModalBase>
   );
 }
 

@@ -4,6 +4,10 @@ import { MdClose, MdSearch, MdPersonAdd } from 'react-icons/md';
 import { toast } from 'react-hot-toast';
 import { useClienteSearch } from '../../hooks/useBusquedaClientes';
 import ModalCrearClienteRapido from './ModalCrearClienteRapido';
+import ModalBase from '../common/ModalBase';
+import LoadingButton from '../common/LoadingButton';
+import LoadingSpinner from '../common/LoadingSpinner';
+import { Z_INDEX } from '../../constants/zIndex';
 
 export default function ModalEditarClientePedido({
   isOpen,
@@ -132,15 +136,26 @@ export default function ModalEditarClientePedido({
     <>
       {/* Solo renderizar si no está abierto el modal de crear */}
       {!mostrarModalCrear && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[60] p-4">
-        <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+        <ModalBase
+          isOpen={isOpen}
+          onClose={handleClose}
+          title="Cambiar Cliente del Pedido"
+          size="lg"
+          closeOnOverlay
+          closeOnEscape
+          zIndex={Z_INDEX.MODAL_BASE}
+          panelClassName="shadow-xl max-w-2xl max-h-[90vh] p-0"
+          showHeader={false}
+          loading={guardando}
+        >
           {/* Header */}
           <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-4 py-3 rounded-t-lg flex justify-between items-center">
             <h2 className="text-lg font-semibold">Cambiar Cliente del Pedido</h2>
             <button
               onClick={handleClose}
-              className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors"
+              className="p-1 hover:bg-white hover:bg-opacity-20 rounded transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
               disabled={guardando}
+              aria-label="Cerrar cambio de cliente"
             >
               <MdClose size={24} />
             </button>
@@ -180,7 +195,7 @@ export default function ModalEditarClientePedido({
                   title="Buscar cliente"
                 >
                   {loading ? (
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                    <LoadingSpinner size="md" colorClass="border-white" />
                   ) : (
                     <MdSearch size={24} />
                   )}
@@ -262,27 +277,21 @@ export default function ModalEditarClientePedido({
             >
               Cancelar
             </button>
-            <button
+            <LoadingButton
               onClick={handleGuardarCambios}
-              disabled={guardando || !clienteSeleccionado}
+              loading={guardando}
+              loadingText="Guardando..."
+              disabled={!clienteSeleccionado}
               className={`w-full sm:w-auto px-6 py-2 text-white rounded-md flex items-center justify-center gap-2 ${
                 guardando || !clienteSeleccionado
                   ? 'bg-gray-400 cursor-not-allowed'
                   : 'bg-blue-600 hover:bg-blue-700'
               } transition-colors`}
             >
-              {guardando ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  Guardando...
-                </>
-              ) : (
-                'Guardar Cambios'
-              )}
-            </button>
+              Guardar Cambios
+            </LoadingButton>
           </div>
-        </div>
-        </div>
+        </ModalBase>
       )}
 
       {/* Modal para crear/editar cliente - renderizado cuando mostrarModalCrear es true */}

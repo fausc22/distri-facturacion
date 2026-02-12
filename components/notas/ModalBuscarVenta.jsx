@@ -2,6 +2,10 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { MdSearch } from 'react-icons/md';
+import ModalBase from '../common/ModalBase';
+import LoadingButton from '../common/LoadingButton';
+import LoadingSpinner from '../common/LoadingSpinner';
+import { Z_INDEX } from '../../constants/zIndex';
 
 export function ModalBuscarVenta({ mostrar, onClose, onSeleccionarVenta, buscarVentas }) {
   const [busqueda, setBusqueda] = useState('');
@@ -45,16 +49,25 @@ export function ModalBuscarVenta({ mostrar, onClose, onSeleccionarVenta, buscarV
   if (!mostrar) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-[70] p-2 sm:p-4">
-      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-4 sm:p-6">
+    <ModalBase
+      isOpen={mostrar}
+      onClose={onClose}
+      title="Buscar Venta de Referencia"
+      size="lg"
+      closeOnOverlay
+      closeOnEscape
+      zIndex={Z_INDEX.MODAL_NESTED}
+      panelClassName="max-w-2xl max-h-[90vh] p-4 sm:p-6"
+      showHeader={false}
+    >
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-lg sm:text-xl font-bold text-gray-800">
               Buscar Venta de Referencia
             </h3>
             <button 
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 text-xl p-1"
+              className="text-gray-500 hover:text-gray-700 text-xl p-1 min-h-[44px] min-w-[44px] transition-transform active:scale-95"
+              aria-label="Cerrar búsqueda de venta"
             >
               ✕
             </button>
@@ -71,14 +84,15 @@ export function ModalBuscarVenta({ mostrar, onClose, onSeleccionarVenta, buscarV
                 placeholder="Buscar por número de factura o nombre de cliente..."
                 className="flex-1 border p-2 rounded text-sm"
               />
-              <button
+              <LoadingButton
                 onClick={handleBuscar}
-                disabled={buscando}
+                loading={buscando}
+                loadingText="Buscando..."
                 className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded flex items-center gap-2"
               >
                 <MdSearch />
-                {buscando ? 'Buscando...' : 'Buscar'}
-              </button>
+                Buscar
+              </LoadingButton>
             </div>
           </div>
 
@@ -86,7 +100,7 @@ export function ModalBuscarVenta({ mostrar, onClose, onSeleccionarVenta, buscarV
           <div className="border rounded-lg max-h-96 overflow-y-auto">
             {buscando ? (
               <div className="p-8 text-center text-gray-500">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
+                <LoadingSpinner size="lg" colorClass="border-blue-600" className="mx-auto mb-2" />
                 Buscando ventas...
               </div>
             ) : resultados.length > 0 ? (
@@ -138,9 +152,7 @@ export function ModalBuscarVenta({ mostrar, onClose, onSeleccionarVenta, buscarV
               Cancelar
             </button>
           </div>
-        </div>
-      </div>
-    </div>
+    </ModalBase>
   );
 }
 

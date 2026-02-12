@@ -17,6 +17,7 @@ import { ModalFacturacionNota } from './ModalFacturacionNota';
 import { ModalBuscarVenta } from './ModalBuscarVenta';
 import { ModalProductoManual } from './ModalProductoManual';
 import ModalBase from '../common/ModalBase';
+import LoadingButton from '../common/LoadingButton';
 import { Z_INDEX } from '../../constants/zIndex';
 
 function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
@@ -317,17 +318,19 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
                   </div>
                   
                   <div className="flex flex-col sm:flex-row justify-end gap-4">
-                    <button 
+                    <LoadingButton
                       className={`px-6 py-3 rounded text-white font-semibold transition-colors ${
                         loading 
                           ? 'bg-gray-500 cursor-not-allowed' 
                           : `bg-${colorBoton}-600 hover:bg-${colorBoton}-700`
                       }`}
                       onClick={handleContinuarAFacturacion}
-                      disabled={loading || productos.length === 0}
+                      disabled={productos.length === 0}
+                      loading={loading}
+                      loadingText="Procesando..."
                     >
-                      {loading ? 'Procesando...' : `💰 CREAR ${titulo}`}
-                    </button>
+                      {`💰 CREAR ${titulo}`}
+                    </LoadingButton>
                     <button 
                       onClick={onClose}
                       className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded font-semibold transition-colors"
