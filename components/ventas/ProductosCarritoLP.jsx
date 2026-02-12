@@ -1,4 +1,5 @@
 import { useListaPrecios } from '../../context/ListaPreciosContext';
+import { formatearCantidad } from '../../utils/formatearCantidad';
 
 function ControlCantidad({ cantidad, onCantidadChange }) {
   return (
@@ -9,7 +10,7 @@ function ControlCantidad({ cantidad, onCantidadChange }) {
       >
         -
       </button>
-      <span>{cantidad}</span>
+      <span>{formatearCantidad(cantidad)}</span>
       <button 
         className="bg-gray-300 hover:bg-gray-400 text-black w-6 h-6 rounded flex items-center justify-center"
         onClick={() => onCantidadChange(cantidad + 0.5)}
@@ -104,7 +105,7 @@ function TarjetasMovil({ productos, onActualizarCantidad, onEliminar }) {
                     >
                       -
                     </button>
-                    <span className="font-medium">{prod.cantidad}</span>
+                    <span className="font-medium">{formatearCantidad(prod.cantidad)}</span>
                     <button 
                       className="bg-gray-300 hover:bg-gray-400 text-black w-6 h-6 rounded flex items-center justify-center"
                       onClick={() => onActualizarCantidad(idx, prod.cantidad + 0.5)}

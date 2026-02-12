@@ -1,16 +1,17 @@
 import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
 import Head from 'next/head';
 import useAuth from '../../hooks/useAuth';
 import { useProductos } from '../../hooks/useProductos';
 import TableHeader from '../../components/common/TableHeader';
 import Pagination from '../../components/common/Pagination';
 import ModalProducto from '../../components/productos/ModalProducto';
+import ModalBase from '../../components/common/ModalBase';
+import { formatearCantidad } from '../../utils/formatearCantidad';
 
 export default function GestionProductos() {
   useAuth();
 
-  const { buscarProductos, loading } = useProductos();
+  const { buscarProductos, eliminarProducto, loading } = useProductos();
 
   const [productos, setProductos] = useState([]);
   const [searchTermInput, setSearchTermInput] = useState(''); // Término en el input (temporal)
@@ -18,6 +19,9 @@ export default function GestionProductos() {
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modoModal, setModoModal] = useState('crear');
+  const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false);
+  const [productoAEliminar, setProductoAEliminar] = useState(null);
+  const [eliminandoProducto, setEliminandoProducto] = useState(false);
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
@@ -108,13 +112,33 @@ export default function GestionProductos() {
     cargarProductos();
   };
 
+  const handleEliminarProducto = (producto) => {
+    setProductoAEliminar(producto);
+    setModalEliminarAbierto(true);
+  };
+
+  const handleConfirmarEliminar = async () => {
+    if (!productoAEliminar?.id) return;
+
+    setEliminandoProducto(true);
+    const resultado = await eliminarProducto(productoAEliminar.id);
+
+    if (resultado.success) {
+      setModalEliminarAbierto(false);
+      setProductoAEliminar(null);
+      cargarProductos();
+    }
+
+    setEliminandoProducto(false);
+  };
+
   const columnas = [
     { key: 'nombre', label: 'Nombre', sortable: true },
     { key: 'categoria_nombre', label: 'Categoría', sortable: true },
     { key: 'unidad_medida', label: 'U.M.', sortable: true },
     { key: 'precio', label: 'Precio', sortable: true },
     { key: 'stock_actual', label: 'Stock', sortable: true },
-    { key: 'acciones', label: 'Editar', sortable: false }
+    { key: 'acciones', label: 'Acciones', sortable: false }
   ];
 
   if (loading && productos.length === 0) {
@@ -254,16 +278,24 @@ export default function GestionProductos() {
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                           stockBajo ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
                         }`}>
-                          {producto.stock_actual || 0} unid.
+                          {formatearCantidad(producto.stock_actual)} unid.
                         </span>
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium w-24">
-                        <button
-                          onClick={() => handleEditarProducto(producto)}
-                          className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition-colors w-full"
-                        >
-                          Editar
-                        </button>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium w-44">
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => handleEditarProducto(producto)}
+                            className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-md transition-colors flex-1"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleEliminarProducto(producto)}
+                            className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-md transition-colors flex-1"
+                          >
+                            Eliminar
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -288,12 +320,20 @@ export default function GestionProductos() {
                         {producto.categoria_nombre || 'Sin categoría'}
                       </p>
                     </div>
-                    <button
-                      onClick={() => handleEditarProducto(producto)}
-                      className="ml-2 text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md text-xs transition-colors flex-shrink-0"
-                    >
-                      Editar
-                    </button>
+                    <div className="ml-2 flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleEditarProducto(producto)}
+                        className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md text-xs transition-colors"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => handleEliminarProducto(producto)}
+                        className="text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-md text-xs transition-colors"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 text-sm">
@@ -312,7 +352,7 @@ export default function GestionProductos() {
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       stockBajo ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
                     }`}>
-                      {producto.stock_actual || 0} unid.
+                      {formatearCantidad(producto.stock_actual)} unid.
                     </span>
                   </div>
                 </div>
@@ -342,6 +382,54 @@ export default function GestionProductos() {
         modo={modoModal}
         onProductoGuardado={handleProductoGuardado}
       />
+
+      <ModalBase
+        isOpen={modalEliminarAbierto}
+        onClose={() => {
+          if (eliminandoProducto) return;
+          setModalEliminarAbierto(false);
+          setProductoAEliminar(null);
+        }}
+        title="Confirmar eliminación"
+        loading={eliminandoProducto}
+        size="sm"
+        closeOnEscape
+        closeOnOverlay
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700">
+            ¿Seguro que querés eliminar el producto{' '}
+            <span className="font-semibold">{productoAEliminar?.nombre || ''}</span>?
+          </p>
+          <p className="text-xs text-gray-500">
+            Esta acción es permanente y puede afectar registros relacionados según configuración de base de datos.
+          </p>
+          <div className="flex justify-end gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (eliminandoProducto) return;
+                setModalEliminarAbierto(false);
+                setProductoAEliminar(null);
+              }}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              disabled={eliminandoProducto}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmarEliminar}
+              className={`px-4 py-2 text-white rounded-md ${
+                eliminandoProducto ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'
+              }`}
+              disabled={eliminandoProducto}
+            >
+              {eliminandoProducto ? 'Eliminando...' : 'Sí, eliminar'}
+            </button>
+          </div>
+        </div>
+      </ModalBase>
     </div>
   );
 }

@@ -1,3 +1,5 @@
+import { formatearCantidad } from '../../utils/formatearCantidad';
+
 // Formateadores
 const formatCurrency = (value) => {
   // Manejar valores nulos, undefined o no numéricos
@@ -67,7 +69,7 @@ function DetalleVenta({ venta, productos }) {
                 <tr key={index} className="border-b hover:bg-gray-50">
                   <td className="p-2">{producto.producto_nombre}</td>
                   <td className="p-2 text-center">
-                    {producto.cantidad} {producto.producto_um || producto.unidad_medida || ''}
+                    {formatearCantidad(producto.cantidad)} {producto.producto_um || producto.unidad_medida || ''}
                   </td>
                   <td className="p-2 text-right">
                     {formatCurrency(producto.precio_venta || producto.precio_unitario || producto.precio)}
