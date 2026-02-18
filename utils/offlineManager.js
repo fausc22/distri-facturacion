@@ -20,6 +20,10 @@ const STORAGE_KEYS = {
   CLIENTES: 'vertimar_clientes_offline',
   PRODUCTOS: 'vertimar_productos_offline',
   PEDIDOS_PENDIENTES: 'vertimar_pedidos_pendientes',
+  PEDIDOS_CACHE: 'vertimar_pedidos_cache',
+  PEDIDOS_PRODUCTOS_CACHE: 'vertimar_pedidos_productos_cache',
+  EDICIONES_PENDIENTES: 'vertimar_ediciones_pendientes',
+  EDICIONES_ID_MAP: 'vertimar_ediciones_id_map',
   LAST_SYNC: 'vertimar_last_sync',
   CATALOG_VERSION: 'vertimar_catalog_version'
 };
@@ -179,6 +183,458 @@ class OfflineManager {
     }
   }
 
+  // ✅ CACHE DE HISTORIAL DE PEDIDOS (últimos 7 días)
+  savePedidosCache(pedidos = [], maxDays = 7) {
+    try {
+      if (!isClient()) return false;
+
+      const now = Date.now();
+      const maxAgeMs = maxDays * 24 * 60 * 60 * 1000;
+      const pedidosFiltrados = pedidos.filter((pedido) => {
+        if (!pedido?.fecha) return false;
+        const fechaPedido = new Date(pedido.fecha).getTime();
+        return !Number.isNaN(fechaPedido) && (now - fechaPedido) <= maxAgeMs;
+      });
+
+      const payload = {
+        pedidos: pedidosFiltrados,
+        timestamp: now,
+        maxDays
+      };
+
+      localStorage.setItem(STORAGE_KEYS.PEDIDOS_CACHE, JSON.stringify(payload));
+      return true;
+    } catch (error) {
+      console.error('❌ Error guardando cache de pedidos:', error);
+      return false;
+    }
+  }
+
+  getPedidosCache({ empleadoId = null, isManager = false, maxDays = 7 } = {}) {
+    try {
+      if (!isClient()) return [];
+
+      const raw = localStorage.getItem(STORAGE_KEYS.PEDIDOS_CACHE);
+      if (!raw) return [];
+
+      const parsed = JSON.parse(raw);
+      const pedidos = parsed?.pedidos || [];
+      const now = Date.now();
+      const maxAgeMs = maxDays * 24 * 60 * 60 * 1000;
+
+      return pedidos.filter((pedido) => {
+        if (!pedido?.fecha) return false;
+        const fechaPedido = new Date(pedido.fecha).getTime();
+        if (Number.isNaN(fechaPedido) || (now - fechaPedido) > maxAgeMs) {
+          return false;
+        }
+
+        if (isManager) return true;
+        if (!empleadoId) return true;
+        return Number(pedido.empleado_id) === Number(empleadoId);
+      });
+    } catch (error) {
+      console.error('❌ Error obteniendo cache de pedidos:', error);
+      return [];
+    }
+  }
+
+  updatePedidoInCache(pedidoId, updater) {
+    try {
+      if (!isClient()) return false;
+      const raw = localStorage.getItem(STORAGE_KEYS.PEDIDOS_CACHE);
+      if (!raw) return false;
+
+      const parsed = JSON.parse(raw);
+      const pedidos = parsed?.pedidos || [];
+      const index = pedidos.findIndex((p) => Number(p.id) === Number(pedidoId));
+      if (index === -1) return false;
+
+      pedidos[index] = typeof updater === 'function' ? updater(pedidos[index]) : pedidos[index];
+      parsed.pedidos = pedidos;
+      localStorage.setItem(STORAGE_KEYS.PEDIDOS_CACHE, JSON.stringify(parsed));
+      return true;
+    } catch (error) {
+      console.error('❌ Error actualizando pedido en cache:', error);
+      return false;
+    }
+  }
+
+  // ✅ CACHE DE PRODUCTOS POR PEDIDO
+  savePedidoProductosCache(pedidoId, productos = []) {
+    try {
+      if (!isClient() || !pedidoId) return false;
+
+      const raw = localStorage.getItem(STORAGE_KEYS.PEDIDOS_PRODUCTOS_CACHE);
+      const parsed = raw ? JSON.parse(raw) : {};
+
+      parsed[String(pedidoId)] = {
+        pedidoId: Number(pedidoId),
+        productos,
+        updatedAt: new Date().toISOString()
+      };
+
+      localStorage.setItem(STORAGE_KEYS.PEDIDOS_PRODUCTOS_CACHE, JSON.stringify(parsed));
+      return true;
+    } catch (error) {
+      console.error('❌ Error guardando productos de pedido en cache:', error);
+      return false;
+    }
+  }
+
+  getPedidoProductosCache(pedidoId) {
+    try {
+      if (!isClient() || !pedidoId) return [];
+      const raw = localStorage.getItem(STORAGE_KEYS.PEDIDOS_PRODUCTOS_CACHE);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return parsed?.[String(pedidoId)]?.productos || [];
+    } catch (error) {
+      console.error('❌ Error obteniendo productos cacheados del pedido:', error);
+      return [];
+    }
+  }
+
+  getProductoStockLocal(productoId) {
+    try {
+      const productos = this.getProductos();
+      const producto = productos.find((p) => Number(p.id) === Number(productoId));
+      if (!producto) return 0;
+      return Number(producto.stock_actual || 0);
+    } catch (error) {
+      console.error('❌ Error obteniendo stock local:', error);
+      return 0;
+    }
+  }
+
+  // ✅ COLA DE EDICIONES OFFLINE EN PEDIDOS
+  queuePedidoEdit(editData) {
+    try {
+      if (!isClient()) return null;
+
+      const queue = this.getPendingPedidoEdits({ includeAllStatuses: true });
+      const opId = `op_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const operation = {
+        ...editData,
+        opId,
+        clientTs: editData.clientTs || new Date().toISOString(),
+        baseVersion: editData.baseVersion || null,
+        status: 'pending',
+        retries: 0,
+        createdAt: new Date().toISOString()
+      };
+      queue.push(operation);
+      const compacted = this.compactPendingPedidoEdits(queue);
+      localStorage.setItem(STORAGE_KEYS.EDICIONES_PENDIENTES, JSON.stringify(compacted));
+      return opId;
+    } catch (error) {
+      console.error('❌ Error encolando edición offline:', error);
+      return null;
+    }
+  }
+
+  getPendingPedidoEdits({ includeAllStatuses = false } = {}) {
+    try {
+      if (!isClient()) return [];
+      const raw = localStorage.getItem(STORAGE_KEYS.EDICIONES_PENDIENTES);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (includeAllStatuses) return parsed;
+      return parsed.filter((op) => ['pending', 'processing', 'failed_retryable', 'conflict'].includes(op.status || 'pending'));
+    } catch (error) {
+      console.error('❌ Error obteniendo cola de ediciones:', error);
+      return [];
+    }
+  }
+
+  removePendingPedidoEdit(opId) {
+    try {
+      if (!isClient()) return false;
+      const queue = this.getPendingPedidoEdits({ includeAllStatuses: true }).filter((op) => op.opId !== opId);
+      localStorage.setItem(STORAGE_KEYS.EDICIONES_PENDIENTES, JSON.stringify(queue));
+      return true;
+    } catch (error) {
+      console.error('❌ Error removiendo edición pendiente:', error);
+      return false;
+    }
+  }
+
+  setPedidoEditStatus(opId, status, extra = {}) {
+    try {
+      if (!isClient()) return false;
+      const queue = this.getPendingPedidoEdits({ includeAllStatuses: true });
+      const idx = queue.findIndex((op) => op.opId === opId);
+      if (idx === -1) return false;
+
+      queue[idx] = {
+        ...queue[idx],
+        status,
+        ...extra
+      };
+      localStorage.setItem(STORAGE_KEYS.EDICIONES_PENDIENTES, JSON.stringify(queue));
+      return true;
+    } catch (error) {
+      console.error('❌ Error actualizando estado de edición:', error);
+      return false;
+    }
+  }
+
+  markPedidoEditAsFailed(opId, errorMessage) {
+    try {
+      if (!isClient()) return false;
+      const queue = this.getPendingPedidoEdits({ includeAllStatuses: true });
+      const idx = queue.findIndex((op) => op.opId === opId);
+      if (idx === -1) return false;
+
+      const retries = Number(queue[idx].retries || 0) + 1;
+      queue[idx].retries = retries;
+      queue[idx].lastError = errorMessage;
+      queue[idx].lastAttemptAt = new Date().toISOString();
+      queue[idx].status = retries >= 5 ? 'failed_permanent' : 'failed_retryable';
+
+      localStorage.setItem(STORAGE_KEYS.EDICIONES_PENDIENTES, JSON.stringify(queue));
+      return true;
+    } catch (error) {
+      console.error('❌ Error marcando edición como fallida:', error);
+      return false;
+    }
+  }
+
+  markPedidoEditConflict(opId, errorMessage) {
+    return this.setPedidoEditStatus(opId, 'conflict', {
+      lastError: errorMessage,
+      lastAttemptAt: new Date().toISOString()
+    });
+  }
+
+  retryConflictedEdits() {
+    try {
+      if (!isClient()) return 0;
+      const queue = this.getPendingPedidoEdits({ includeAllStatuses: true });
+      let updated = 0;
+      const next = queue.map((op) => {
+        if (op.status === 'conflict') {
+          updated++;
+          return { ...op, status: 'pending' };
+        }
+        return op;
+      });
+      localStorage.setItem(STORAGE_KEYS.EDICIONES_PENDIENTES, JSON.stringify(next));
+      return updated;
+    } catch (error) {
+      console.error('❌ Error reintentando conflictos:', error);
+      return 0;
+    }
+  }
+
+  discardPedidoEdit(opId) {
+    return this.removePendingPedidoEdit(opId);
+  }
+
+  compactPendingPedidoEdits(queue = null) {
+    const source = Array.isArray(queue) ? queue : this.getPendingPedidoEdits({ includeAllStatuses: true });
+    const pendingOrRetry = source.filter((op) => ['pending', 'failed_retryable', 'processing'].includes(op.status || 'pending'));
+    const nonCompacted = source.filter((op) => ['conflict', 'failed_permanent', 'done'].includes(op.status));
+
+    const result = [];
+    const latestUpdateByItem = new Map();
+    const latestObsByPedido = new Map();
+    const deletedItems = new Set();
+    const removedLocalAdds = new Set();
+
+    for (const op of pendingOrRetry) {
+      const pedidoId = Number(op.pedidoId);
+      if (op.type === 'UPDATE_OBSERVACIONES') {
+        latestObsByPedido.set(pedidoId, op);
+        continue;
+      }
+
+      if (op.type === 'UPDATE_ITEM') {
+        const itemId = String(op?.payload?.itemId || '');
+        latestUpdateByItem.set(`${pedidoId}:${itemId}`, op);
+        continue;
+      }
+
+      if (op.type === 'DELETE_ITEM') {
+        const itemId = String(op?.payload?.itemId || '');
+        deletedItems.add(`${pedidoId}:${itemId}`);
+        result.push(op);
+        continue;
+      }
+
+      if (op.type === 'ADD_ITEM') {
+        const localItemId = String(op?.payload?.localItemId || op?.payload?.product?.id || '');
+        if (removedLocalAdds.has(`${pedidoId}:${localItemId}`)) {
+          continue;
+        }
+        result.push(op);
+        continue;
+      }
+
+      result.push(op);
+    }
+
+    // Si hubo delete de item local, remover add correspondiente
+    const compacted = result.filter((op) => {
+      if (op.type !== 'ADD_ITEM') return true;
+      const pedidoId = Number(op.pedidoId);
+      const localItemId = String(op?.payload?.localItemId || op?.payload?.product?.id || '');
+      const wasDeleted = deletedItems.has(`${pedidoId}:${localItemId}`);
+      if (wasDeleted) {
+        removedLocalAdds.add(`${pedidoId}:${localItemId}`);
+        return false;
+      }
+      return true;
+    });
+
+    const updatesToKeep = [];
+    latestUpdateByItem.forEach((op, key) => {
+      if (!deletedItems.has(key)) {
+        updatesToKeep.push(op);
+      }
+    });
+
+    latestObsByPedido.forEach((op) => compacted.push(op));
+    updatesToKeep.forEach((op) => compacted.push(op));
+
+    const ordered = [...compacted, ...nonCompacted].sort((a, b) =>
+      new Date(a.createdAt || a.clientTs || 0).getTime() - new Date(b.createdAt || b.clientTs || 0).getTime()
+    );
+    return ordered;
+  }
+
+  savePendingPedidoEdits(queue = []) {
+    try {
+      if (!isClient()) return false;
+      localStorage.setItem(STORAGE_KEYS.EDICIONES_PENDIENTES, JSON.stringify(queue));
+      return true;
+    } catch (error) {
+      console.error('❌ Error guardando cola de ediciones:', error);
+      return false;
+    }
+  }
+
+  // ✅ MAPEOS TEMPORAL -> ID SERVIDOR
+  getEditIdMappings() {
+    try {
+      if (!isClient()) return {};
+      const raw = localStorage.getItem(STORAGE_KEYS.EDICIONES_ID_MAP);
+      return raw ? JSON.parse(raw) : {};
+    } catch (error) {
+      console.error('❌ Error leyendo mapeos de IDs:', error);
+      return {};
+    }
+  }
+
+  setEditIdMapping(pedidoId, localItemId, serverItemId) {
+    try {
+      if (!isClient()) return false;
+      const map = this.getEditIdMappings();
+      const key = `${Number(pedidoId)}:${String(localItemId)}`;
+      map[key] = Number(serverItemId);
+      localStorage.setItem(STORAGE_KEYS.EDICIONES_ID_MAP, JSON.stringify(map));
+      return true;
+    } catch (error) {
+      console.error('❌ Error guardando mapeo de IDs:', error);
+      return false;
+    }
+  }
+
+  getEditIdMapping(pedidoId, localItemId) {
+    const map = this.getEditIdMappings();
+    const key = `${Number(pedidoId)}:${String(localItemId)}`;
+    return map[key] || null;
+  }
+
+  clearEditIdMappingsForPedido(pedidoId) {
+    try {
+      if (!isClient()) return false;
+      const map = this.getEditIdMappings();
+      const prefix = `${Number(pedidoId)}:`;
+      Object.keys(map).forEach((key) => {
+        if (key.startsWith(prefix)) {
+          delete map[key];
+        }
+      });
+      localStorage.setItem(STORAGE_KEYS.EDICIONES_ID_MAP, JSON.stringify(map));
+      return true;
+    } catch (error) {
+      console.error('❌ Error limpiando mapeos por pedido:', error);
+      return false;
+    }
+  }
+
+  updatePendingAddItem(pedidoId, localItemId, changes = {}) {
+    try {
+      if (!isClient()) return false;
+      const queue = this.getPendingPedidoEdits();
+      const idx = queue.findIndex(
+        (op) =>
+          op.type === 'ADD_ITEM' &&
+          Number(op.pedidoId) === Number(pedidoId) &&
+          String(op.payload?.localItemId) === String(localItemId)
+      );
+
+      if (idx === -1) return false;
+      queue[idx].payload.product = {
+        ...(queue[idx].payload.product || {}),
+        ...changes
+      };
+
+      localStorage.setItem(STORAGE_KEYS.EDICIONES_PENDIENTES, JSON.stringify(queue));
+      return true;
+    } catch (error) {
+      console.error('❌ Error actualizando ADD_ITEM pendiente:', error);
+      return false;
+    }
+  }
+
+  removePendingAddItem(pedidoId, localItemId) {
+    try {
+      if (!isClient()) return false;
+      const queue = this.getPendingPedidoEdits({ includeAllStatuses: true }).filter(
+        (op) =>
+          !(
+            op.type === 'ADD_ITEM' &&
+            Number(op.pedidoId) === Number(pedidoId) &&
+            String(op.payload?.localItemId) === String(localItemId)
+          )
+      );
+      localStorage.setItem(STORAGE_KEYS.EDICIONES_PENDIENTES, JSON.stringify(queue));
+      return true;
+    } catch (error) {
+      console.error('❌ Error removiendo ADD_ITEM pendiente:', error);
+      return false;
+    }
+  }
+
+  // ✅ Helpers para edición offline de productos de un pedido
+  addProductoToPedidoCache(pedidoId, product) {
+    const current = this.getPedidoProductosCache(pedidoId);
+    const newItem = {
+      ...product,
+      id: product.id || `off_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+    };
+    const updated = [...current, newItem];
+    this.savePedidoProductosCache(pedidoId, updated);
+    return updated;
+  }
+
+  updateProductoInPedidoCache(pedidoId, itemId, changes) {
+    const current = this.getPedidoProductosCache(pedidoId);
+    const updated = current.map((item) =>
+      String(item.id) === String(itemId) ? { ...item, ...changes } : item
+    );
+    this.savePedidoProductosCache(pedidoId, updated);
+    return updated;
+  }
+
+  deleteProductoFromPedidoCache(pedidoId, itemId) {
+    const current = this.getPedidoProductosCache(pedidoId);
+    const updated = current.filter((item) => String(item.id) !== String(itemId));
+    this.savePedidoProductosCache(pedidoId, updated);
+    return updated;
+  }
+
   // ✅ REMOVER PEDIDO PENDIENTE DESPUÉS DE SINCRONIZAR
   removePedidoPendiente(tempId) {
     try {
@@ -310,6 +766,8 @@ class OfflineManager {
         clientes: clientes.length,
         productos: productos.length,
         pedidosPendientes: pedidosPendientes.length,
+        pedidosCache: this.getPedidosCache({ isManager: true }).length,
+        edicionesPendientes: this.getPendingPedidoEdits().filter((op) => op.status !== 'failed_permanent').length,
         lastSync,
         catalogVersion: this.getCatalogVersion(),
         storageUsed: this.calculateStorageUsage()

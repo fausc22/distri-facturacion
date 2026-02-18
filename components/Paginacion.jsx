@@ -2,6 +2,7 @@ import { Fragment } from 'react';
 
 export function Paginacion({
   datosOriginales,
+  totalRegistros,
   paginaActual,
   registrosPorPagina,
   totalPaginas,
@@ -10,7 +11,8 @@ export function Paginacion({
   onCambiarPagina,
   onCambiarRegistrosPorPagina
 }) {
-  if (datosOriginales.length === 0) return null;
+  const total = totalRegistros !== undefined ? totalRegistros : (datosOriginales?.length ?? 0);
+  if (total === 0 && (!datosOriginales || datosOriginales.length === 0)) return null;
 
   return (
     <>
@@ -34,7 +36,7 @@ export function Paginacion({
         
         <div className="flex items-center">
           <span className="mr-4">
-            Mostrando {indexOfPrimero + 1} a {Math.min(indexOfUltimo, datosOriginales.length)} de {datosOriginales.length} registros
+            Mostrando {indexOfPrimero + 1} a {Math.min(indexOfUltimo, total)} de {total} registros
           </span>
           
           <div className="flex">

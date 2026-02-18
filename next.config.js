@@ -17,6 +17,7 @@ const withPWA = require('next-pwa')({
   additionalManifestEntries: [
     { url: '/_offline', revision: null },
     { url: '/ventas/RegistrarPedido', revision: null },
+    { url: '/ventas/HistorialPedidosOffline', revision: null },
     { url: '/inicio', revision: null },
     { url: '/login', revision: null },
     { url: '/', revision: null },
@@ -26,7 +27,7 @@ const withPWA = require('next-pwa')({
   runtimeCaching: [
     {
       // ✅ PÁGINAS PRINCIPALES - CACHE FIRST AGRESIVO
-      urlPattern: /^https?:\/\/[^\/]+\/(ventas\/RegistrarPedido|inicio|login|$)(\?.*)?$/,
+      urlPattern: /^https?:\/\/[^\/]+\/(ventas\/RegistrarPedido|ventas\/HistorialPedidosOffline|inicio|login|$)(\?.*)?$/,
       handler: 'CacheFirst',
       options: {
         cacheName: 'critical-pages',

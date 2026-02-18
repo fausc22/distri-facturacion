@@ -96,16 +96,11 @@ export default function FiltrosHistorialVentas({
     setBuscandoCliente(true);
     try {
       const response = await axiosAuth.get('/ventas/buscar-por-cliente', {
-        params: { busqueda: textoBusqueda }
+        params: { busqueda: textoBusqueda, pagina: 1, porPagina: 50 }
       });
 
-      if (response.data.success) {
-        console.log(`🔍 Encontradas ${response.data.count} ventas para "${textoBusqueda}"`);
-        
-        // Llamar callback con resultados
-        if (onBusquedaCliente) {
-          onBusquedaCliente(response.data.data);
-        }
+      if (response.data.success && onBusquedaCliente) {
+        onBusquedaCliente(response.data.data);
       }
     } catch (error) {
       console.error('Error buscando cliente:', error);
