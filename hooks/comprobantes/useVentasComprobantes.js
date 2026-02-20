@@ -24,13 +24,14 @@ export const useVentasComprobantes = () => {
   const cargarVentas = async () => {
     try {
       setLoading(true);
-      console.log('📊 Cargando ventas para comprobantes...');
 
-      const response = await axiosAuth.get('/ventas/obtener-ventas');
-      
-      if (response.data && Array.isArray(response.data)) {
-        // ✅ El backend ya incluye verificación de archivos físicos
-        const ventasProcesadas = response.data.map(venta => ({
+      const response = await axiosAuth.get('/ventas/obtener-ventas', {
+        params: { pagina: 1, porPagina: 200 }
+      });
+
+      const rawData = response.data?.data ?? (Array.isArray(response.data) ? response.data : []);
+      if (response.data && (response.data.success || Array.isArray(response.data))) {
+        const ventasProcesadas = rawData.map(venta => ({
           ...venta,
           // Usar el campo calculado del backend que verifica archivo físico
           tieneComprobante: venta.tieneComprobante || venta.archivoExiste || !!venta.comprobante_path,
@@ -39,20 +40,7 @@ export const useVentasComprobantes = () => {
         }));
 
         setVentas(ventasProcesadas);
-        console.log(`✅ ${ventasProcesadas.length} ventas cargadas`);
-        
-        // Log para debug mejorado
-        const conComprobante = ventasProcesadas.filter(v => v.tieneComprobante).length;
-        const conComprobanteBD = ventasProcesadas.filter(v => v.comprobanteEnBD).length;
-        const conArchivoReal = ventasProcesadas.filter(v => v.archivoExiste).length;
-        
-        console.log(`📋 Debug comprobantes detallado:`);
-        console.log(`   - En BD: ${conComprobanteBD}`);
-        console.log(`   - Archivo real: ${conArchivoReal}`);
-        console.log(`   - Estado final: ${conComprobante}`);
-        
       } else {
-        console.error('❌ Formato de respuesta inesperado:', response.data);
         setVentas([]);
         toast.error('Error en el formato de datos recibidos');
       }

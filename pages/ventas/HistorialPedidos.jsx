@@ -5,11 +5,11 @@ import useAuth from '../../hooks/useAuth';
 
 // Hooks personalizados
 import { useHistorialPedidos } from '../../hooks/pedidos/useHistorialPedidos';
-import { usePaginacion } from '../../hooks/usePaginacion';
 import { useEditarPedido } from '../../hooks/pedidos/useEditarPedido';
 import { useGenerarPDFPedido } from 'hooks/pedidos/useGenerarPdfPedido';
 import { useAnularPedido } from '../../hooks/pedidos/useAnularPedido';
 import { useFacturacion } from 'hooks/pedidos/useFacturacion';
+import { useConnectionContext } from '../../context/ConnectionContext';
 // Componentes
 import TablaPedidos from '../../components/pedidos/TablaPedidos';
 import FiltrosHistorialPedidos from '../../components/pedidos/FiltrosHistorialPedidos';
@@ -46,6 +46,7 @@ function HistorialPedidosContent() {
 
   // Hook de autenticación
   const { user, loading: authLoading } = useAuth();
+  const { modoOffline } = useConnectionContext();
 
   // Hook para anular pedidos
   const { loading: loadingAnular, anularPedido } = useAnularPedido();
@@ -80,50 +81,38 @@ function HistorialPedidosContent() {
   // Determinar si debe filtrar por empleado
   const filtroEmpleado = user && user.rol !== 'GERENTE' ? user.id : null;
 
-  // Hook para historial de pedidos
-  const { 
+  const {
     pedidos,
     pedidosOriginales,
-    selectedPedidos, 
-    loading, 
+    totalPedidos,
+    paginaActual,
+    porPagina,
+    selectedPedidos,
+    loading,
     filtros,
-    handleSelectPedido, 
-    handleSelectAllPedidos, 
+    handleSelectPedido,
+    handleSelectAllPedidos,
     clearSelection,
     cambiarEstadoMultiple,
     eliminarMultiple,
     cargarPedidos,
+    cargarPagina,
     actualizarFiltros,
     limpiarFiltros,
     getEstadisticas
   } = useHistorialPedidos(filtroEmpleado);
 
-  // Effect para cargar pedidos
-  useEffect(() => {
-    if (!authLoading && user) {
-      console.log('🔄 Usuario cargado, forzando recarga de pedidos:', {
-        usuario: user.nombre,
-        rol: user.rol,
-        filtroCalculado: user.rol !== 'GERENTE' ? user.id : null
-      });
-      
-      setTimeout(() => {
-        cargarPedidos();
-      }, 100);
-    }
-  }, [user, authLoading]);
-  
-  // Hook de paginación
-  const {
-    datosActuales: pedidosActuales,
-    paginaActual,
-    registrosPorPagina,
-    totalPaginas,
-    indexOfPrimero,
-    indexOfUltimo,
-    cambiarPagina,
-    cambiarRegistrosPorPagina
-  } = usePaginacion(pedidos, 10);
+  const totalPaginas = Math.max(1, Math.ceil(totalPedidos / porPagina));
+  const indexOfPrimero = (paginaActual - 1) * porPagina;
+  const indexOfUltimo = Math.min(paginaActual * porPagina, totalPedidos);
+
+  const cambiarPagina = (numeroPagina) => {
+    cargarPagina(numeroPagina);
+  };
+
+  const cambiarRegistrosPorPagina = (cantidad) => {
+    cargarPagina(1, cantidad);
+  };
 
   const {
     selectedPedido,
@@ -173,6 +162,11 @@ function HistorialPedidosContent() {
 
   // FUNCIÓN para cambiar estado de pedido
   const handleCambiarEstadoPedido = async (nuevoEstado) => {
+    if (modoOffline) {
+      toast.error('Cambio de estado no disponible sin conexión');
+      return;
+    }
+
     if (!selectedPedido) {
       toast.error("No hay pedido seleccionado");
       return;
@@ -417,6 +411,11 @@ function HistorialPedidosContent() {
 
   // Handler para actualizar cliente del pedido
   const handleActualizarClientePedido = async (nuevoCliente) => {
+    if (modoOffline) {
+      toast.error('Cambio de cliente no disponible sin conexión');
+      throw new Error('Sin conexión');
+    }
+
     if (!selectedPedido) {
       toast.error('No hay pedido seleccionado');
       throw new Error('No hay pedido seleccionado');
@@ -534,10 +533,10 @@ function HistorialPedidosContent() {
         />
         
         <TablaPedidos
-          pedidos={pedidosActuales}
+          pedidos={pedidos}
           selectedPedidos={selectedPedidos}
           onSelectPedido={handleSelectPedido}
-          onSelectAll={() => handleSelectAllPedidos(pedidosActuales)}
+          onSelectAll={() => handleSelectAllPedidos(pedidos)}
           onRowDoubleClick={handleRowDoubleClick}
           loading={loading}
           mostrarPermisos={true}
@@ -547,8 +546,9 @@ function HistorialPedidosContent() {
         
         <Paginacion
           datosOriginales={pedidos}
+          totalRegistros={totalPedidos}
           paginaActual={paginaActual}
-          registrosPorPagina={registrosPorPagina}
+          registrosPorPagina={porPagina}
           totalPaginas={totalPaginas}
           indexOfPrimero={indexOfPrimero}
           indexOfUltimo={indexOfUltimo}

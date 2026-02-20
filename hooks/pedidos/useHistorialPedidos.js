@@ -2,13 +2,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
+import { offlineManager, getAppMode } from '../../utils/offlineManager';
+import { useConnectionContext } from '../../context/ConnectionContext';
 
 export function useHistorialPedidos(filtroEmpleado = null) {
   const [pedidosOriginales, setPedidosOriginales] = useState([]); // NUEVO: Pedidos sin filtrar
   const [selectedPedidos, setSelectedPedidos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtros, setFiltros] = useState({
-    busquedaTexto: '', 
+    busquedaTexto: '',
     estado: '',
     cliente: '',
     ciudad: '',
@@ -16,30 +18,65 @@ export function useHistorialPedidos(filtroEmpleado = null) {
     fechaDesde: '',
     fechaHasta: ''
   });
-  
-  useEffect(() => {
-    cargarPedidos();
-  }, [filtroEmpleado]); // Recargar cuando cambie el filtro de empleado
+  const [totalPedidos, setTotalPedidos] = useState(0);
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [porPagina, setPorPagina] = useState(50);
+  const [usarSoloRecientes, setUsarSoloRecientes] = useState(true);
+  const { modoOffline } = useConnectionContext();
+  const isPWA = getAppMode() === 'pwa';
 
-  // Cargar pedidos según el rol del usuario
-  const cargarPedidos = async () => {
+  const cargarPedidos = async (filtrosParaServidor = null, opts = {}) => {
+    const usarTodoElHistorial = opts.usarTodoElHistorial === true;
+    const pagina = opts.pagina !== undefined ? opts.pagina : paginaActual;
+    const porPaginaParam = opts.porPagina !== undefined ? opts.porPagina : porPagina;
+    if (usarTodoElHistorial) setUsarSoloRecientes(false);
+
     setLoading(true);
     try {
-      let url = `/pedidos/obtener-pedidos`;
-      
-      // Si se especifica un filtro de empleado (para vendedores), agregarlo a la URL
-      if (filtroEmpleado) {
-        url += `?empleado_id=${filtroEmpleado}`;
+      const isManager = !filtroEmpleado;
+      if (modoOffline && isPWA) {
+        const pedidosOffline = offlineManager.getPedidosCache({
+          empleadoId: filtroEmpleado,
+          isManager,
+          maxDays: 30
+        });
+        setPedidosOriginales(pedidosOffline);
+        setTotalPedidos(pedidosOffline.length);
+        return;
       }
-      
+
+      const params = new URLSearchParams();
+      params.set('pagina', String(pagina));
+      params.set('porPagina', String(porPaginaParam));
+      if (filtroEmpleado) params.set('empleado_id', filtroEmpleado);
+
+      const f = filtrosParaServidor || filtros;
+      if (f.fechaDesde) params.set('fechaDesde', f.fechaDesde);
+      if (f.fechaHasta) params.set('fechaHasta', f.fechaHasta);
+      const clienteVal = f.cliente || f.busquedaTexto;
+      if (clienteVal) params.set('cliente', clienteVal);
+      if (f.estado) params.set('estado', f.estado);
+      if (f.ciudad) params.set('ciudad', f.ciudad);
+      if (f.empleado) params.set('empleado_nombre', f.empleado);
+
+      if (!usarTodoElHistorial && usarSoloRecientes) {
+        params.set('dias', '30');
+      }
+
+      const url = `/pedidos/obtener-pedidos?${params.toString()}`;
       const response = await axiosAuth.get(url);
-      
+
       if (response.data.success) {
-        setPedidosOriginales(response.data.data); // Guardar pedidos originales
-        console.log(`📋 ${response.data.data.length} pedidos cargados`);
+        const data = response.data.data || [];
+        setPedidosOriginales(data);
+        setTotalPedidos(response.data.total ?? 0);
+        setPaginaActual(response.data.pagina ?? pagina);
+        setPorPagina(response.data.porPagina ?? porPaginaParam);
+        if (isPWA) offlineManager.savePedidosCache(data, 30);
       } else {
         toast.error(response.data.message || 'Error al cargar pedidos');
         setPedidosOriginales([]);
+        setTotalPedidos(0);
       }
     } catch (error) {
       console.error("❌ Error completo al obtener pedidos:", {
@@ -49,92 +86,42 @@ export function useHistorialPedidos(filtroEmpleado = null) {
         url: error.config?.url,
         fullUrl: error.config?.baseURL + error.config?.url
       });
-      toast.error("No se pudieron cargar los pedidos");
-      setPedidosOriginales([]);
+      if (isPWA) {
+        const pedidosOffline = offlineManager.getPedidosCache({
+          empleadoId: filtroEmpleado,
+          isManager: !filtroEmpleado,
+          maxDays: 30
+        });
+        if (pedidosOffline.length > 0) {
+          toast('Mostrando historial offline (últimos 30 días)', { icon: '📴' });
+          setPedidosOriginales(pedidosOffline);
+          setTotalPedidos(pedidosOffline.length);
+        } else {
+          toast.error("No se pudieron cargar los pedidos");
+          setPedidosOriginales([]);
+          setTotalPedidos(0);
+        }
+      } else {
+        toast.error("No se pudieron cargar los pedidos");
+        setPedidosOriginales([]);
+        setTotalPedidos(0);
+      }
     } finally {
       setLoading(false);
     }
   };
 
-  // Función mejorada para aplicar filtros usando useMemo
+  useEffect(() => {
+    cargarPedidos(null, {});
+  }, [filtroEmpleado, modoOffline, isPWA]);
+
+  // Búsqueda rápida (busquedaTexto) se filtra en cliente sobre la página actual para no disparar request por tecla
   const pedidosFiltrados = useMemo(() => {
-    if (!pedidosOriginales.length) return [];
-
-    let resultado = [...pedidosOriginales];
-
-    // ✅ NUEVO FILTRO: Búsqueda por texto en nombre de cliente
-    if (filtros.busquedaTexto) {
-      const textoBusqueda = filtros.busquedaTexto.toLowerCase().trim();
-      resultado = resultado.filter(pedido => 
-        pedido.cliente_nombre?.toLowerCase().includes(textoBusqueda)
-      );
-    }
-
-    // Filtro por estado
-    if (filtros.estado) {
-      resultado = resultado.filter(pedido => 
-        pedido.estado === filtros.estado
-      );
-    }
-
-    // Filtro por cliente (búsqueda parcial, insensible a mayúsculas)
-    if (filtros.cliente) {
-      const clienteBusqueda = filtros.cliente.toLowerCase().trim();
-      resultado = resultado.filter(pedido => 
-        pedido.cliente_nombre?.toLowerCase().includes(clienteBusqueda)
-      );
-    }
-
-    // Filtro por ciudad (búsqueda parcial, insensible a mayúsculas)
-    if (filtros.ciudad) {
-      const ciudadBusqueda = filtros.ciudad.toLowerCase().trim();
-      resultado = resultado.filter(pedido => 
-        pedido.cliente_ciudad?.toLowerCase().includes(ciudadBusqueda)
-      );
-    }
-
-    // Filtro por empleado (búsqueda exacta)
-    if (filtros.empleado) {
-      resultado = resultado.filter(pedido => 
-        pedido.empleado_nombre === filtros.empleado
-      );
-    }
-
-    // Filtro por rango de fechas
-    if (filtros.fechaDesde || filtros.fechaHasta) {
-      resultado = resultado.filter(pedido => {
-        if (!pedido.fecha) return false;
-        
-        // Convertir fecha del pedido a Date
-        const fechaPedido = new Date(pedido.fecha);
-        const fechaDesde = filtros.fechaDesde ? new Date(filtros.fechaDesde) : null;
-        const fechaHasta = filtros.fechaHasta ? new Date(filtros.fechaHasta) : null;
-
-        // Ajustar fechaHasta para incluir todo el día
-        if (fechaHasta) {
-          fechaHasta.setHours(23, 59, 59, 999);
-        }
-
-        // Ajustar fechaDesde para empezar desde el inicio del día
-        if (fechaDesde) {
-          fechaDesde.setHours(0, 0, 0, 0);
-        }
-
-        if (fechaDesde && fechaHasta) {
-          return fechaPedido >= fechaDesde && fechaPedido <= fechaHasta;
-        } else if (fechaDesde) {
-          return fechaPedido >= fechaDesde;
-        } else if (fechaHasta) {
-          return fechaPedido <= fechaHasta;
-        }
-
-        return true;
-      });
-    }
-
-    console.log(`🔍 Filtros aplicados: ${resultado.length} de ${pedidosOriginales.length} pedidos`);
-    return resultado;
-  }, [pedidosOriginales, filtros]);
+    if (!pedidosOriginales.length) return pedidosOriginales;
+    if (!filtros.busquedaTexto || !filtros.busquedaTexto.trim()) return pedidosOriginales;
+    const texto = filtros.busquedaTexto.toLowerCase().trim();
+    return pedidosOriginales.filter(p => p.cliente_nombre?.toLowerCase().includes(texto));
+  }, [pedidosOriginales, filtros.busquedaTexto]);
 
   // Seleccionar/deseleccionar un pedido individual
   const handleSelectPedido = (pedidoId) => {
@@ -164,16 +151,26 @@ export function useHistorialPedidos(filtroEmpleado = null) {
     setSelectedPedidos([]);
   };
 
-  // Actualizar filtros
   const actualizarFiltros = (nuevosFiltros) => {
     setFiltros(nuevosFiltros);
-    // Limpiar selección cuando se cambian los filtros
     clearSelection();
+    const tieneFiltrosServidor = !!(
+      nuevosFiltros.fechaDesde ||
+      nuevosFiltros.fechaHasta ||
+      nuevosFiltros.cliente ||
+      nuevosFiltros.busquedaTexto ||
+      nuevosFiltros.estado ||
+      nuevosFiltros.ciudad ||
+      nuevosFiltros.empleado
+    );
+    if (tieneFiltrosServidor) {
+      cargarPedidos(nuevosFiltros, { usarTodoElHistorial: true, pagina: 1 });
+    }
   };
 
   const limpiarFiltros = () => {
     setFiltros({
-      busquedaTexto: '', 
+      busquedaTexto: '',
       estado: '',
       cliente: '',
       ciudad: '',
@@ -182,6 +179,15 @@ export function useHistorialPedidos(filtroEmpleado = null) {
       fechaHasta: ''
     });
     clearSelection();
+    cargarPedidos(null, { usarTodoElHistorial: true, pagina: 1 });
+  };
+
+  const cargarPagina = (numeroPagina, nuevaPorPagina = null) => {
+    cargarPedidos(filtros, {
+      usarTodoElHistorial: true,
+      pagina: numeroPagina,
+      porPagina: nuevaPorPagina !== null ? nuevaPorPagina : porPagina
+    });
   };
 
   // Cambiar estado de múltiples pedidos
@@ -215,14 +221,10 @@ export function useHistorialPedidos(filtroEmpleado = null) {
 
       if (exitosos > 0) {
         toast.success(`${exitosos} pedidos actualizados a "${nuevoEstado}"`);
-        await cargarPedidos(); // Recargar lista
-        clearSelection(); // Limpiar selección
+        await cargarPedidos(filtros, { pagina: paginaActual, porPagina });
+        clearSelection();
       }
-      
-      if (fallidos > 0) {
-        toast.error(`${fallidos} pedidos no se pudieron actualizar`);
-      }
-
+      if (fallidos > 0) toast.error(`${fallidos} pedidos no se pudieron actualizar`);
       return exitosos > 0;
     } catch (error) {
       console.error('Error en cambio masivo de estado:', error);
@@ -262,13 +264,10 @@ export function useHistorialPedidos(filtroEmpleado = null) {
 
       if (exitosos > 0) {
         toast.success(`${exitosos} pedidos eliminados`);
-        await cargarPedidos(); // Recargar lista
-        clearSelection(); // Limpiar selección
+        await cargarPedidos(filtros, { pagina: paginaActual, porPagina });
+        clearSelection();
       }
-      
-      if (fallidos > 0) {
-        toast.error(`${fallidos} pedidos no se pudieron eliminar`);
-      }
+      if (fallidos > 0) toast.error(`${fallidos} pedidos no se pudieron eliminar`);
 
       return exitosos > 0;
     } catch (error) {
@@ -280,15 +279,13 @@ export function useHistorialPedidos(filtroEmpleado = null) {
     }
   };
 
-  // Obtener estadísticas rápidas
   const getEstadisticas = () => {
-    const total = pedidosOriginales.length;
+    const total = totalPedidos;
     const filtrado = pedidosFiltrados.length;
     const exportados = pedidosFiltrados.filter(p => p.estado === 'Exportado').length;
     const facturados = pedidosFiltrados.filter(p => p.estado === 'Facturado').length;
     const anulados = pedidosFiltrados.filter(p => p.estado === 'Anulado').length;
     const totalMonto = pedidosFiltrados.reduce((acc, p) => acc + parseFloat(p.total || 0), 0);
-
     return {
       total,
       filtrado,
@@ -306,17 +303,16 @@ export function useHistorialPedidos(filtroEmpleado = null) {
   };
 
   return {
-    // Estado principal
-    pedidos: pedidosFiltrados, // Ahora devolvemos los pedidos ya filtrados
-    pedidosOriginales, // NUEVO: Pedidos sin filtrar para estadísticas y empleados
+    pedidos: pedidosFiltrados,
+    pedidosOriginales,
+    totalPedidos,
+    paginaActual,
+    porPagina,
     selectedPedidos,
     loading,
     filtros,
-    
-    // Funciones de carga
     cargarPedidos,
-    
-    // Funciones de selección
+    cargarPagina,
     handleSelectPedido,
     handleSelectAllPedidos,
     clearSelection,

@@ -66,6 +66,12 @@ export default function OfflinePage() {
         >
           Ir al inicio
         </Link>
+        <Link
+          href="/ventas/HistorialPedidosOffline"
+          className="mt-2 block text-orange-600 hover:text-orange-700 font-medium text-sm"
+        >
+          Ir al historial offline
+        </Link>
       </div>
     </div>
   );

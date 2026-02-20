@@ -432,6 +432,10 @@ async function verificarConexionSimple(timeout = 5000) {
 
 export function useOfflinePedidos() {
   const [pedidosPendientes, setPedidosPendientes] = useState([]);
+  const [edicionesPendientes, setEdicionesPendientes] = useState([]);
+  const [edicionesConflicto, setEdicionesConflicto] = useState([]);
+  const [edicionesFallidasPermanentes, setEdicionesFallidasPermanentes] = useState([]);
+  const [lastSyncSummary, setLastSyncSummary] = useState(null);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ actual: 0, total: 0 });
   
@@ -444,6 +448,7 @@ export function useOfflinePedidos() {
   useEffect(() => {
     if (isPWA) {
       loadPedidosPendientes();
+      loadEdicionesPendientes();
     }
     // ⚠️ NO agregar listeners de eventos online/offline
     // La sincronización es SOLO manual
@@ -454,6 +459,16 @@ export function useOfflinePedidos() {
     // ✅ FILTRAR PEDIDOS FALLIDOS PERMANENTES
     const pedidosActivos = pedidos.filter(p => p.estado !== 'fallido_permanente');
     setPedidosPendientes(pedidosActivos);
+  };
+
+  const loadEdicionesPendientes = () => {
+    const queue = offlineManager.getPendingPedidoEdits({ includeAllStatuses: true });
+    const activas = queue.filter((op) => ['pending', 'processing', 'failed_retryable'].includes(op.status || 'pending'));
+    const conflictos = queue.filter((op) => op.status === 'conflict');
+    const permanentes = queue.filter((op) => op.status === 'failed_permanent');
+    setEdicionesPendientes(activas);
+    setEdicionesConflicto(conflictos);
+    setEdicionesFallidasPermanentes(permanentes);
   };
 
   // ✅ GUARDAR PEDIDO OFFLINE
@@ -511,12 +526,16 @@ export function useOfflinePedidos() {
       }
     }
 
-    // Recargar pedidos pendientes antes de sincronizar
+    // Recargar pendientes antes de sincronizar
     loadPedidosPendientes();
+    loadEdicionesPendientes();
     const pedidosActuales = offlineManager.getPedidosPendientes().filter(p => p.estado !== 'fallido_permanente');
 
-    if (pedidosActuales.length === 0) {
-      toast.info('No hay pedidos pendientes');
+    const queueCompacted = offlineManager.compactPendingPedidoEdits();
+    offlineManager.savePendingPedidoEdits(queueCompacted);
+    const edicionesActuales = queueCompacted.filter(op => ['pending', 'failed_retryable', 'processing'].includes(op.status || 'pending'));
+    if (pedidosActuales.length === 0 && edicionesActuales.length === 0) {
+      toast.info('No hay pedidos ni ediciones pendientes');
       return { success: true, count: 0 };
     }
 
@@ -532,7 +551,7 @@ export function useOfflinePedidos() {
     try {
       console.log(`🔄 [useOfflinePedidos] Sincronizando ${pedidosActuales.length} pedidos pendientes...`);
       
-      // Procesar pedidos UNO POR UNO (no en paralelo para evitar race conditions)
+      // Procesar pedidos nuevos UNO POR UNO (no en paralelo para evitar race conditions)
       for (let i = 0; i < pedidosActuales.length; i++) {
         const pedido = pedidosActuales[i];
         setSyncProgress({ actual: i + 1, total: pedidosActuales.length });
@@ -631,15 +650,149 @@ export function useOfflinePedidos() {
         }
       }
 
+      // ✅ Sincronizar ediciones offline de pedidos existentes (agrupadas por pedido y orden temporal)
+      let edicionesExitosas = 0;
+      let edicionesFallidas = 0;
+      let conflictos = 0;
+      const queue = offlineManager.getPendingPedidoEdits({ includeAllStatuses: true })
+        .filter(op => ['pending', 'failed_retryable', 'processing'].includes(op.status || 'pending'))
+        .sort((a, b) => new Date(a.createdAt || a.clientTs).getTime() - new Date(b.createdAt || b.clientTs).getTime());
+
+      // Agrupar por pedido para procesar en orden determinístico
+      const grouped = queue.reduce((acc, op) => {
+        const key = String(op.pedidoId);
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(op);
+        return acc;
+      }, {});
+
+      const pedidoIds = Object.keys(grouped).sort((a, b) => Number(a) - Number(b));
+
+      for (const pedidoId of pedidoIds) {
+        const ops = grouped[pedidoId];
+        for (const op of ops) {
+        try {
+          offlineManager.setPedidoEditStatus(op.opId, 'processing', {
+            processingAt: new Date().toISOString()
+          });
+
+          if (op.type === 'ADD_ITEM') {
+            const { product, localItemId } = op.payload || {};
+            const payload = { ...product };
+            delete payload.id; // id local temporal
+            payload.__offline_meta = {
+              op_id: op.opId,
+              client_ts: op.clientTs,
+              base_version: op.baseVersion
+            };
+
+            const response = await axiosAuth.post(`/pedidos/agregar-producto/${op.pedidoId}`, payload);
+            if (!response.data.success) {
+              throw new Error(response.data.message || 'No se pudo agregar producto');
+            }
+            const serverItemId = response.data?.data?.producto?.insertId;
+            if (serverItemId && localItemId) {
+              offlineManager.setEditIdMapping(op.pedidoId, localItemId, serverItemId);
+            }
+          } else if (op.type === 'UPDATE_ITEM') {
+            const { itemId, changes } = op.payload || {};
+            let targetItemId = itemId;
+            if (String(itemId).startsWith('off_')) {
+              const mapped = offlineManager.getEditIdMapping(op.pedidoId, itemId);
+              if (!mapped) {
+                // Si no hay mapping todavía, se reintenta en el próximo ciclo.
+                offlineManager.markPedidoEditAsFailed(op.opId, 'Pendiente de mapeo local->servidor');
+                edicionesFallidas++;
+                continue;
+              }
+              targetItemId = mapped;
+            }
+            const payload = {
+              ...(changes || {}),
+              __offline_meta: {
+                op_id: op.opId,
+                client_ts: op.clientTs,
+                base_version: op.baseVersion
+              }
+            };
+            const response = await axiosAuth.put(`/pedidos/actualizar-producto/${targetItemId}`, payload);
+            if (!response.data.success) {
+              throw new Error(response.data.message || 'No se pudo actualizar producto');
+            }
+          } else if (op.type === 'DELETE_ITEM') {
+            const { itemId } = op.payload || {};
+            let targetItemId = itemId;
+            if (!itemId) {
+              offlineManager.setPedidoEditStatus(op.opId, 'done', { completedAt: new Date().toISOString() });
+              offlineManager.removePendingPedidoEdit(op.opId);
+              continue;
+            }
+            if (String(itemId).startsWith('off_')) {
+              const mapped = offlineManager.getEditIdMapping(op.pedidoId, itemId);
+              if (!mapped) {
+                offlineManager.setPedidoEditStatus(op.opId, 'done', { completedAt: new Date().toISOString() });
+                offlineManager.removePendingPedidoEdit(op.opId);
+                continue;
+              }
+              targetItemId = mapped;
+            }
+            const response = await axiosAuth.delete(`/pedidos/eliminar-producto/${targetItemId}`, {
+              data: {
+                __offline_meta: {
+                  op_id: op.opId,
+                  client_ts: op.clientTs,
+                  base_version: op.baseVersion
+                }
+              }
+            });
+            if (!response.data.success) {
+              throw new Error(response.data.message || 'No se pudo eliminar producto');
+            }
+          } else if (op.type === 'UPDATE_OBSERVACIONES') {
+            const { observaciones } = op.payload || {};
+            const response = await axiosAuth.put(`/pedidos/actualizar-observaciones/${op.pedidoId}`, {
+              observaciones: observaciones || 'sin observaciones',
+              __offline_meta: {
+                op_id: op.opId,
+                client_ts: op.clientTs,
+                base_version: op.baseVersion
+              }
+            });
+            if (!response.data.success) {
+              throw new Error(response.data.message || 'No se pudieron actualizar observaciones');
+            }
+          }
+
+          offlineManager.setPedidoEditStatus(op.opId, 'done', {
+            completedAt: new Date().toISOString(),
+            lastError: null
+          });
+          offlineManager.removePendingPedidoEdit(op.opId);
+          edicionesExitosas++;
+        } catch (error) {
+          const status = error.response?.status;
+          if (status === 403 || status === 409 || error.response?.data?.code === 'PEDIDO_NO_EDITABLE') {
+            conflictos++;
+            offlineManager.markPedidoEditConflict(op.opId, error.response?.data?.message || error.message || 'Conflicto');
+          } else {
+            offlineManager.markPedidoEditAsFailed(op.opId, error.response?.data?.message || error.message || 'Error de sincronización');
+          }
+          edicionesFallidas++;
+        }
+      }
+        offlineManager.clearEditIdMappingsForPedido(pedidoId);
+      }
+
       // Recargar pedidos pendientes después de sincronizar
       loadPedidosPendientes();
+      loadEdicionesPendientes();
       setSyncProgress({ actual: 0, total: 0 });
 
       // Auto-actualización de catálogo después de sincronizar
-      if (exitosos > 0) {
+      if (exitosos > 0 || edicionesExitosas > 0) {
         const mensaje = duplicados > 0 
-          ? `${exitosos} pedidos procesados (${duplicados} ya existían)`
-          : `${exitosos} pedidos sincronizados correctamente`;
+          ? `${exitosos} pedidos procesados (${duplicados} ya existían), ${edicionesExitosas} ediciones aplicadas`
+          : `${exitosos} pedidos sincronizados, ${edicionesExitosas} ediciones aplicadas`;
         toast.success(mensaje);
         
         // Actualizar catálogo después de sincronizar (no bloqueante)
@@ -647,26 +800,48 @@ export function useOfflinePedidos() {
         updateCatalogAfterSync().catch(() => {
           console.log('⚠️ [useOfflinePedidos] No se pudo actualizar catálogo después de sincronización');
         });
+
+        // Refrescar cache del historial de pedidos (últimos 7 días) en segundo plano
+        axiosAuth.get('/pedidos/obtener-pedidos?dias=7')
+          .then((response) => {
+            if (response.data?.success) {
+              offlineManager.savePedidosCache(response.data.data, 7);
+            }
+          })
+          .catch(() => {
+            console.log('⚠️ [useOfflinePedidos] No se pudo refrescar cache de historial');
+          });
       }
 
-      if (fallidos > 0) {
+      if (fallidos > 0 || edicionesFallidas > 0) {
         // ⚠️ MEJORADO: Mensaje más informativo
-        if (fallidos === pedidosActuales.length) {
+        if (fallidos === pedidosActuales.length && edicionesFallidas > 0) {
+          toast.error(`Hubo fallos en pedidos y ediciones. Reintente cuando la conexión sea estable.`, { duration: 5000 });
+        } else if (fallidos === pedidosActuales.length && pedidosActuales.length > 0) {
           // Todos fallaron - probablemente no hay conexión
           toast.error(`No se pudo sincronizar ningún pedido. Verifique su conexión a internet.`, { duration: 5000 });
         } else {
           // Algunos fallaron
-          toast.error(`${fallidos} pedidos no se pudieron sincronizar. Los demás se procesaron correctamente.`, { duration: 5000 });
+          toast.error(`${fallidos} pedidos y ${edicionesFallidas} ediciones no se pudieron sincronizar.`, { duration: 5000 });
         }
       }
 
-      return { 
-        success: exitosos > 0, 
+      if (conflictos > 0) {
+        toast.error(`${conflictos} ediciones entraron en conflicto (pedido facturado/anulado o cambios en servidor).`, { duration: 6000 });
+      }
+
+      const summary = { 
+        success: (exitosos + edicionesExitosas) > 0, 
         exitosos, 
         fallidos, 
+        edicionesExitosas,
+        edicionesFallidas,
+        conflictos,
         duplicados,
-        total: pedidosActuales.length 
+        total: pedidosActuales.length + edicionesActuales.length
       };
+      setLastSyncSummary(summary);
+      return summary;
 
     } catch (error) {
       console.error('❌ [useOfflinePedidos] Error crítico en sincronización:', error);
@@ -699,15 +874,34 @@ export function useOfflinePedidos() {
   return {
     // Estados
     pedidosPendientes,
+    edicionesPendientes,
+    edicionesConflicto,
+    edicionesFallidasPermanentes,
+    lastSyncSummary,
     syncing,
     syncProgress,
     hasPendientes: pedidosPendientes.length > 0,
     cantidadPendientes: pedidosPendientes.length,
+    hasEdicionesPendientes: edicionesPendientes.length > 0,
+    cantidadEdicionesPendientes: edicionesPendientes.length,
+    cantidadEdicionesConflicto: edicionesConflicto.length,
+    cantidadEdicionesFallidasPermanentes: edicionesFallidasPermanentes.length,
     isPWA,
 
     // Funciones
     savePedidoOffline,
     syncPedidosPendientes,
-    loadPedidosPendientes
+    loadPedidosPendientes,
+    loadEdicionesPendientes,
+    retryConflictedEdits: () => {
+      const retried = offlineManager.retryConflictedEdits();
+      loadEdicionesPendientes();
+      return retried;
+    },
+    discardPendingEdit: (opId) => {
+      const ok = offlineManager.discardPedidoEdit(opId);
+      loadEdicionesPendientes();
+      return ok;
+    }
   };
 }

@@ -1,10 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MdFilterList, MdClear, MdExpandMore, MdExpandLess, MdSearch } from 'react-icons/md';
 import { axiosAuth } from '../../utils/apiClient';
 
-export default function FiltrosHistorialPedidos({ 
-  filtros, 
-  onFiltrosChange, 
+export default function FiltrosHistorialPedidos({
+  filtros,
+  onFiltrosChange,
   onLimpiarFiltros,
   user,
   totalPedidos = 0,
@@ -12,74 +12,55 @@ export default function FiltrosHistorialPedidos({
   pedidosOriginales = []
 }) {
   const [expandido, setExpandido] = useState(false);
-
-  // Estados únicos extraídos de los pedidos
   const [ciudadesUnicas, setCiudadesUnicas] = useState([]);
   const [clientesUnicos, setClientesUnicos] = useState([]);
   const [empleadosUnicos, setEmpleadosUnicos] = useState([]);
   const [loadingDatos, setLoadingDatos] = useState(false);
+  const ultimaLongitudProcesada = useRef(0);
 
   const esGerente = user?.rol === 'GERENTE';
 
-  // Cargar datos únicos para autocompletado
+  // Solo cargar/extraer cuando se abre el panel y cuando la cantidad de pedidos cambió (evita recalcular en cada render)
   useEffect(() => {
-    if (expandido) {
-      cargarDatosUnicos();
-      if (esGerente && pedidosOriginales.length > 0) {
-        extraerEmpleadosUnicos();
+    if (!expandido) return;
+    const len = pedidosOriginales?.length ?? 0;
+    const yaProcesado = ultimaLongitudProcesada.current === len && len > 0;
+    if (yaProcesado) return;
+    ultimaLongitudProcesada.current = len;
+
+    const cargarDatosUnicos = async () => {
+      setLoadingDatos(true);
+      try {
+        const response = await axiosAuth.get('/pedidos/datos-filtros');
+        if (response.data?.success) {
+          setCiudadesUnicas(response.data.data?.ciudades || []);
+          setClientesUnicos(response.data.data?.clientes || []);
+        }
+      } catch {
+        if (len > 0) {
+          const ciudades = [...new Set((pedidosOriginales || []).map(p => p.cliente_ciudad).filter(Boolean))].sort();
+          const clientes = [...new Set((pedidosOriginales || []).map(p => p.cliente_nombre).filter(Boolean))].sort();
+          setCiudadesUnicas(ciudades);
+          setClientesUnicos(clientes);
+        }
+      } finally {
+        setLoadingDatos(false);
       }
-    }
-  }, [expandido, pedidosOriginales, esGerente]);
+    };
 
-  const cargarDatosUnicos = async () => {
-    setLoadingDatos(true);
-    try {
-      const response = await axiosAuth.get('/pedidos/datos-filtros');
-      if (response.data.success) {
-        setCiudadesUnicas(response.data.data.ciudades || []);
-        setClientesUnicos(response.data.data.clientes || []);
-        console.log('📊 Datos cargados desde API:', response.data.meta);
-      }
-    } catch (error) {
-      console.error('Error cargando datos para filtros:', error);
-      if (pedidosOriginales.length > 0) {
-        extraerDatosDeLocal();
-      }
-    } finally {
-      setLoadingDatos(false);
-    }
-  };
+    const extraerEmpleadosUnicos = () => {
+      if (!pedidosOriginales?.length) return;
+      const empleados = [...new Set(
+        pedidosOriginales
+          .map(p => p.empleado_nombre)
+          .filter(n => n && n.trim() && n !== 'No especificado')
+      )].sort();
+      setEmpleadosUnicos(empleados);
+    };
 
-  const extraerEmpleadosUnicos = () => {
-    if (!pedidosOriginales || pedidosOriginales.length === 0) return;
-
-    const empleados = [...new Set(
-      pedidosOriginales
-        .map(pedido => pedido.empleado_nombre)
-        .filter(nombre => nombre && nombre.trim() !== '' && nombre !== 'No especificado')
-    )].sort();
-
-    setEmpleadosUnicos(empleados);
-    console.log('👥 Empleados únicos extraídos de pedidos:', empleados);
-  };
-
-  const extraerDatosDeLocal = () => {
-    const ciudades = [...new Set(
-      pedidosOriginales
-        .map(pedido => pedido.cliente_ciudad)
-        .filter(ciudad => ciudad && ciudad.trim() !== '' && ciudad !== 'No especificada')
-    )].sort();
-
-    const clientes = [...new Set(
-      pedidosOriginales
-        .map(pedido => pedido.cliente_nombre)
-        .filter(cliente => cliente && cliente.trim() !== '' && cliente !== 'Cliente no especificado')
-    )].sort();
-
-    setCiudadesUnicas(ciudades);
-    setClientesUnicos(clientes);
-    console.log('📊 Datos extraídos localmente:', { ciudades: ciudades.length, clientes: clientes.length });
-  };
+    cargarDatosUnicos();
+    if (esGerente && len > 0) extraerEmpleadosUnicos();
+  }, [expandido, pedidosOriginales?.length, esGerente]);
 
   const handleFiltroChange = (campo, valor) => {
     onFiltrosChange({

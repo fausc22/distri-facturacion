@@ -3,10 +3,9 @@ import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import useAuth from '../../hooks/useAuth';
 
-// Hooks personalizados
+// Hooks personalizados (paginación y filtros en servidor para evitar congelamientos)
 import { useHistorialVentas } from '../../hooks/ventas/useHistorialVentas';
 import { useFiltrosVentas } from '../../hooks/ventas/useFiltrosVentas';
-import { usePaginacion } from '../../hooks/usePaginacion';
 import { useEditarVenta } from '../../hooks/ventas/useEditarVenta';
 import { useComprobantes } from '../../hooks/ventas/useComprobantes';
 import { useGenerarPDFsVentas } from '../../hooks/ventas/useGenerarPDFsVentas';
@@ -39,39 +38,45 @@ function HistorialVentasContent() {
   const botonesAccionRef = useRef(null);
   const { user, loading: authLoading } = useAuth();
 
-  // Hooks personalizados
-  const { 
-    ventas, 
-    selectedVentas, 
-    loading, 
-    handleSelectVenta, 
-    handleSelectAllVentas, 
-    clearSelection, 
-    getVentasSeleccionadas, 
-    cargarVentas 
+  // Hooks personalizados (paginación en servidor)
+  const {
+    ventas,
+    totalVentas,
+    paginaActual,
+    porPagina,
+    selectedVentas,
+    loading,
+    handleSelectVenta,
+    handleSelectAllVentas,
+    clearSelection,
+    getVentasSeleccionadas,
+    cargarVentas,
+    cargarPagina
   } = useHistorialVentas();
-  
-  // Hook de filtros para ventas
-  const { 
-    filtros, 
-    ventasFiltradas, 
-    handleFiltrosChange, 
-    limpiarFiltros 
+
+  // Hook de filtros (solo estado del formulario; el filtrado se hace en el servidor)
+  const {
+    filtros,
+    handleFiltrosChange,
+    limpiarFiltros
   } = useFiltrosVentas(ventas);
 
-  // ✅ ACTUALIZADO: Usar ventasAMostrar en lugar de ventasFiltradas directamente
-  const ventasAMostrar = ventasDesdeBackend || ventasFiltradas;
-  
-  const {
-    datosActuales: ventasActuales,
-    paginaActual,
-    registrosPorPagina,
-    totalPaginas,
-    indexOfPrimero,
-    indexOfUltimo,
-    cambiarPagina,
-    cambiarRegistrosPorPagina
-  } = usePaginacion(ventasAMostrar, 10); // ✅ ACTUALIZADO
+  // Lista a mostrar: búsqueda por cliente (una página) o ventas de la página actual
+  const ventasAMostrar = ventasDesdeBackend !== null ? ventasDesdeBackend : ventas;
+  const totalParaPaginacion = ventasDesdeBackend !== null ? ventasDesdeBackend.length : totalVentas;
+  const totalPaginas = ventasDesdeBackend !== null ? 1 : Math.max(1, Math.ceil(totalVentas / porPagina));
+  const indexOfPrimero = ventasDesdeBackend !== null ? 0 : (paginaActual - 1) * porPagina;
+  const indexOfUltimo = ventasDesdeBackend !== null ? ventasDesdeBackend.length : Math.min(paginaActual * porPagina, totalVentas);
+
+  const cambiarPagina = (numeroPagina) => {
+    if (ventasDesdeBackend !== null) return;
+    cargarPagina(numeroPagina, filtros, { usarTodoElHistorial: true });
+  };
+
+  const cambiarRegistrosPorPagina = (cantidad) => {
+    if (ventasDesdeBackend !== null) return;
+    cargarVentas({ pagina: 1, porPagina: cantidad, filtros }, { usarTodoElHistorial: true });
+  };
 
   const {
     selectedVenta,
@@ -140,12 +145,9 @@ function HistorialVentasContent() {
     solicitando: solicitandoCAE 
   } = useSolicitarCAE();
 
-  // ✅ NUEVA FUNCIÓN: Handler para búsqueda de cliente desde backend
   const handleBusquedaCliente = (ventasEncontradas) => {
-    console.log('📥 Resultados de búsqueda recibidos:', ventasEncontradas.length);
     setVentasDesdeBackend(ventasEncontradas);
-    clearSelection(); // Limpiar selección al hacer nueva búsqueda
-    cambiarPagina(1); // Resetear a primera página
+    clearSelection();
   };
 
   // Handlers para eventos de la tabla
@@ -340,9 +342,8 @@ const handleSolicitarCAE = async () => {
   try {
     if (ventasSinCAE.length === 1) {
       const resultado = await solicitarCAE(ventasSinCAE[0].id);
-      
       if (resultado.success) {
-        await cargarVentas();
+        await cargarVentas({ pagina: paginaActual, porPagina, filtros });
         clearSelection();
       }
     } else {
@@ -358,8 +359,7 @@ const handleSolicitarCAE = async () => {
         }
         
         toast.success(mensajeExito, { duration: 6000 });
-        
-        await cargarVentas();
+        await cargarVentas({ pagina: paginaActual, porPagina, filtros });
         clearSelection();
       }
     }
@@ -377,8 +377,7 @@ const handleSolicitarCAE = async () => {
       const resultado = await solicitarCAE(ventaId);
       
       if (resultado.success) {
-        await cargarVentas();
-        
+        await cargarVentas({ pagina: paginaActual, porPagina, filtros });
         if (selectedVenta && selectedVenta.id === ventaId) {
           await cargarProductosVenta(selectedVenta);
         }
@@ -391,20 +390,20 @@ const handleSolicitarCAE = async () => {
     }
   };
 
-  // Limpiar selección cuando cambian los filtros
+  // Al aplicar filtros: mostrar todo el historial que cumpla el filtro (romper regla 30 días)
   const handleFiltrosChangeConLimpieza = (nuevosFiltros) => {
     handleFiltrosChange(nuevosFiltros);
-    setVentasDesdeBackend(null); // ✅ NUEVO: Limpiar búsqueda al cambiar filtros
+    setVentasDesdeBackend(null);
     clearSelection();
-    cambiarPagina(1);
+    cargarVentas({ pagina: 1, porPagina, filtros: nuevosFiltros }, { usarTodoElHistorial: true });
   };
 
-  // ✅ ACTUALIZADO: Limpiar búsqueda al limpiar filtros
+  // Al limpiar filtros: recargar primera página de todo el historial
   const handleLimpiarFiltrosConSeleccion = () => {
     limpiarFiltros();
-    setVentasDesdeBackend(null); // ✅ NUEVO: Limpiar búsqueda
+    setVentasDesdeBackend(null);
     clearSelection();
-    cambiarPagina(1);
+    cargarVentas({ pagina: 1, porPagina }, { usarTodoElHistorial: true });
   };
 
   const scrollToAcciones = () => {
@@ -465,25 +464,25 @@ const handleSolicitarCAE = async () => {
           onLimpiarFiltros={handleLimpiarFiltrosConSeleccion}
           onBusquedaCliente={handleBusquedaCliente} // ✅ NUEVA PROP
           user={user}
-          totalVentas={ventas.length}
-          ventasFiltradas={ventasAMostrar.length} // ✅ ACTUALIZADO
+          totalVentas={totalVentas}
+          ventasFiltradas={ventasAMostrar.length}
           ventasOriginales={ventas}
         />
         
         <TablaVentas
-          ventas={ventasActuales}
+          ventas={ventasAMostrar}
           selectedVentas={selectedVentas}
           onSelectVenta={handleSelectVenta}
-          onSelectAll={() => handleSelectAllVentas(ventasActuales)}
+          onSelectAll={() => handleSelectAllVentas(ventasAMostrar)}
           onRowDoubleClick={handleRowDoubleClick}
           loading={loading}
         />
         
-        {/* ✅ ACTUALIZADO: Usar ventasAMostrar */}
         <Paginacion
           datosOriginales={ventasAMostrar}
+          totalRegistros={totalParaPaginacion}
           paginaActual={paginaActual}
-          registrosPorPagina={registrosPorPagina}
+          registrosPorPagina={porPagina}
           totalPaginas={totalPaginas}
           indexOfPrimero={indexOfPrimero}
           indexOfUltimo={indexOfUltimo}
@@ -579,7 +578,7 @@ const handleSolicitarCAE = async () => {
         mostrar={mostrarModalNotaDebito}
         onClose={() => setMostrarModalNotaDebito(false)}
         onNotaCreada={() => {
-          cargarVentas();
+          cargarVentas({ pagina: 1, porPagina, filtros });
           toast.success('Nota de Débito creada exitosamente');
         }}
       />
@@ -589,7 +588,7 @@ const handleSolicitarCAE = async () => {
         mostrar={mostrarModalNotaCredito}
         onClose={() => setMostrarModalNotaCredito(false)}
         onNotaCreada={() => {
-          cargarVentas();
+          cargarVentas({ pagina: 1, porPagina, filtros });
           toast.success('Nota de Crédito creada exitosamente');
         }}
       />

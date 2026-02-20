@@ -1,39 +1,72 @@
-// hooks/ventas/useHistorialVentas.js
-import { useState, useEffect } from 'react';
+// hooks/ventas/useHistorialVentas.js - Paginación en servidor. Por defecto últimos 30 días; al navegar/filtrar: todo el historial.
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 
+const POR_PAGINA_DEFAULT = 50;
+
 export function useHistorialVentas() {
   const [ventas, setVentas] = useState([]);
-  const [selectedVentas, setSelectedVentas] = useState([]);
+  const [totalVentas, setTotalVentas] = useState(0);
+  const [paginaActual, setPaginaActual] = useState(1);
+  const [porPagina, setPorPagina] = useState(POR_PAGINA_DEFAULT);
   const [loading, setLoading] = useState(true);
+  const [selectedVentas, setSelectedVentas] = useState([]);
+  const [ultimosFiltros, setUltimosFiltros] = useState({});
+  const [usarSoloRecientes, setUsarSoloRecientes] = useState(true);
 
-  useEffect(() => {
-    cargarVentas();
-  }, []);
+  const cargarVentas = useCallback(async (opts = {}, options = {}) => {
+    const usarTodoElHistorial = options.usarTodoElHistorial === true;
+    if (usarTodoElHistorial) setUsarSoloRecientes(false);
 
-  const cargarVentas = async () => {
+    const pagina = opts.pagina !== undefined ? opts.pagina : paginaActual;
+    const porPaginaParam = opts.porPagina !== undefined ? opts.porPagina : porPagina;
+    const filtros = opts.filtros !== undefined ? opts.filtros : ultimosFiltros;
+
     setLoading(true);
     try {
-      const response = await axiosAuth.get(`/ventas/obtener-ventas`);
-      setVentas(response.data);
-      console.log('✅ Ventas cargadas:', response.data.length);
-      
-      // ✅ NUEVO: Log para verificar numero_factura
-      if (response.data.length > 0) {
-        console.log('📋 Ejemplo de venta con numero_factura:', {
-          id: response.data[0].id,
-          numero_factura: response.data[0].numero_factura,
-          cliente: response.data[0].cliente_nombre
-        });
+      const params = { pagina, porPagina: porPaginaParam };
+      if (!usarTodoElHistorial && usarSoloRecientes) params.dias = 30;
+      if (filtros.cliente) params.cliente = filtros.cliente;
+      if (filtros.fechaDesde) params.fechaDesde = filtros.fechaDesde;
+      if (filtros.fechaHasta) params.fechaHasta = filtros.fechaHasta;
+      if (filtros.tipoDocumento) params.tipoDocumento = filtros.tipoDocumento;
+      if (filtros.tipoFiscal) params.tipoFiscal = filtros.tipoFiscal;
+      if (filtros.empleado) params.empleado = filtros.empleado;
+
+      const response = await axiosAuth.get('/ventas/obtener-ventas', { params });
+
+      if (response.data && response.data.success) {
+        setVentas(response.data.data || []);
+        setTotalVentas(response.data.total ?? 0);
+        setPaginaActual(response.data.pagina ?? pagina);
+        setPorPagina(response.data.porPagina ?? porPaginaParam);
+        setUltimosFiltros(filtros);
+      } else {
+        setVentas([]);
+        setTotalVentas(0);
       }
     } catch (error) {
-      console.error("Error al obtener ventas:", error);
-      toast.error("No se pudieron cargar las ventas");
+      console.error('Error al obtener ventas:', error);
+      toast.error('No se pudieron cargar las ventas');
+      setVentas([]);
+      setTotalVentas(0);
     } finally {
       setLoading(false);
     }
-  };
+  }, [paginaActual, porPagina, ultimosFiltros, usarSoloRecientes]);
+
+  useEffect(() => {
+    cargarVentas({ pagina: 1, porPagina: POR_PAGINA_DEFAULT });
+  }, []);
+
+  const cargarPagina = useCallback((numeroPagina, filtrosActuales, options = {}) => {
+    return cargarVentas({
+      pagina: numeroPagina,
+      porPagina,
+      filtros: filtrosActuales !== undefined ? filtrosActuales : ultimosFiltros
+    }, options);
+  }, [cargarVentas, porPagina, ultimosFiltros]);
 
   const handleSelectVenta = (ventaId) => {
     if (selectedVentas.includes(ventaId)) {
@@ -46,7 +79,6 @@ export function useHistorialVentas() {
   const handleSelectAllVentas = (ventasVisibles) => {
     const idsVisibles = ventasVisibles.map(v => v.id);
     const todosSeleccionados = idsVisibles.every(id => selectedVentas.includes(id));
-    
     if (todosSeleccionados) {
       setSelectedVentas(selectedVentas.filter(id => !idsVisibles.includes(id)));
     } else {
@@ -55,19 +87,20 @@ export function useHistorialVentas() {
     }
   };
 
-  const clearSelection = () => {
-    setSelectedVentas([]);
-  };
-
-  const getVentasSeleccionadas = () => {
-    return ventas.filter(venta => selectedVentas.includes(venta.id));
-  };
+  const clearSelection = () => setSelectedVentas([]);
+  const getVentasSeleccionadas = () => ventas.filter(venta => selectedVentas.includes(venta.id));
 
   return {
     ventas,
+    totalVentas,
+    paginaActual,
+    porPagina,
     selectedVentas,
     loading,
+    usarSoloRecientes,
     cargarVentas,
+    cargarPagina,
+    ultimosFiltros,
     handleSelectVenta,
     handleSelectAllVentas,
     clearSelection,
