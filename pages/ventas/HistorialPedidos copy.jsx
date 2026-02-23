@@ -8,7 +8,7 @@ import useAuth from '../../hooks/useAuth';
 import { useHistorialPedidos } from '../../hooks/pedidos/useHistorialPedidos';
 import { usePaginacion } from '../../hooks/usePaginacion';
 import { useEditarPedido } from '../../hooks/pedidos/useEditarPedido';
-import { useGenerarPDFPedido } from 'hooks/pedidos/useGenerarPdfPedido';
+import { useGenerarPDFPedido } from '../../hooks/pedidos/useGenerarPdfPedido';
 
 // Componentes
 import TablaPedidos from '../../components/pedidos/TablaPedidos';

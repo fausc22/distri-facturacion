@@ -6,9 +6,9 @@ import useAuth from '../../hooks/useAuth';
 // Hooks personalizados
 import { useHistorialPedidos } from '../../hooks/pedidos/useHistorialPedidos';
 import { useEditarPedido } from '../../hooks/pedidos/useEditarPedido';
-import { useGenerarPDFPedido } from 'hooks/pedidos/useGenerarPdfPedido';
+import { useGenerarPDFPedido } from '../../hooks/pedidos/useGenerarPdfPedido';
 import { useAnularPedido } from '../../hooks/pedidos/useAnularPedido';
-import { useFacturacion } from 'hooks/pedidos/useFacturacion';
+import { useFacturacion } from '../../hooks/pedidos/useFacturacion';
 import { useConnectionContext } from '../../context/ConnectionContext';
 // Componentes
 import TablaPedidos from '../../components/pedidos/TablaPedidos';
