@@ -905,4 +905,3 @@ export function useOfflinePedidos() {
     }
   };
 }
-}
