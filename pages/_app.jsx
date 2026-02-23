@@ -12,6 +12,7 @@ import DefaultLayout from '../components/DefaultLayout';
 import AppInitializer from '../components/AppInitializer';
 import OfflineGuard from '../components/OfflineGuard';
 import PublicLayout from '../components/PublicLayout';
+import AppErrorBoundary from '../components/AppErrorBoundary';
 import { Z_INDEX } from '../constants/zIndex';
 
 function MyApp({ Component, pageProps }) {
@@ -172,6 +173,7 @@ function MyApp({ Component, pageProps }) {
 
   return (
     <AnimatePresence>
+      <AppErrorBoundary>
       {/* ✅ FASE 2: React Query Provider (solo memoria, PWA-safe) */}
       <QueryClientProvider client={queryClient}>
         {/* ✅ AuthProvider AHORA ENVUELVE TODO - Públicas y privadas */}
@@ -265,6 +267,7 @@ function MyApp({ Component, pageProps }) {
         )}
         </AuthProvider>
       </QueryClientProvider>
+      </AppErrorBoundary>
     </AnimatePresence>
   );
 }

@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { MdDeleteForever, MdExpandMore, MdExpandLess, MdSearch } from "react-icons/md";
 import { toast } from 'react-hot-toast';
 import { usePedidos } from '../../hooks/pedidos/usePedidos';
-import { useProductoSearch } from 'hooks/useBusquedaProductos';
+import { useProductoSearch } from '../../hooks/useBusquedaProductos';
 import useAuth from '../../hooks/useAuth';
 import { useFacturacion } from '../../hooks/pedidos/useFacturacion';
 import { ModalPDFUniversal, BotonGenerarPDFUniversal } from '../shared/ModalPDFUniversal';
