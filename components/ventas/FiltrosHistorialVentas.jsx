@@ -1,19 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { MdFilterList, MdClear, MdExpandMore, MdExpandLess, MdSearch } from 'react-icons/md';
-import { axiosAuth } from '../../utils/apiClient';
+
+const DEBOUNCE_MS = 500;
 
 export default function FiltrosHistorialVentas({ 
   filtros, 
   onFiltrosChange, 
   onLimpiarFiltros,
-  onBusquedaCliente, // ✅ NUEVA PROP para búsqueda en backend
+  onBusquedaCliente, // Fase 2: se mantiene la prop por compatibilidad; el flujo unificado usa solo onFiltrosChange
   user,
   totalVentas = 0,
   ventasFiltradas = 0,
   ventasOriginales = []
 }) {
   const [expandido, setExpandido] = useState(false);
-  const [buscandoCliente, setBuscandoCliente] = useState(false);
+
+  // Fase 1: estado local de filtros para debounce (evitar petición por tecla)
+  const [localFiltros, setLocalFiltros] = useState(() => ({ ...filtros }));
+  const userChangedFiltersRef = useRef(false);
+  const localFiltrosRef = useRef(localFiltros);
 
   // Estados únicos extraídos de las ventas
   const [ciudadesUnicas, setCiudadesUnicas] = useState([]);
@@ -22,6 +27,25 @@ export default function FiltrosHistorialVentas({
   const [loadingDatos, setLoadingDatos] = useState(false);
 
   const esGerente = user?.rol === 'GERENTE';
+
+  // Sincronizar localFiltros cuando el padre actualiza (ej. Limpiar filtros)
+  useEffect(() => {
+    setLocalFiltros({ ...filtros });
+    userChangedFiltersRef.current = false;
+  }, [filtros]);
+
+  // Debounce: aplicar filtros al padre solo tras DEBOUNCE_MS sin cambios
+  useEffect(() => {
+    localFiltrosRef.current = localFiltros;
+    if (!userChangedFiltersRef.current) return;
+
+    const timer = setTimeout(() => {
+      onFiltrosChange(localFiltrosRef.current);
+      userChangedFiltersRef.current = false;
+    }, DEBOUNCE_MS);
+
+    return () => clearTimeout(timer);
+  }, [localFiltros, onFiltrosChange]);
 
   // Cargar datos únicos para autocompletado
   useEffect(() => {
@@ -81,55 +105,20 @@ export default function FiltrosHistorialVentas({
   };
 
   const handleFiltroChange = (campo, valor) => {
-    onFiltrosChange({
-      ...filtros,
-      [campo]: valor
-    });
+    userChangedFiltersRef.current = true;
+    setLocalFiltros((prev) => ({ ...prev, [campo]: valor }));
   };
-
-  // ✅ NUEVA FUNCIÓN: Búsqueda de cliente con debounce
-  const buscarClienteEnBackend = async (textoBusqueda) => {
-    if (!textoBusqueda || textoBusqueda.trim().length < 2) {
-      return;
-    }
-
-    setBuscandoCliente(true);
-    try {
-      const response = await axiosAuth.get('/ventas/buscar-por-cliente', {
-        params: { busqueda: textoBusqueda, pagina: 1, porPagina: 50 }
-      });
-
-      if (response.data.success && onBusquedaCliente) {
-        onBusquedaCliente(response.data.data);
-      }
-    } catch (error) {
-      console.error('Error buscando cliente:', error);
-    } finally {
-      setBuscandoCliente(false);
-    }
-  };
-
-  // ✅ DEBOUNCE para búsqueda
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (filtros.cliente && filtros.cliente.trim().length >= 2) {
-        buscarClienteEnBackend(filtros.cliente);
-      }
-    }, 500); // Espera 500ms después de que el usuario deja de escribir
-
-    return () => clearTimeout(timer);
-  }, [filtros.cliente]);
 
   const limpiarTodosFiltros = () => {
     onLimpiarFiltros();
   };
 
   const hayFiltrosActivos = () => {
-    return Object.values(filtros).some(valor => valor && valor !== '');
+    return Object.values(localFiltros).some(valor => valor && valor !== '');
   };
 
   const contarFiltrosActivos = () => {
-    return Object.values(filtros).filter(valor => valor && valor !== '').length;
+    return Object.values(localFiltros).filter(valor => valor && valor !== '').length;
   };
 
   return (
@@ -150,12 +139,6 @@ export default function FiltrosHistorialVentas({
               {hayFiltrosActivos() && (
                 <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
                   {contarFiltrosActivos()} filtro{contarFiltrosActivos() !== 1 ? 's' : ''} activo{contarFiltrosActivos() !== 1 ? 's' : ''}
-                </span>
-              )}
-              {buscandoCliente && (
-                <span className="text-xs text-blue-600 flex items-center gap-1">
-                  <MdSearch className="animate-pulse" />
-                  Buscando...
                 </span>
               )}
             </div>
@@ -192,24 +175,22 @@ export default function FiltrosHistorialVentas({
               : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'
           }`}>
             
-            {/* ✅ FILTRO POR CLIENTE MEJORADO - Con búsqueda en tiempo real */}
+            {/* Fase 2: filtro Cliente unificado (solo debounce → onFiltrosChange → cargarVentas) */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cliente {buscandoCliente && <span className="text-blue-600 text-xs">(buscando...)</span>}
+                Cliente
               </label>
               <div className="relative">
                 <input
                   type="text"
-                  value={filtros.cliente || ''}
+                  value={localFiltros.cliente || ''}
                   onChange={(e) => handleFiltroChange('cliente', e.target.value)}
                   placeholder="Buscar cliente..."
                   list="clientes-list"
                   className="w-full p-2 pr-8 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                <MdSearch 
-                  className={`absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 ${
-                    buscandoCliente ? 'animate-pulse text-blue-600' : ''
-                  }`}
+                <MdSearch
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"
                   size={20}
                 />
               </div>
@@ -218,7 +199,7 @@ export default function FiltrosHistorialVentas({
                   <option key={index} value={cliente} />
                 ))}
               </datalist>
-              {filtros.cliente && filtros.cliente.length < 2 && (
+              {localFiltros.cliente && localFiltros.cliente.length < 2 && (
                 <p className="text-xs text-gray-500 mt-1">
                   Escribe al menos 2 caracteres para buscar
                 </p>
@@ -232,7 +213,7 @@ export default function FiltrosHistorialVentas({
               </label>
               <input
                 type="text"
-                value={filtros.ciudad || ''}
+                value={localFiltros.ciudad || ''}
                 onChange={(e) => handleFiltroChange('ciudad', e.target.value)}
                 placeholder="Buscar ciudad..."
                 list="ciudades-list"
@@ -251,7 +232,7 @@ export default function FiltrosHistorialVentas({
                 Tipo de Documento
               </label>
               <select
-                value={filtros.tipoDocumento || ''}
+                value={localFiltros.tipoDocumento || ''}
                 onChange={(e) => handleFiltroChange('tipoDocumento', e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
@@ -268,7 +249,7 @@ export default function FiltrosHistorialVentas({
                 Tipo Fiscal
               </label>
               <select
-                value={filtros.tipoFiscal || ''}
+                value={localFiltros.tipoFiscal || ''}
                 onChange={(e) => handleFiltroChange('tipoFiscal', e.target.value)}
                 className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
@@ -286,7 +267,7 @@ export default function FiltrosHistorialVentas({
                   Empleado
                 </label>
                 <select
-                  value={filtros.empleado || ''}
+                  value={localFiltros.empleado || ''}
                   onChange={(e) => handleFiltroChange('empleado', e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
@@ -311,14 +292,14 @@ export default function FiltrosHistorialVentas({
               <div className="space-y-2">
                 <input
                   type="date"
-                  value={filtros.fechaDesde || ''}
+                  value={localFiltros.fechaDesde || ''}
                   onChange={(e) => handleFiltroChange('fechaDesde', e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   title="Fecha desde"
                 />
                 <input
                   type="date"
-                  value={filtros.fechaHasta || ''}
+                  value={localFiltros.fechaHasta || ''}
                   onChange={(e) => handleFiltroChange('fechaHasta', e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   title="Fecha hasta"
@@ -352,7 +333,7 @@ export default function FiltrosHistorialVentas({
               <div className="text-sm">
                 <span className="font-medium text-blue-800">Filtros activos:</span>
                 <div className="flex flex-wrap gap-1 mt-1">
-                  {Object.entries(filtros).map(([campo, valor]) => {
+                  {Object.entries(localFiltros).map(([campo, valor]) => {
                     if (!valor) return null;
                     
                     let etiqueta = campo;

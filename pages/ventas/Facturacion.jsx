@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo, useCallback } from 'react';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import useAuth from '../../hooks/useAuth';
@@ -55,11 +55,12 @@ function HistorialVentasContent() {
   } = useHistorialVentas();
 
   // Hook de filtros (solo estado del formulario; el filtrado se hace en el servidor)
+  // Fase 4: no calcular ventasFiltradas en cliente (se filtra en servidor)
   const {
     filtros,
     handleFiltrosChange,
     limpiarFiltros
-  } = useFiltrosVentas(ventas);
+  } = useFiltrosVentas(ventas, { computeVentasFiltradas: false });
 
   // Lista a mostrar: búsqueda por cliente (una página) o ventas de la página actual
   const ventasAMostrar = ventasDesdeBackend !== null ? ventasDesdeBackend : ventas;
@@ -67,6 +68,12 @@ function HistorialVentasContent() {
   const totalPaginas = ventasDesdeBackend !== null ? 1 : Math.max(1, Math.ceil(totalVentas / porPagina));
   const indexOfPrimero = ventasDesdeBackend !== null ? 0 : (paginaActual - 1) * porPagina;
   const indexOfUltimo = ventasDesdeBackend !== null ? ventasDesdeBackend.length : Math.min(paginaActual * porPagina, totalVentas);
+
+  // Fase 3: memoizar lista de ventas seleccionadas para BotonAcciones (evitar filter en cada render)
+  const ventasSeleccionadasCompletas = useMemo(
+    () => ventasAMostrar.filter((v) => selectedVentas.includes(v.id)),
+    [ventasAMostrar, selectedVentas]
+  );
 
   const cambiarPagina = (numeroPagina) => {
     if (ventasDesdeBackend !== null) return;
@@ -390,21 +397,23 @@ const handleSolicitarCAE = async () => {
     }
   };
 
-  // Al aplicar filtros: mostrar todo el historial que cumpla el filtro (romper regla 30 días)
-  const handleFiltrosChangeConLimpieza = (nuevosFiltros) => {
-    handleFiltrosChange(nuevosFiltros);
-    setVentasDesdeBackend(null);
-    clearSelection();
-    cargarVentas({ pagina: 1, porPagina, filtros: nuevosFiltros }, { usarTodoElHistorial: true });
-  };
+  // Fase 4: callbacks estables para evitar re-renders innecesarios de FiltrosHistorialVentas
+  const handleFiltrosChangeConLimpieza = useCallback(
+    (nuevosFiltros) => {
+      handleFiltrosChange(nuevosFiltros);
+      setVentasDesdeBackend(null);
+      clearSelection();
+      cargarVentas({ pagina: 1, porPagina, filtros: nuevosFiltros }, { usarTodoElHistorial: true });
+    },
+    [handleFiltrosChange, clearSelection, cargarVentas, porPagina]
+  );
 
-  // Al limpiar filtros: recargar primera página de todo el historial
-  const handleLimpiarFiltrosConSeleccion = () => {
+  const handleLimpiarFiltrosConSeleccion = useCallback(() => {
     limpiarFiltros();
     setVentasDesdeBackend(null);
     clearSelection();
     cargarVentas({ pagina: 1, porPagina }, { usarTodoElHistorial: true });
-  };
+  }, [limpiarFiltros, clearSelection, cargarVentas, porPagina]);
 
   const scrollToAcciones = () => {
     if (botonesAccionRef.current) {
@@ -493,7 +502,7 @@ const handleSolicitarCAE = async () => {
         <div ref={botonesAccionRef}>
           <BotonAcciones
             selectedVentas={selectedVentas}
-            ventasSeleccionadasCompletas={ventasAMostrar.filter(v => selectedVentas.includes(v.id))} // ✅ NUEVA PROP
+            ventasSeleccionadasCompletas={ventasSeleccionadasCompletas}
             onImprimirMultiple={handleImprimirMultiple}
             imprimiendo={imprimiendoMultiple}
             onSolicitarCAE={handleSolicitarCAE}
