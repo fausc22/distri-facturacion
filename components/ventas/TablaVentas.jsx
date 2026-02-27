@@ -1,5 +1,5 @@
 // components/ventas/TablaVentas.jsx
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 const formatearFecha = (fecha) => {
   if (!fecha) return 'Fecha no disponible';
@@ -443,31 +443,40 @@ export default function TablaVentas({
     }
   };
 
-  const sortedVentas = [...ventas].sort((a, b) => {
-    if (!sortField) return 0;
-    
-    let aValue = a[sortField];
-    let bValue = b[sortField];
-    
-    if (sortField === 'total') {
-      aValue = Number(aValue) || 0;
-      bValue = Number(bValue) || 0;
-    }
-    
-    if (sortField === 'fecha') {
-      aValue = new Date(aValue);
-      bValue = new Date(bValue);
-    }
-    
-    if (typeof aValue === 'string') {
-      aValue = aValue.toLowerCase();
-      bValue = bValue.toLowerCase();
-    }
-    
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
+  // Fase 3: memoizar ordenamiento para no recalcular en cada render
+  const sortedVentas = useMemo(() => {
+    return [...ventas].sort((a, b) => {
+      if (!sortField) return 0;
+
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+
+      if (sortField === 'total') {
+        aValue = Number(aValue) || 0;
+        bValue = Number(bValue) || 0;
+      }
+
+      if (sortField === 'fecha') {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      }
+
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [ventas, sortField, sortDirection]);
+
+  // Fase 3: memoizar monto total del pie de tabla
+  const montoTotal = useMemo(
+    () => ventas.reduce((acc, v) => acc + Number(v.total || 0), 0),
+    [ventas]
+  );
 
   if (loading) {
     return (
@@ -524,7 +533,7 @@ export default function TablaVentas({
             </span>
             <span>
               Monto total: <span className="font-medium text-green-600">
-                ${ventas.reduce((acc, v) => acc + Number(v.total || 0), 0).toFixed(2)}
+                ${montoTotal.toFixed(2)}
               </span>
             </span>
           </div>
