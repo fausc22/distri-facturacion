@@ -14,7 +14,7 @@ export default function ModalCrearClienteRapido({
   clienteEditar = null, // Si se pasa un cliente, el modal entra en modo edición
   modo = 'crear' // 'crear' o 'editar'
 }) {
-  const { crearCliente, actualizarCliente, validarDatosCliente, loading } = useClientes();
+  const { crearCliente, actualizarCliente, validarDatosCliente, consultarContribuyenteAfip, loading, consultandoAfip } = useClientes();
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -32,6 +32,7 @@ export default function ModalCrearClienteRapido({
 
   const [errores, setErrores] = useState([]);
   const [mostrarCamposOpcionales, setMostrarCamposOpcionales] = useState(false);
+  const [datosValidadosConAfip, setDatosValidadosConAfip] = useState(false);
 
   // Llenar formulario si es modo edición, o limpiar si es crear
   useEffect(() => {
@@ -71,6 +72,7 @@ export default function ModalCrearClienteRapido({
           email: ''
         });
         setMostrarCamposOpcionales(false);
+        setDatosValidadosConAfip(false);
       }
       setErrores([]);
     }
@@ -92,19 +94,21 @@ export default function ModalCrearClienteRapido({
       return;
     }
 
+    const payload = { ...formData, validado_afip: datosValidadosConAfip };
     let resultado;
     if (modo === 'editar' && clienteEditar) {
-      resultado = await actualizarCliente(clienteEditar.id, formData);
+      resultado = await actualizarCliente(clienteEditar.id, payload);
     } else {
-      resultado = await crearCliente(formData);
+      resultado = await crearCliente(payload);
     }
 
     if (resultado.success) {
-      // Llamar al callback con el cliente creado/actualizado
-      // El hook ya nos devuelve el cliente en resultado.data
+      setDatosValidadosConAfip(false);
       console.log('✅ Cliente creado/actualizado:', resultado.data);
       onClienteCreado(resultado.data);
       onClose();
+    } else if (resultado.errors?.length) {
+      setErrores(resultado.errors);
     }
   };
 
@@ -114,6 +118,25 @@ export default function ModalCrearClienteRapido({
       ciudad: ciudad.nombre,
       ciudad_id: ciudad.id
     }));
+  };
+
+  const handleValidarAfip = async () => {
+    const result = await consultarContribuyenteAfip(formData.cuit, formData.dni);
+    if (!result.success || !result.data) return;
+    setFormData(prev => ({
+      ...prev,
+      nombre: result.data.nombre ?? prev.nombre,
+      condicion_iva: result.data.condicion_iva ?? prev.condicion_iva,
+      cuit: result.data.cuit ?? prev.cuit,
+      dni: result.data.dni ? String(result.data.dni) : prev.dni,
+      direccion: result.data.direccion ?? prev.direccion,
+      ciudad: result.data.ciudad ?? prev.ciudad,
+      provincia: result.data.provincia ?? prev.provincia,
+      telefono: prev.telefono || '',
+      email: prev.email || ''
+    }));
+    setErrores([]);
+    setDatosValidadosConAfip(true);
   };
 
   const condicionesIVA = [
@@ -247,6 +270,26 @@ export default function ModalCrearClienteRapido({
                     />
                   </div>
                 )}
+              </div>
+
+              {/* Validar con AFIP */}
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={handleValidarAfip}
+                  disabled={loading || consultandoAfip}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {consultandoAfip ? (
+                    <>
+                      <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                      Buscando en AFIP...
+                    </>
+                  ) : (
+                    <>Validar con AFIP</>
+                  )}
+                </button>
+                <span className="text-xs text-gray-500">CUIT (11 dígitos) o DNI (7-8 dígitos)</span>
               </div>
 
               {/* Teléfono */}

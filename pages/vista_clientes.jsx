@@ -4,9 +4,13 @@ import { toast } from 'react-hot-toast';
 import Head from 'next/head';
 import useAuth from '../hooks/useAuth';
 import { axiosAuth } from '../utils/apiClient';
+import { useClientes } from '../hooks/useClientes';
 
 // Componente del modal de edición
 function ModalEditarCliente({ cliente, isOpen, onClose, onClienteActualizado }) {
+  const { consultarContribuyenteAfip, validarDatosCliente, consultandoAfip } = useClientes();
+  const [errores, setErrores] = useState([]);
+  const [datosValidadosConAfip, setDatosValidadosConAfip] = useState(false);
   const [formData, setFormData] = useState({
     nombre: '',
     condicion_iva: '',
@@ -44,26 +48,53 @@ function ModalEditarCliente({ cliente, isOpen, onClose, onClienteActualizado }) 
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleValidarAfip = async () => {
+    const result = await consultarContribuyenteAfip(formData.cuit, formData.dni);
+    if (!result.success || !result.data) return;
+    setFormData(prev => ({
+      ...prev,
+      nombre: result.data.nombre ?? prev.nombre,
+      condicion_iva: result.data.condicion_iva ?? prev.condicion_iva,
+      cuit: result.data.cuit ?? prev.cuit,
+      dni: result.data.dni ? String(result.data.dni) : prev.dni,
+      direccion: result.data.direccion ?? prev.direccion,
+      ciudad: result.data.ciudad ?? prev.ciudad,
+      provincia: result.data.provincia ?? prev.provincia,
+      telefono: prev.telefono || '',
+      email: prev.email || ''
+    }));
+    setDatosValidadosConAfip(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (!formData.nombre.trim()) {
-      toast.error('El nombre es obligatorio');
+
+    const erroresValidacion = validarDatosCliente(formData);
+    if (erroresValidacion.length > 0) {
+      setErrores(erroresValidacion);
+      toast.error(erroresValidacion[0]);
       return;
     }
+    setErrores([]);
 
     setLoading(true);
     try {
-      const response = await axiosAuth.put(`/personas/actualizar-cliente/${cliente.id}`, formData);
-      
+      const payload = { ...formData, validado_afip: datosValidadosConAfip };
+      const response = await axiosAuth.put(`/personas/actualizar-cliente/${cliente.id}`, payload);
+
       if (response.data.success) {
+        setDatosValidadosConAfip(false);
         toast.success('Cliente actualizado correctamente');
         onClienteActualizado(); // Recargar la tabla
         onClose(); // Cerrar modal
       }
     } catch (error) {
       console.error('Error actualizando cliente:', error);
-      toast.error(error.response?.data?.message || 'Error al actualizar cliente');
+      const msg = error.response?.data?.message || 'Error al actualizar cliente';
+      toast.error(msg);
+      if (Array.isArray(error.response?.data?.errors)) {
+        setErrores(error.response.data.errors);
+      }
     } finally {
       setLoading(false);
     }
@@ -75,8 +106,13 @@ function ModalEditarCliente({ cliente, isOpen, onClose, onClienteActualizado }) 
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             Editar Cliente: {cliente?.nombre}
+            {(cliente?.validado_afip_at || datosValidadosConAfip) && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                Validado en AFIP
+              </span>
+            )}
           </h2>
           <button
             onClick={onClose}
@@ -88,6 +124,15 @@ function ModalEditarCliente({ cliente, isOpen, onClose, onClienteActualizado }) 
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {errores.length > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-md p-3">
+              <ul className="list-disc list-inside text-sm text-red-700">
+                {errores.map((err, i) => (
+                  <li key={i}>{err}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {/* Nombre */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -156,6 +201,26 @@ function ModalEditarCliente({ cliente, isOpen, onClose, onClienteActualizado }) 
                 disabled={loading}
               />
             </div>
+          </div>
+
+          {/* Validar con AFIP */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              type="button"
+              onClick={handleValidarAfip}
+              disabled={loading || consultandoAfip}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {consultandoAfip ? (
+                <>
+                  <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                  Buscando en AFIP...
+                </>
+              ) : (
+                <>Validar con AFIP</>
+              )}
+            </button>
+            <span className="text-xs text-gray-500">CUIT (11 dígitos) o DNI (7-8 dígitos)</span>
           </div>
 
           {/* Dirección */}
@@ -417,8 +482,13 @@ export default function GestionClientes() {
                   <tr key={cliente.id} className="hover:bg-gray-50">
                     {/* Columna NOMBRE */}
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {cliente.nombre || '-'}
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-medium text-gray-900">
+                          {cliente.nombre || '-'}
+                        </div>
+                        {cliente.validado_afip_at && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800" title="Validado en AFIP">AFIP</span>
+                        )}
                       </div>
                       {cliente.nombre_alternativo && (
                         <div className="text-sm text-gray-500">

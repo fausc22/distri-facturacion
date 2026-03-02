@@ -1,5 +1,5 @@
-// components/ventas/TablaVentas.jsx
-import { useState, useMemo } from 'react';
+// components/ventas/TablaVentas.jsx - Fase 4: handlers por delegación para menos re-renders
+import { useState, useMemo, useCallback } from 'react';
 
 const formatearFecha = (fecha) => {
   if (!fecha) return 'Fecha no disponible';
@@ -76,16 +76,17 @@ const desglosarNumeroFactura = (numeroCompleto, tipoDoc) => {
   }
 };
 
-// Componente para tabla en escritorio
+// Componente para tabla en escritorio (Fase 4: delegación de eventos en tbody)
 function TablaEscritorio({
   ventas,
   selectedVentas,
-  onSelectVenta,
   onSelectAll,
-  onRowDoubleClick,
+  onSort,
+  onTbodyClick,
+  onTbodyDoubleClick,
+  onCheckboxNoop,
   sortField,
-  sortDirection,
-  onSort
+  sortDirection
 }) {
   const getSortIcon = (field) => {
     if (sortField !== field) return '↕️';
@@ -128,11 +129,11 @@ function TablaEscritorio({
               <input
                 type="checkbox"
                 checked={selectedVentas.length === ventas.length && ventas.length > 0}
-                onChange={() => onSelectAll()}
+                onChange={onSelectAll}
                 className="w-4 h-4"
+                aria-label="Seleccionar todas"
               />
             </th>
-            {/* ✅ NUEVO ORDEN: FECHA, CLIENTE, NUMERO_FACTURA, DOCUMENTO, TIPO FISCAL, TOTAL, ESTADO CAE, VENDEDOR */}
             <th 
               className="p-3 text-left cursor-pointer hover:bg-gray-300 transition-colors"
               onClick={() => onSort('fecha')}
@@ -151,21 +152,15 @@ function TablaEscritorio({
             >
               Número Factura {getSortIcon('numero_factura')}
             </th>
-            <th className="p-3 text-center">
-              Documento
-            </th>
-            <th className="p-3 text-center">
-              Tipo Fiscal
-            </th>
+            <th className="p-3 text-center">Documento</th>
+            <th className="p-3 text-center">Tipo Fiscal</th>
             <th 
               className="p-3 text-right cursor-pointer hover:bg-gray-300 transition-colors"
               onClick={() => onSort('total')}
             >
               Total {getSortIcon('total')}
             </th>
-            <th className="p-3 text-center">
-              Estado CAE
-            </th>
+            <th className="p-3 text-center">Estado CAE</th>
             <th 
               className="p-3 text-left cursor-pointer hover:bg-gray-300 transition-colors"
               onClick={() => onSort('empleado_nombre')}
@@ -174,25 +169,26 @@ function TablaEscritorio({
             </th>
           </tr>
         </thead>
-        <tbody>
+        <tbody onClick={onTbodyClick} onDoubleClick={onTbodyDoubleClick}>
           {ventas.map((venta) => {
             const numeroFacturaDesglosado = desglosarNumeroFactura(venta.numero_factura, venta.tipo_doc);
             
             return (
               <tr
                 key={venta.id}
+                data-venta-id={venta.id}
                 className={`border-b hover:bg-gray-50 cursor-pointer transition-colors ${
                   selectedVentas.includes(venta.id) ? 'bg-blue-50' : ''
                 }`}
-                onDoubleClick={() => onRowDoubleClick(venta)}
               >
                 <td className="p-3 text-center">
                   <input
                     type="checkbox"
                     checked={selectedVentas.includes(venta.id)}
-                    onChange={() => onSelectVenta(venta.id)}
+                    onChange={onCheckboxNoop}
+                    tabIndex={0}
                     className="w-4 h-4"
-                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Seleccionar venta ${venta.id}`}
                   />
                 </td>
                 {/* FECHA */}
@@ -287,28 +283,15 @@ function TablaEscritorio({
   );
 }
 
-// ✅ Componente para tarjetas en móvil - ACTUALIZADO
+// Componente para tarjetas en móvil (Fase 4: delegación de eventos)
 function TarjetasMovil({
   ventas,
   selectedVentas,
-  onSelectVenta,
   onSelectAll,
-  onRowDoubleClick
+  onCardAreaClick,
+  onCheckboxNoop
 }) {
-  // ... (mantener estilos)
-  
-  const getDocumentoIcon = (tipoDoc) => {
-    switch (tipoDoc) {
-      case 'FACTURA': return '📄';
-      case 'NOTA_DEBITO': return '📝';
-      case 'NOTA_CREDITO': return '📋';
-      default: return '📄';
-    }
-  };
-
-  const getCAEIcon = (caeId) => {
-    return caeId ? '✅' : '❌';
-  };
+  const getCAEIcon = (caeId) => (caeId ? '✅' : '❌');
 
   return (
     <div className="lg:hidden">
@@ -317,8 +300,9 @@ function TarjetasMovil({
           <input
             type="checkbox"
             checked={selectedVentas.length === ventas.length && ventas.length > 0}
-            onChange={() => onSelectAll()}
+            onChange={onSelectAll}
             className="w-4 h-4"
+            aria-label="Seleccionar todas"
           />
           <span className="text-sm font-medium text-gray-700">
             Seleccionar todos ({ventas.length})
@@ -331,19 +315,19 @@ function TarjetasMovil({
         )}
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-3" onClick={onCardAreaClick}>
         {ventas.map((venta) => {
           const numeroFacturaDesglosado = desglosarNumeroFactura(venta.numero_factura, venta.tipo_doc);
           
           return (
             <div
               key={venta.id}
+              data-venta-id={venta.id}
               className={`bg-white rounded-lg border-2 p-4 transition-all duration-200 cursor-pointer ${
                 selectedVentas.includes(venta.id) 
                   ? 'border-blue-300 bg-blue-50 shadow-md' 
                   : 'border-gray-200 hover:border-gray-300'
               }`}
-              onClick={() => onRowDoubleClick(venta)}
             >
               {/* Header */}
               <div className="flex items-start justify-between mb-3">
@@ -351,9 +335,9 @@ function TarjetasMovil({
                   <input
                     type="checkbox"
                     checked={selectedVentas.includes(venta.id)}
-                    onChange={() => onSelectVenta(venta.id)}
+                    onChange={onCheckboxNoop}
                     className="w-4 h-4 mt-1"
-                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Seleccionar venta ${venta.id}`}
                   />
                   <div>
                     {/* ✅ NUMERO_FACTURA en lugar de ID */}
@@ -472,6 +456,39 @@ export default function TablaVentas({
     });
   }, [ventas, sortField, sortDirection]);
 
+  const noop = useCallback(() => {}, []);
+
+  // Fase 4: un solo handler en tbody (escritorio) en lugar de uno por fila
+  const handleTbodyClick = useCallback((e) => {
+    if (e.target.type === 'checkbox') {
+      const row = e.target.closest('tr[data-venta-id]');
+      if (row) onSelectVenta(Number(row.getAttribute('data-venta-id')));
+      e.preventDefault();
+    }
+  }, [onSelectVenta]);
+
+  const handleTbodyDoubleClick = useCallback((e) => {
+    const row = e.target.closest('tr[data-venta-id]');
+    if (!row) return;
+    const id = Number(row.getAttribute('data-venta-id'));
+    const venta = sortedVentas.find((v) => v.id === id);
+    if (venta) onRowDoubleClick(venta);
+  }, [onRowDoubleClick, sortedVentas]);
+
+  // Fase 4: un solo handler en el contenedor de tarjetas (móvil)
+  const handleCardAreaClick = useCallback((e) => {
+    const card = e.target.closest('[data-venta-id]');
+    if (!card) return;
+    const id = Number(card.getAttribute('data-venta-id'));
+    if (e.target.type === 'checkbox' || e.target.closest('input[type=checkbox]')) {
+      onSelectVenta(id);
+      e.preventDefault();
+      return;
+    }
+    const venta = sortedVentas.find((v) => v.id === id);
+    if (venta) onRowDoubleClick(venta);
+  }, [onSelectVenta, onRowDoubleClick, sortedVentas]);
+
   // Fase 3: memoizar monto total del pie de tabla
   const montoTotal = useMemo(
     () => ventas.reduce((acc, v) => acc + Number(v.total || 0), 0),
@@ -502,9 +519,10 @@ export default function TablaVentas({
       <TablaEscritorio
         ventas={sortedVentas}
         selectedVentas={selectedVentas}
-        onSelectVenta={onSelectVenta}
         onSelectAll={onSelectAll}
-        onRowDoubleClick={onRowDoubleClick}
+        onTbodyClick={handleTbodyClick}
+        onTbodyDoubleClick={handleTbodyDoubleClick}
+        onCheckboxNoop={noop}
         sortField={sortField}
         sortDirection={sortDirection}
         onSort={handleSort}
@@ -513,9 +531,9 @@ export default function TablaVentas({
       <TarjetasMovil
         ventas={sortedVentas}
         selectedVentas={selectedVentas}
-        onSelectVenta={onSelectVenta}
         onSelectAll={onSelectAll}
-        onRowDoubleClick={onRowDoubleClick}
+        onCardAreaClick={handleCardAreaClick}
+        onCheckboxNoop={noop}
       />
       
       <div className="bg-gray-50 px-4 py-3 border-t rounded-b-lg mt-4">

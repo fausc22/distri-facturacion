@@ -10,7 +10,7 @@ export default function ModalCliente({
   onClienteGuardado,
   modo = 'crear' // 'crear' o 'editar'
 }) {
-  const { crearCliente, actualizarCliente, validarDatosCliente, loading } = useClientes();
+  const { crearCliente, actualizarCliente, validarDatosCliente, consultarContribuyenteAfip, loading, consultandoAfip } = useClientes();
   
   const [formData, setFormData] = useState({
     nombre: '',
@@ -27,6 +27,7 @@ export default function ModalCliente({
   });
 
   const [errores, setErrores] = useState([]);
+  const [datosValidadosConAfip, setDatosValidadosConAfip] = useState(false);
 
   // Llenar formulario cuando se selecciona un cliente para editar
   useEffect(() => {
@@ -59,6 +60,7 @@ export default function ModalCliente({
         telefono: '',
         email: ''
       });
+      setDatosValidadosConAfip(false);
     }
     setErrores([]);
   }, [cliente, modo, isOpen]);
@@ -77,6 +79,25 @@ export default function ModalCliente({
     }));
   };
 
+  const handleValidarAfip = async () => {
+    const result = await consultarContribuyenteAfip(formData.cuit, formData.dni);
+    if (!result.success || !result.data) return;
+    setFormData(prev => ({
+      ...prev,
+      nombre: result.data.nombre ?? prev.nombre,
+      condicion_iva: result.data.condicion_iva ?? prev.condicion_iva,
+      cuit: result.data.cuit ?? prev.cuit,
+      dni: result.data.dni ? String(result.data.dni) : prev.dni,
+      direccion: result.data.direccion ?? prev.direccion,
+      ciudad: result.data.ciudad ?? prev.ciudad,
+      provincia: result.data.provincia ?? prev.provincia,
+      telefono: prev.telefono || '',
+      email: prev.email || ''
+    }));
+    setErrores([]);
+    setDatosValidadosConAfip(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
@@ -87,16 +108,20 @@ export default function ModalCliente({
       return;
     }
 
+    const payload = { ...formData, validado_afip: datosValidadosConAfip };
     let resultado;
     if (modo === 'crear') {
-      resultado = await crearCliente(formData);
+      resultado = await crearCliente(payload);
     } else {
-      resultado = await actualizarCliente(cliente.id, formData);
+      resultado = await actualizarCliente(cliente.id, payload);
     }
 
     if (resultado.success) {
+      setDatosValidadosConAfip(false);
       onClienteGuardado();
       onClose();
+    } else if (resultado.errors?.length) {
+      setErrores(resultado.errors);
     }
   };
 
@@ -110,11 +135,22 @@ export default function ModalCliente({
   // Determinar si mostrar DNI o CUIT según la condición IVA
   const esConsumidorFinal = formData.condicion_iva === 'Consumidor Final';
 
+  const tieneValidacionAfip = (modo === 'editar' && cliente?.validado_afip_at) || datosValidadosConAfip;
+
   return (
     <ModalBase
       isOpen={isOpen}
       onClose={onClose}
-      title={modo === 'crear' ? 'Crear Nuevo Cliente' : `Editar Cliente: ${cliente?.nombre}`}
+      title={
+        <span className="flex items-center gap-2">
+          {modo === 'crear' ? 'Crear Nuevo Cliente' : `Editar Cliente: ${cliente?.nombre}`}
+          {tieneValidacionAfip && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+              Validado en AFIP
+            </span>
+          )}
+        </span>
+      }
       loading={loading}
       size="lg"
     >
@@ -218,6 +254,26 @@ export default function ModalCliente({
               />
             </div>
           )}
+
+          {/* Validar con AFIP */}
+          <div className="md:col-span-2 flex items-end">
+            <button
+              type="button"
+              onClick={handleValidarAfip}
+              disabled={loading || consultandoAfip}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {consultandoAfip ? (
+                <>
+                  <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                  Buscando en AFIP...
+                </>
+              ) : (
+                <>Validar con AFIP</>
+              )}
+            </button>
+            <span className="ml-2 text-xs text-gray-500">Ingresá CUIT (11 dígitos) o DNI (7-8 dígitos) y hacé clic</span>
+          </div>
 
           {/* Teléfono */}
           <div>

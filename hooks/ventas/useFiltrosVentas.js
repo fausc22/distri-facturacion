@@ -1,5 +1,5 @@
 // hooks/ventas/useFiltrosVentas.js
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 
 const FILTROS_INICIALES = {
   cliente: '',
@@ -59,13 +59,13 @@ export function useFiltrosVentas(ventasOriginales = [], options = {}) {
     });
   }, [computeVentasFiltradas, ventasOriginales, filtros]);
 
-  const handleFiltrosChange = (nuevosFiltros) => {
+  const handleFiltrosChange = useCallback((nuevosFiltros) => {
     setFiltros(nuevosFiltros);
-  };
+  }, []);
 
-  const limpiarFiltros = () => {
+  const limpiarFiltros = useCallback(() => {
     setFiltros({ ...FILTROS_INICIALES });
-  };
+  }, []);
 
   return {
     filtros,
