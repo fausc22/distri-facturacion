@@ -1,9 +1,10 @@
 // hooks/shared/useGenerarPDFUniversal.js
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 
 export function useGenerarPDFUniversal() {
   const [loading, setLoading] = useState(false);
+  const loadingRef = useRef(false);
   const [pdfURL, setPdfURL] = useState(null);
   const [pdfBlob, setPdfBlob] = useState(null);
   const [mostrarModalPDF, setMostrarModalPDF] = useState(false);
@@ -12,17 +13,22 @@ export function useGenerarPDFUniversal() {
   const [subtituloModal, setSubtituloModal] = useState('');
 
   const generarPDF = async (apiCall, configuracion = {}) => {
+    if (loadingRef.current) {
+      return false;
+    }
+
     const {
       nombreArchivo: nombre = 'documento.pdf',
       titulo = 'PDF Generado Exitosamente',
       subtitulo = '',
       mensajeExito = 'PDF generado con éxito',
       mensajeError = 'Error al generar el PDF',
-      abrirEnNuevaPestaña = false // Nueva opción para abrir automáticamente
+      abrirEnNuevaPestaña = false
     } = configuracion;
 
+    loadingRef.current = true;
     setLoading(true);
-    
+
     try {
       // apiCall debe retornar la respuesta del axios con responseType: 'blob'
       const response = await apiCall();
@@ -122,6 +128,7 @@ export function useGenerarPDFUniversal() {
       
       return false;
     } finally {
+      loadingRef.current = false;
       setLoading(false);
     }
   };

@@ -1,16 +1,17 @@
 // hooks/ventas/useSolicitarCAE.js
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 
 /**
  * Hook para solicitar CAE de ARCA/AFIP
- * Versión mejorada para el microservicio integrado
+ * Incluye guarda contra doble envío (Fase 5).
  */
 export function useSolicitarCAE() {
   const [solicitando, setSolicitando] = useState(false);
   const [resultado, setResultado] = useState(null);
   const [error, setError] = useState(null);
+  const solicitandoRef = useRef(false);
 
   /**
    * Solicitar CAE para una venta específica
@@ -19,7 +20,6 @@ export function useSolicitarCAE() {
    */
   const solicitarCAE = async (ventaId) => {
     console.log(`📋 Solicitando CAE para venta ${ventaId}...`);
-    
     setSolicitando(true);
     setError(null);
     setResultado(null);
@@ -112,16 +112,21 @@ export function useSolicitarCAE() {
    * @returns {Promise<Object>} Resumen de resultados
    */
   const solicitarCAEMultiple = async (ventasIds) => {
+    if (solicitandoRef.current) {
+      toast.info('Ya hay una solicitud de CAE en curso. Espere a que finalice.');
+      return { success: false, error: 'Solicitud en curso' };
+    }
+
     if (!ventasIds || ventasIds.length === 0) {
       toast.error('No hay ventas seleccionadas');
       return { success: false, error: 'No hay ventas para procesar' };
     }
 
     console.log(`📋 Solicitando CAE para ${ventasIds.length} venta${ventasIds.length > 1 ? 's' : ''}...`);
-    
+    solicitandoRef.current = true;
     setSolicitando(true);
     setError(null);
-    
+
     const resultados = {
       exitosos: [],
       fallidos: []
@@ -257,6 +262,7 @@ export function useSolicitarCAE() {
         resultados
       };
     } finally {
+      solicitandoRef.current = false;
       setSolicitando(false);
     }
   };

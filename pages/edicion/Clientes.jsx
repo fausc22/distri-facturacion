@@ -166,8 +166,15 @@ export default function GestionClientes() {
                 {clientesPaginados.map((cliente) => (
                   <tr key={cliente.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {cliente.nombre || '-'}
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-medium text-gray-900">
+                          {cliente.nombre || '-'}
+                        </div>
+                        {cliente.validado_afip_at && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800" title="Validado en AFIP">
+                            AFIP
+                          </span>
+                        )}
                       </div>
                       {cliente.nombre_alternativo && (
                         <div className="text-xs text-gray-500">
@@ -210,8 +217,11 @@ export default function GestionClientes() {
               <div key={cliente.id} className="border-b border-gray-200 p-4 hover:bg-gray-50">
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-sm font-medium text-gray-900 truncate">
+                    <h3 className="text-sm font-medium text-gray-900 truncate flex items-center gap-2">
                       {cliente.nombre || '-'}
+                      {cliente.validado_afip_at && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 flex-shrink-0">AFIP</span>
+                      )}
                     </h3>
                     {cliente.nombre_alternativo && (
                       <p className="text-xs text-gray-500">{cliente.nombre_alternativo}</p>

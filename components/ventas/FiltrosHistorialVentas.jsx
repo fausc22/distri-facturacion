@@ -1,26 +1,23 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { MdFilterList, MdClear, MdExpandMore, MdExpandLess, MdSearch } from 'react-icons/md';
-
-const DEBOUNCE_MS = 500;
 
 export default function FiltrosHistorialVentas({ 
   filtros, 
   onFiltrosChange, 
   onLimpiarFiltros,
-  onBusquedaCliente, // Fase 2: se mantiene la prop por compatibilidad; el flujo unificado usa solo onFiltrosChange
+  onBusquedaCliente, // se mantiene por compatibilidad; el flujo usa onFiltrosChange al hacer clic en Filtrar
   user,
   totalVentas = 0,
   ventasFiltradas = 0,
   ventasOriginales = []
 }) {
   const [expandido, setExpandido] = useState(false);
+  const [avanzadosExpandido, setAvanzadosExpandido] = useState(false);
 
-  // Fase 1: estado local de filtros para debounce (evitar petición por tecla)
+  // Estado local: los inputs solo actualizan esto. La API se llama solo al hacer clic en "Filtrar".
   const [localFiltros, setLocalFiltros] = useState(() => ({ ...filtros }));
-  const userChangedFiltersRef = useRef(false);
-  const localFiltrosRef = useRef(localFiltros);
 
-  // Estados únicos extraídos de las ventas
+  // Estados únicos extraídos de las ventas (para datalists)
   const [ciudadesUnicas, setCiudadesUnicas] = useState([]);
   const [clientesUnicos, setClientesUnicos] = useState([]);
   const [empleadosUnicos, setEmpleadosUnicos] = useState([]);
@@ -28,26 +25,12 @@ export default function FiltrosHistorialVentas({
 
   const esGerente = user?.rol === 'GERENTE';
 
-  // Sincronizar localFiltros cuando el padre actualiza (ej. Limpiar filtros)
+  // Sincronizar localFiltros cuando el padre actualiza (ej. después de "Limpiar filtros")
   useEffect(() => {
     setLocalFiltros({ ...filtros });
-    userChangedFiltersRef.current = false;
   }, [filtros]);
 
-  // Debounce: aplicar filtros al padre solo tras DEBOUNCE_MS sin cambios
-  useEffect(() => {
-    localFiltrosRef.current = localFiltros;
-    if (!userChangedFiltersRef.current) return;
-
-    const timer = setTimeout(() => {
-      onFiltrosChange(localFiltrosRef.current);
-      userChangedFiltersRef.current = false;
-    }, DEBOUNCE_MS);
-
-    return () => clearTimeout(timer);
-  }, [localFiltros, onFiltrosChange]);
-
-  // Cargar datos únicos para autocompletado
+  // Cargar datos únicos solo al abrir el panel (no en cada cambio de ventas/paginación)
   useEffect(() => {
     if (expandido) {
       cargarDatosUnicos();
@@ -55,7 +38,7 @@ export default function FiltrosHistorialVentas({
         extraerEmpleadosUnicos();
       }
     }
-  }, [expandido, ventasOriginales, esGerente]);
+  }, [expandido, esGerente]);
 
   const cargarDatosUnicos = async () => {
     setLoadingDatos(true);
@@ -105,8 +88,13 @@ export default function FiltrosHistorialVentas({
   };
 
   const handleFiltroChange = (campo, valor) => {
-    userChangedFiltersRef.current = true;
     setLocalFiltros((prev) => ({ ...prev, [campo]: valor }));
+  };
+
+  /** Aplicar filtros al servidor solo cuando el usuario hace clic en "Filtrar". */
+  const aplicarFiltros = (e) => {
+    e?.stopPropagation();
+    onFiltrosChange({ ...localFiltros });
   };
 
   const limpiarTodosFiltros = () => {
@@ -166,20 +154,17 @@ export default function FiltrosHistorialVentas({
 
       {/* Panel de filtros expandible */}
       <div className={`transition-all duration-300 ease-in-out ${
-        expandido ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'
+        expandido ? 'max-h-[36rem] opacity-100' : 'max-h-0 opacity-0'
       } overflow-hidden`}>
         <div className="px-4 pb-4 border-t border-gray-200">
-          <div className={`grid gap-4 mt-4 ${
-            esGerente 
-              ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6' 
-              : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-5'
-          }`}>
-            
-            {/* Fase 2: filtro Cliente unificado (solo debounce → onFiltrosChange → cargarVentas) */}
+          <p className="text-xs text-gray-500 mt-2 mb-1">
+            Completa los criterios y haz clic en <strong>Filtrar</strong> para buscar.
+          </p>
+
+          {/* Filtros principales: Cliente, Tipo documento, Fecha */}
+          <div className="grid gap-4 mt-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cliente
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
               <div className="relative">
                 <input
                   type="text"
@@ -189,10 +174,7 @@ export default function FiltrosHistorialVentas({
                   list="clientes-list"
                   className="w-full p-2 pr-8 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
-                <MdSearch
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400"
-                  size={20}
-                />
+                <MdSearch className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
               </div>
               <datalist id="clientes-list">
                 {clientesUnicos.map((cliente, index) => (
@@ -200,37 +182,12 @@ export default function FiltrosHistorialVentas({
                 ))}
               </datalist>
               {localFiltros.cliente && localFiltros.cliente.length < 2 && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Escribe al menos 2 caracteres para buscar
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Escribe al menos 2 caracteres para buscar</p>
               )}
             </div>
 
-            {/* Filtro por Ciudad */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Ciudad
-              </label>
-              <input
-                type="text"
-                value={localFiltros.ciudad || ''}
-                onChange={(e) => handleFiltroChange('ciudad', e.target.value)}
-                placeholder="Buscar ciudad..."
-                list="ciudades-list"
-                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-              <datalist id="ciudades-list">
-                {ciudadesUnicas.map((ciudad, index) => (
-                  <option key={index} value={ciudad} />
-                ))}
-              </datalist>
-            </div>
-
-            {/* Filtro por Tipo de Documento */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo de Documento
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Documento</label>
               <select
                 value={localFiltros.tipoDocumento || ''}
                 onChange={(e) => handleFiltroChange('tipoDocumento', e.target.value)}
@@ -243,52 +200,8 @@ export default function FiltrosHistorialVentas({
               </select>
             </div>
 
-            {/* Filtro por Tipo Fiscal */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo Fiscal
-              </label>
-              <select
-                value={localFiltros.tipoFiscal || ''}
-                onChange={(e) => handleFiltroChange('tipoFiscal', e.target.value)}
-                className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Todos los tipos</option>
-                <option value="A">🅰️ Tipo A</option>
-                <option value="B">🅱️ Tipo B</option>
-                <option value="C">🅲 Tipo C</option>
-              </select>
-            </div>
-
-            {/* Filtro por Empleado (solo para gerente) */}
-            {esGerente && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Empleado
-                </label>
-                <select
-                  value={localFiltros.empleado || ''}
-                  onChange={(e) => handleFiltroChange('empleado', e.target.value)}
-                  className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value="">Todos los empleados</option>
-                  {empleadosUnicos.map((empleado, index) => (
-                    <option key={index} value={empleado}>
-                      {empleado}
-                    </option>
-                  ))}
-                </select>
-                {loadingDatos && (
-                  <div className="text-xs text-gray-500 mt-1">Cargando empleados...</div>
-                )}
-              </div>
-            )}
-
-            {/* Filtro por Fecha */}
-            <div className={`${esGerente ? 'xl:col-span-1' : 'lg:col-span-1'}`}>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
               <div className="space-y-2">
                 <input
                   type="date"
@@ -308,19 +221,105 @@ export default function FiltrosHistorialVentas({
             </div>
           </div>
 
-          {/* Botones de acción */}
-          <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:justify-end">
+          {/* Filtros avanzados (colapsable) */}
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAvanzadosExpandido((prev) => !prev);
+              }}
+              className="flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-800"
+            >
+              {avanzadosExpandido ? <MdExpandLess size={20} /> : <MdExpandMore size={20} />}
+              Filtros avanzados
+            </button>
+            <div className={`overflow-hidden transition-all duration-200 ${avanzadosExpandido ? 'max-h-80 opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
+              <div className={`grid gap-4 ${esGerente ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-1 sm:grid-cols-2'}`}>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+                  <input
+                    type="text"
+                    value={localFiltros.ciudad || ''}
+                    onChange={(e) => handleFiltroChange('ciudad', e.target.value)}
+                    placeholder="Buscar ciudad..."
+                    list="ciudades-list"
+                    className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                  <datalist id="ciudades-list">
+                    {ciudadesUnicas.map((ciudad, index) => (
+                      <option key={index} value={ciudad} />
+                    ))}
+                  </datalist>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tipo Fiscal</label>
+                  <select
+                    value={localFiltros.tipoFiscal || ''}
+                    onChange={(e) => handleFiltroChange('tipoFiscal', e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="">Todos los tipos</option>
+                    <option value="A">🅰️ Tipo A</option>
+                    <option value="B">🅱️ Tipo B</option>
+                    <option value="C">🅲 Tipo C</option>
+                  </select>
+                </div>
+
+                {esGerente && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Empleado</label>
+                    <select
+                      value={localFiltros.empleado || ''}
+                      onChange={(e) => handleFiltroChange('empleado', e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Todos los empleados</option>
+                      {empleadosUnicos.map((empleado, index) => (
+                        <option key={index} value={empleado}>{empleado}</option>
+                      ))}
+                    </select>
+                    {loadingDatos && (
+                      <div className="text-xs text-gray-500 mt-1">Cargando empleados...</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Botones de acción: Filtrar aplica al servidor; el resto solo afecta la UI local */}
+          <div className="flex flex-col sm:flex-row gap-2 mt-4 sm:justify-end flex-wrap">
+            <button
+              type="button"
+              onClick={aplicarFiltros}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+              title="Aplicar los filtros y buscar ventas"
+            >
+              <MdSearch size={18} />
+              Filtrar
+            </button>
             {hayFiltrosActivos() && (
               <button
-                onClick={limpiarTodosFiltros}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  limpiarTodosFiltros();
+                }}
                 className="flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium"
+                title="Quitar todos los filtros y recargar"
               >
                 <MdClear size={16} />
                 Limpiar Filtros
               </button>
             )}
             <button
-              onClick={() => setExpandido(false)}
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setExpandido(false);
+              }}
               className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium"
             >
               Cerrar Filtros

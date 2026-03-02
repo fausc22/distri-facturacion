@@ -46,6 +46,9 @@ function HistorialVentasContent() {
     porPagina,
     selectedVentas,
     loading,
+    usarSoloRecientes,
+    diasRecientesDefault,
+    ultimosFiltros,
     handleSelectVenta,
     handleSelectAllVentas,
     clearSelection,
@@ -295,14 +298,13 @@ function HistorialVentasContent() {
     window.location.href = '/';
   };
 
-  // Handler para solicitar CAE múltiple
-const handleSolicitarCAE = async () => {
-  // Obtener ventas seleccionadas completas
-  const ventasSeleccionadas = ventasAMostrar.filter(venta => 
-    selectedVentas.includes(venta.id)
-  );
-  
-  // ✅ FILTRAR: Excluir facturas tipo X
+  // Handler para solicitar CAE múltiple (Fase 5: guarda y lista estable)
+  const handleSolicitarCAE = async () => {
+    if (solicitandoCAE) return;
+
+    const ventasSeleccionadas = ventasSeleccionadasCompletas;
+
+    // ✅ FILTRAR: Excluir facturas tipo X
   const ventasValidasParaCAE = ventasSeleccionadas.filter(venta => {
     const tipoF = (venta.tipo_f || '').toString().trim().toUpperCase();
     return tipoF !== 'X';
@@ -376,10 +378,12 @@ const handleSolicitarCAE = async () => {
   }
 };
 
-  // Handler para solicitar CAE individual
+  // Handler para solicitar CAE individual (Fase 5: guarda contra doble envío)
   const handleSolicitarCAEIndividual = async (ventaId) => {
+    if (solicitandoCAE) return;
+
     console.log(`📋 Solicitando CAE para venta individual ${ventaId}...`);
-    
+
     try {
       const resultado = await solicitarCAE(ventaId);
       
@@ -471,12 +475,37 @@ const handleSolicitarCAE = async () => {
           filtros={filtros}
           onFiltrosChange={handleFiltrosChangeConLimpieza}
           onLimpiarFiltros={handleLimpiarFiltrosConSeleccion}
-          onBusquedaCliente={handleBusquedaCliente} // ✅ NUEVA PROP
+          onBusquedaCliente={handleBusquedaCliente}
           user={user}
           totalVentas={totalVentas}
           ventasFiltradas={ventasAMostrar.length}
           ventasOriginales={ventas}
         />
+
+        {/* Fase 3: indicador de vista reciente + opción para ver todo el historial */}
+        {ventasDesdeBackend === null && (
+          <div className="flex flex-wrap items-center justify-between gap-2 py-2 px-3 bg-gray-50 rounded-lg border border-gray-200 mb-4">
+            <span className="text-sm text-gray-600">
+              {usarSoloRecientes ? (
+                <>Mostrando últimos <strong>{diasRecientesDefault}</strong> días</>
+              ) : (
+                <>Mostrando <strong>todo el historial</strong></>
+              )}
+            </span>
+            {usarSoloRecientes && (
+              <button
+                type="button"
+                onClick={() => cargarVentas(
+                  { pagina: 1, porPagina, filtros: ultimosFiltros },
+                  { usarTodoElHistorial: true }
+                )}
+                className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
+              >
+                Ver todo el historial
+              </button>
+            )}
+          </div>
+        )}
         
         <TablaVentas
           ventas={ventasAMostrar}
@@ -536,71 +565,77 @@ const handleSolicitarCAE = async () => {
           onScrollToActions={scrollToAcciones}
         />
       
-      <ModalDetalleVenta
-        venta={selectedVenta}
-        productos={productos}
-        loading={loadingProductos}
-        onClose={handleCloseModalDetalle}
-        onImprimirFacturaIndividual={handleGenerarPDF}
-        generandoPDF={generandoPDF}
-        cuenta={cuenta}
-        // Props para modal PDF individual
-        mostrarModalPDF={mostrarModalPDF}
-        pdfURL={pdfURL}
-        nombreArchivo={nombreArchivo}
-        tituloModal={tituloModal}
-        subtituloModal={subtituloModal}
-        onDescargarPDF={descargarPDF}
-        onCompartirPDF={compartirPDF}
-        onCerrarModalPDF={cerrarModalPDF}
-        // Props para ver comprobante
-        onVerComprobante={handleVerComprobanteDesdeDetalle}
-        // Props para solicitar CAE
-        onSolicitarCAE={handleSolicitarCAEIndividual}  
-        solicitandoCAE={solicitandoCAE}
-        // ✅ NUEVA PROP: Función para recargar venta
-        onRecargarVenta={recargarVenta}
-      />
+      {/* Fase 6: montar modales solo cuando estén abiertos (menos DOM y efectos) */}
+      {mostrarModalDetalle && (
+        <ModalDetalleVenta
+          venta={selectedVenta}
+          productos={productos}
+          loading={loadingProductos}
+          onClose={handleCloseModalDetalle}
+          onImprimirFacturaIndividual={handleGenerarPDF}
+          generandoPDF={generandoPDF}
+          cuenta={cuenta}
+          mostrarModalPDF={mostrarModalPDF}
+          pdfURL={pdfURL}
+          nombreArchivo={nombreArchivo}
+          tituloModal={tituloModal}
+          subtituloModal={subtituloModal}
+          onDescargarPDF={descargarPDF}
+          onCompartirPDF={compartirPDF}
+          onCerrarModalPDF={cerrarModalPDF}
+          onVerComprobante={handleVerComprobanteDesdeDetalle}
+          onSolicitarCAE={handleSolicitarCAEIndividual}
+          solicitandoCAE={solicitandoCAE}
+          onRecargarVenta={recargarVenta}
+        />
+      )}
 
-      <ModalComprobantesVenta
-        mostrar={mostrarModalComprobante}
-        venta={selectedVenta}
-        comprobante={comprobante}
-        comprobantePreview={comprobantePreview}
-        comprobanteExistente={comprobanteExistente}
-        uploadingComprobante={uploadingComprobante}
-        onClose={handleCloseModalComprobante}
-        onFileChange={handleFileChange}
-        onUpload={handleUploadComprobante}
-        onView={handleViewComprobante}
-      />
+      {mostrarModalComprobante && (
+        <ModalComprobantesVenta
+          mostrar
+          venta={selectedVenta}
+          comprobante={comprobante}
+          comprobantePreview={comprobantePreview}
+          comprobanteExistente={comprobanteExistente}
+          uploadingComprobante={uploadingComprobante}
+          onClose={handleCloseModalComprobante}
+          onFileChange={handleFileChange}
+          onUpload={handleUploadComprobante}
+          onView={handleViewComprobante}
+        />
+      )}
 
-      <ModalConfirmacionSalida
-        mostrar={mostrarConfirmacionSalida}
-        onConfirmar={handleSalir}
-        onCancelar={() => setMostrarConfirmacionSalida(false)}
-      />
+      {mostrarConfirmacionSalida && (
+        <ModalConfirmacionSalida
+          mostrar
+          onConfirmar={handleSalir}
+          onCancelar={() => setMostrarConfirmacionSalida(false)}
+        />
+      )}
 
-      {/* Modales de Notas */}
-      <ModalCrearNota
-        tipoNota="NOTA_DEBITO"
-        mostrar={mostrarModalNotaDebito}
-        onClose={() => setMostrarModalNotaDebito(false)}
-        onNotaCreada={() => {
-          cargarVentas({ pagina: 1, porPagina, filtros });
-          toast.success('Nota de Débito creada exitosamente');
-        }}
-      />
+      {mostrarModalNotaDebito && (
+        <ModalCrearNota
+          tipoNota="NOTA_DEBITO"
+          mostrar
+          onClose={() => setMostrarModalNotaDebito(false)}
+          onNotaCreada={() => {
+            cargarVentas({ pagina: 1, porPagina, filtros });
+            toast.success('Nota de Débito creada exitosamente');
+          }}
+        />
+      )}
 
-      <ModalCrearNota
-        tipoNota="NOTA_CREDITO"
-        mostrar={mostrarModalNotaCredito}
-        onClose={() => setMostrarModalNotaCredito(false)}
-        onNotaCreada={() => {
-          cargarVentas({ pagina: 1, porPagina, filtros });
-          toast.success('Nota de Crédito creada exitosamente');
-        }}
-      />
+      {mostrarModalNotaCredito && (
+        <ModalCrearNota
+          tipoNota="NOTA_CREDITO"
+          mostrar
+          onClose={() => setMostrarModalNotaCredito(false)}
+          onNotaCreada={() => {
+            cargarVentas({ pagina: 1, porPagina, filtros });
+            toast.success('Nota de Crédito creada exitosamente');
+          }}
+        />
+      )}
     </div>
   );
 }
