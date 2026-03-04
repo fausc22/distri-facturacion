@@ -213,11 +213,19 @@ function HistorialPedidosContent() {
 
   // HANDLERS PARA PRODUCTOS
   const handleAgregarProducto = () => {
+    if (modoOffline) {
+      toast.error('Para editar pedidos debes reconectar la app');
+      return;
+    }
     setMostrarModalDetalle(false);
     setTimeout(() => setMostrarModalAgregarProducto(true), 300);
   };
 
   const handleEditarProducto = async (producto) => {
+  if (modoOffline) {
+    toast.error('Para editar pedidos debes reconectar la app');
+    return;
+  }
   try {
     console.log('🔍 Abriendo modal para editar:', producto.producto_nombre);
     
@@ -247,6 +255,10 @@ function HistorialPedidosContent() {
   };
 
   const handleEliminarProducto = (producto) => {
+    if (modoOffline) {
+      toast.error('Para editar pedidos debes reconectar la app');
+      return;
+    }
     setProductoEliminando(producto);
     setMostrarModalDetalle(false);
     setTimeout(() => setMostrarModalEliminarProducto(true), 300);

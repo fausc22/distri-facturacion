@@ -29,19 +29,13 @@ export default function Inicio() {
   const {
     hasPendientes,
     cantidadPendientes,
-    hasEdicionesPendientes,
-    cantidadEdicionesPendientes,
-    cantidadEdicionesConflicto,
-    cantidadEdicionesFallidasPermanentes,
-    retryConflictedEdits,
-    lastSyncSummary,
     syncPedidosPendientes,
     syncing
   } = useOfflinePedidos();
 
   // ✅ CONDICIONES PARA MOSTRAR PANELES PWA (solo en modo online)
   const shouldShowCatalogPanel = isPWA && needsUpdate && !modoOffline;
-  const shouldShowPedidosPanel = isPWA && (hasPendientes || hasEdicionesPendientes || cantidadEdicionesConflicto > 0 || cantidadEdicionesFallidasPermanentes > 0) && !modoOffline;
+  const shouldShowPedidosPanel = isPWA && hasPendientes && !modoOffline;
   const shouldShowPWAPanels = shouldShowCatalogPanel || shouldShowPedidosPanel;
 
   // Autenticación
@@ -133,16 +127,15 @@ export default function Inicio() {
       
       // Mostrar resultado detallado
       if (resultado.success) {
-        if (resultado.exitosos > 0 || resultado.edicionesExitosas > 0) {
+        if (resultado.duplicados > 0) {
           toast.success(
-            `Sync OK: ${resultado.exitosos || 0} pedidos, ${resultado.edicionesExitosas || 0} ediciones, ${resultado.duplicados || 0} duplicados`,
-            { duration: 5000 }
+            `${resultado.exitosos} pedidos procesados (${resultado.duplicados} ya existían)`,
+            { duration: 4000 }
           );
+        } else if (resultado.exitosos > 0) {
+          toast.success(`${resultado.exitosos} pedidos sincronizados correctamente`);
         } else {
-          toast.info('No hubo cambios para sincronizar');
-        }
-        if ((resultado.conflictos || 0) > 0) {
-          toast.error(`Se detectaron ${resultado.conflictos} conflictos de edición`, { duration: 5000 });
+          toast.info('No hay pedidos pendientes para sincronizar');
         }
       } else if (resultado.error) {
         console.error('❌ [inicio] Error en sincronización:', resultado.error);
@@ -299,34 +292,10 @@ export default function Inicio() {
               <p className="text-sm mb-2 text-gray-600">
                 <strong>Pedidos nuevos pendientes:</strong> {cantidadPendientes}
               </p>
-              <p className="text-sm mb-4 text-gray-600">
-                <strong>Ediciones offline pendientes:</strong> {cantidadEdicionesPendientes}
-              </p>
-              <p className="text-sm mb-2 text-gray-600">
-                <strong>Conflictos:</strong> {cantidadEdicionesConflicto}
-              </p>
-              <p className="text-sm mb-4 text-gray-600">
-                <strong>Fallidas permanentes:</strong> {cantidadEdicionesFallidasPermanentes}
-              </p>
+              <p className="text-sm mb-4 text-gray-600">Importa solo pedidos creados offline.</p>
               <button onClick={handleSyncPedidos} disabled={syncing} className={`w-full py-3 px-4 rounded-lg font-medium transition-all ${syncing ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700 text-white shadow-md hover:shadow-lg'}`}>
-                {syncing ? 'Sincronizando...' : `SINCRONIZAR (${cantidadPendientes + cantidadEdicionesPendientes})`}
+                {syncing ? 'Sincronizando...' : `SINCRONIZAR (${cantidadPendientes})`}
               </button>
-              {cantidadEdicionesConflicto > 0 && (
-                <button
-                  onClick={() => {
-                    const retried = retryConflictedEdits();
-                    toast.success(`${retried} conflictos pasaron a reintento`);
-                  }}
-                  className="mt-2 w-full py-2 px-3 rounded-lg font-medium transition-all bg-amber-500 hover:bg-amber-600 text-white shadow-md hover:shadow-lg"
-                >
-                  Reintentar conflictos
-                </button>
-              )}
-              {lastSyncSummary && (
-                <div className="mt-3 p-2 rounded bg-gray-50 border border-gray-200 text-xs text-gray-700">
-                  Último sync: {lastSyncSummary.exitosos} pedidos, {lastSyncSummary.edicionesExitosas} ediciones, {lastSyncSummary.conflictos} conflictos.
-                </div>
-              )}
             </div>
           )}
         </div>
