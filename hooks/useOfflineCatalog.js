@@ -391,7 +391,7 @@ export function useOfflineCatalog() {
     hasCatalogComplete,
     getCatalogInfo
   };
-}
+ 
 
 // Hook para pedidos offline - OFFLINE-FIRST
 // Sincronización SOLO manual desde el menú principal
@@ -736,5 +736,4 @@ export function useOfflinePedidos() {
     discardPendingEdit: () => false,
     lastSyncSummary: null
   };
-}
 }
