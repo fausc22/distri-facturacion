@@ -391,7 +391,8 @@ export function useOfflineCatalog() {
     hasCatalogComplete,
     getCatalogInfo
   };
- 
+}
+
 
 // Hook para pedidos offline - OFFLINE-FIRST
 // Sincronización SOLO manual desde el menú principal
