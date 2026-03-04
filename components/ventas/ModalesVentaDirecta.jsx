@@ -223,7 +223,7 @@ export function ModalFacturacionVentaDirecta({
     return tipo === tipoCorrectoPorIVA;
   };
 
-  // Inicializar valores cuando se abre el modal
+  // Inicializar valores cuando se abre el modal (productos puede incluir líneas de flete con nombre/precio personalizados)
   useEffect(() => {
     if (mostrar && productos && productos.length > 0 && cliente?.condicion_iva !== undefined) {
       const subtotal = productos.reduce((acc, prod) => acc + (Number(prod.subtotal) || 0), 0);

@@ -105,16 +105,16 @@ function VentaDirectaContent() {
       cliente_condicion: cliente.condicion_iva || '',
       cliente_cuit: cliente.cuit || '',
       
-      // Datos de productos
+      // Datos de productos (incluye líneas normales y eventuales líneas de flete con nombre/precio personalizados)
       productos: productos.map(p => ({
         id: p.id,
         nombre: p.nombre,
         unidad_medida: p.unidad_medida || 'Unidad',
         cantidad: p.cantidad,
-        precio: parseFloat(p.precio),
-        iva: parseFloat(p.iva_calculado),
-        subtotal: parseFloat(p.subtotal),
-        descuento_porcentaje: parseFloat(p.descuento_porcentaje || 0) // ✅ AGREGAR DESCUENTO
+        precio: parseFloat(p.precio) || 0,
+        iva: parseFloat(p.iva_calculado) || 0,
+        subtotal: parseFloat(p.subtotal) || 0,
+        descuento_porcentaje: parseFloat(p.descuento_porcentaje || 0)
       })),
       
       // Datos de facturación
@@ -213,7 +213,7 @@ function VentaDirectaContent() {
         {/* Selectores */}
         <div className="flex flex-col md:flex-row gap-6">
           <ClienteSelector />
-          <ProductoSelector mostrarPreciosConIva />
+          <ProductoSelector mostrarPreciosConIva mostrarBotonFletes />
         </div>
 
         {/* Carrito */}
