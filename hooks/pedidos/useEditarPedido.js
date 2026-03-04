@@ -75,6 +75,10 @@ export function useEditarPedido() {
       toast.error('No hay pedido seleccionado');
       return false;
     }
+    if (modoOffline && isPWA) {
+      toast.error('La edición de pedidos requiere conexión');
+      return false;
+    }
 
     // 1. Verificar si el producto ya existe en el pedido
     if (verificarProductoDuplicado(producto.id)) {
@@ -179,6 +183,10 @@ export function useEditarPedido() {
       toast.error('No hay pedido seleccionado');
       return false;
     }
+    if (modoOffline && isPWA) {
+      toast.error('La edición de pedidos requiere conexión');
+      return false;
+    }
 
     try {
       if (modoOffline && isPWA) {
@@ -224,6 +232,10 @@ export function useEditarPedido() {
   const actualizarProducto = async (producto) => {
     if (!selectedPedido) {
       toast.error('No hay pedido seleccionado');
+      return false;
+    }
+    if (modoOffline && isPWA) {
+      toast.error('La edición de pedidos requiere conexión');
       return false;
     }
 
@@ -349,6 +361,10 @@ export function useEditarPedido() {
   // Actualizar observaciones del pedido
   const actualizarObservaciones = async (nuevasObservaciones) => {
     if (!selectedPedido) return false;
+    if (modoOffline && isPWA) {
+      toast.error('La edición de observaciones requiere conexión');
+      return false;
+    }
 
     try {
       if (modoOffline && isPWA) {
