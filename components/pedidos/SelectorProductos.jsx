@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { MdSearch } from "react-icons/md";
 import { toast } from 'react-hot-toast'; // Importar toast
 import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
 import { useProductoSearch } from '../../hooks/useBusquedaProductos';
+import { ModalAgregarFlete } from '../ventas/ModalAgregarFlete';
 
 const formatearMoneda = (monto) => `$${Number(monto || 0).toFixed(2)}`;
 
@@ -243,10 +245,11 @@ function ModalProductos({
   );
 }
 
-export default function ProductoSelector({ onAddProducto = null, mostrarPreciosConIva = true }) {
+export default function ProductoSelector({ onAddProducto = null, mostrarPreciosConIva = true, mostrarBotonFletes = false }) {
   // ✅ Usar hook compartido que detecta automáticamente el contexto
   const contexto = useContextoCompartido();
   const addProducto = onAddProducto || contexto.addProducto;
+  const [mostrarModalFlete, setMostrarModalFlete] = useState(false);
 
   const {
     busqueda,
@@ -308,6 +311,16 @@ export default function ProductoSelector({ onAddProducto = null, mostrarPreciosC
         </button>
       </div>
 
+      {mostrarBotonFletes && (
+        <button
+          type="button"
+          onClick={() => setMostrarModalFlete(true)}
+          className="w-full py-2.5 px-4 bg-white hover:bg-blue-50 text-blue-900 rounded-lg font-medium transition-colors flex items-center justify-center gap-2 border border-blue-200"
+        >
+          FLETES
+        </button>
+      )}
+
       {mostrarModal && (
         <ModalProductos
           resultados={resultados}
@@ -322,6 +335,11 @@ export default function ProductoSelector({ onAddProducto = null, mostrarPreciosC
           mostrarPreciosConIva={mostrarPreciosConIva}
         />
       )}
+
+      <ModalAgregarFlete
+        isOpen={mostrarModalFlete}
+        onClose={() => setMostrarModalFlete(false)}
+      />
     </div>
   );
 }
