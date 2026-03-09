@@ -25,7 +25,7 @@ export default function SearchBar({
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full p-2.5 pl-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          className="w-full min-h-[44px] py-2.5 pl-10 pr-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
           disabled={loading}
         />
         <svg
@@ -46,8 +46,9 @@ export default function SearchBar({
       <div className="flex items-center gap-2">
         {value && (
           <button
+            type="button"
             onClick={onClear}
-            className="px-3 py-2 text-sm bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors"
+            className="min-h-[44px] min-w-[44px] px-3 py-2 text-sm bg-gray-500 text-white rounded-md hover:bg-gray-600 active:bg-gray-700 transition-colors touch-manipulation flex items-center justify-center"
             disabled={loading}
           >
             Limpiar

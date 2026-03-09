@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import ModalBase from '../common/ModalBase';
 import { useClientes } from '../../hooks/useClientes';
 import CiudadAutocomplete from '../common/CiudadAutocomplete';
 
-export default function ModalCliente({ 
+function ModalCliente({ 
   cliente, 
   isOpen, 
   onClose, 
@@ -179,7 +179,7 @@ export default function ModalCliente({
               name="nombre"
               value={formData.nombre}
               onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               required
               disabled={loading}
             />
@@ -195,7 +195,7 @@ export default function ModalCliente({
               name="nombre_alternativo"
               value={formData.nombre_alternativo}
               onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               disabled={loading}
             />
           </div>
@@ -209,7 +209,7 @@ export default function ModalCliente({
               name="condicion_iva"
               value={formData.condicion_iva}
               onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               disabled={loading}
               required
             >
@@ -233,7 +233,7 @@ export default function ModalCliente({
                 value={formData.dni}
                 onChange={handleInputChange}
                 placeholder="12345678"
-                className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
                 disabled={loading}
               />
             </div>
@@ -249,7 +249,7 @@ export default function ModalCliente({
                 value={formData.cuit}
                 onChange={handleInputChange}
                 placeholder="20-12345678-9"
-                className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
                 disabled={loading}
               />
             </div>
@@ -261,7 +261,7 @@ export default function ModalCliente({
               type="button"
               onClick={handleValidarAfip}
               disabled={loading || consultandoAfip}
-              className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="min-h-[44px] min-w-[44px] px-4 py-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 touch-manipulation"
             >
               {consultandoAfip ? (
                 <>
@@ -285,7 +285,7 @@ export default function ModalCliente({
               name="telefono"
               value={formData.telefono}
               onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               disabled={loading}
             />
           </div>
@@ -300,7 +300,7 @@ export default function ModalCliente({
               name="direccion"
               value={formData.direccion}
               onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               disabled={loading}
             />
           </div>
@@ -330,7 +330,7 @@ export default function ModalCliente({
               name="provincia"
               value={formData.provincia}
               onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               disabled={loading}
             />
           </div>
@@ -345,7 +345,7 @@ export default function ModalCliente({
               name="email"
               value={formData.email}
               onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               disabled={loading}
             />
           </div>
@@ -363,7 +363,7 @@ export default function ModalCliente({
                 value={formData.cuit}
                 onChange={handleInputChange}
                 placeholder="20-12345678-9"
-                className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
                 disabled={loading}
               />
             </div>
@@ -379,29 +379,29 @@ export default function ModalCliente({
                 value={formData.dni}
                 onChange={handleInputChange}
                 placeholder="12345678"
-                className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
                 disabled={loading}
               />
             </div>
           )}
         </div>
 
-        {/* Botones */}
-        <div className="flex justify-end gap-3 pt-4 border-t">
+        {/* Botones — Fase 4: áreas táctiles ≥44px */}
+        <div className="flex flex-wrap justify-end gap-3 pt-4 border-t">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+            className="min-h-[44px] min-w-[44px] px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
             disabled={loading}
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className={`px-6 py-2 text-white rounded-md ${
-              loading 
-                ? 'bg-gray-400 cursor-not-allowed' 
-                : 'bg-blue-600 hover:bg-blue-700'
+            className={`min-h-[44px] min-w-[44px] px-6 py-2 text-white rounded-md touch-manipulation ${
+              loading
+                ? 'bg-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
             }`}
             disabled={loading}
           >
@@ -412,3 +412,5 @@ export default function ModalCliente({
     </ModalBase>
   );
 }
+
+export default React.memo(ModalCliente);

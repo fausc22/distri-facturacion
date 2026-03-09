@@ -60,7 +60,7 @@ export function BotonAcciones({
             onGenerar={onGenerarRankingVentas}
             loading={generandoRanking}
             texto="RANKING VENTAS"
-            className="bg-orange-600 hover:bg-orange-800 px-6 py-2"
+            className="bg-orange-600 hover:bg-orange-800 active:bg-orange-900 px-6 py-2 min-h-[44px] min-w-[44px] touch-manipulation"
             disabled={selectedVentas.length === 0 || generandoRanking}
             icono="📊"
           />
@@ -71,7 +71,7 @@ export function BotonAcciones({
           {/* ✅ BOTÓN SOLICITAR CAE MEJORADO */}
           <div className="relative">
             <button 
-              className={`px-6 py-2 rounded text-white font-semibold transition-colors ${
+              className={`min-h-[44px] min-w-[44px] px-6 py-2 rounded text-white font-semibold transition-colors touch-manipulation active:opacity-90 ${
                 solicitando || todasSonTipoX || todasTienenCAE
                   ? "bg-gray-400 cursor-not-allowed" 
                   : tieneFacturasTipoX
@@ -134,14 +134,15 @@ export function BotonAcciones({
             onGenerar={onImprimirMultiple}
             loading={imprimiendo}
             texto={`IMPRIMIR (${selectedVentas.length})`}
-            className="bg-purple-600 hover:bg-purple-800 px-6 py-2"
+            className="bg-purple-600 hover:bg-purple-800 active:bg-purple-900 px-6 py-2 min-h-[44px] min-w-[44px] touch-manipulation"
             disabled={selectedVentas.length === 0 || imprimiendo}
           />
-          
-          {/* Botón VOLVER */}
-          <button 
-            className="bg-red-600 hover:bg-red-800 px-6 py-2 rounded text-white font-semibold"
+
+          <button
+            type="button"
+            className="bg-red-600 hover:bg-red-800 active:bg-red-900 px-6 py-2 min-h-[44px] min-w-[44px] rounded text-white font-semibold touch-manipulation"
             onClick={onVolverMenu}
+            aria-label="Volver al menú"
           >
             Volver al Menú
           </button>

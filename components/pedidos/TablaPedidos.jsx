@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 
 
 // Función helper para formatear fechas
@@ -202,19 +202,20 @@ function TarjetasMovil({
 
   return (
     <div className="lg:hidden">
-      {/* Header con seleccionar todos */}
-      <div className="bg-gray-100 p-3 rounded-t-lg flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+      {/* Header con seleccionar todos: área táctil ≥44px (Fase 4) */}
+      <div className="bg-gray-100 p-3 rounded-t-lg flex items-center justify-between mb-4 min-h-[52px]">
+        <label className="flex items-center gap-2 cursor-pointer min-h-[44px] py-2 -my-1 flex-1">
           <input
             type="checkbox"
             checked={selectedPedidos.length === pedidos.length && pedidos.length > 0}
             onChange={() => onSelectAll()}
-            className="w-4 h-4"
+            className="w-5 h-5 rounded border-gray-300"
+            aria-label="Seleccionar todos los pedidos"
           />
           <span className="text-sm font-medium text-gray-700">
             Seleccionar todos ({pedidos.length})
           </span>
-        </div>
+        </label>
         {selectedPedidos.length > 0 && (
           <span className="text-sm font-medium text-blue-600">
             {selectedPedidos.length} seleccionados
@@ -222,18 +223,27 @@ function TarjetasMovil({
         )}
       </div>
 
-      {/* Tarjetas de pedidos */}
+      {/* Tarjetas de pedidos: touch-action para respuesta inmediata (Fase 4) */}
       <div className="space-y-3">
         {pedidos.map((pedido) => (
           <div
             key={pedido.id}
-            className={`bg-white rounded-lg border-2 p-4 transition-all duration-200 cursor-pointer relative ${
-              selectedPedidos.includes(pedido.id) 
-                ? 'border-blue-300 bg-blue-50 shadow-md' 
-                : 'border-gray-200 hover:border-gray-300 hover:shadow-sm'
+            role="button"
+            tabIndex={0}
+            className={`touch-manipulation bg-white rounded-lg border-2 p-4 transition-all duration-200 cursor-pointer relative select-none ${
+              selectedPedidos.includes(pedido.id)
+                ? 'border-blue-300 bg-blue-50 shadow-md'
+                : 'border-gray-200 hover:border-gray-300 hover:shadow-sm active:shadow-inner'
             } ${!verificarPermisos(pedido) ? 'opacity-75' : ''}`}
             onClick={() => handleCardClick(pedido)}
             onDoubleClick={() => handleCardDoubleClick(pedido)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleCardClick(pedido);
+              }
+            }}
+            aria-label={`Pedido ${pedido.id}, ${pedido.cliente_nombre || 'cliente'}`}
           >
             {/* Indicador de permisos */}
             {mostrarPermisos && !verificarPermisos(pedido) && (
@@ -241,16 +251,19 @@ function TarjetasMovil({
                 🔒 Sin editar
               </div>
             )}
-            {/* Header de la tarjeta */}
+            {/* Header de la tarjeta: checkbox con área táctil ≥44px */}
             <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  checked={selectedPedidos.includes(pedido.id)}
-                  onChange={() => onSelectPedido(pedido.id)}
-                  className="w-4 h-4 mt-1"
-                  onClick={(e) => e.stopPropagation()}
-                />
+              <div className="flex items-center gap-3 min-h-[44px]">
+                <label className="flex items-center gap-2 cursor-pointer py-2 -my-2 px-1 -mx-1 min-h-[44px] min-w-[44px]">
+                  <input
+                    type="checkbox"
+                    checked={selectedPedidos.includes(pedido.id)}
+                    onChange={() => onSelectPedido(pedido.id)}
+                    className="w-5 h-5 rounded border-gray-300"
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Seleccionar pedido ${pedido.id}`}
+                  />
+                </label>
                 <div>
                   <h3 className="text-lg font-bold text-blue-600">#{pedido.id}</h3>
                   <p className="text-xs text-gray-500">
@@ -334,8 +347,8 @@ function TarjetasMovil({
   );
 }
 
-// Componente principal
-export default function TablaPedidos({
+// Componente principal: memoizado (Fase 5) para evitar re-renders cuando los props no cambian
+function TablaPedidos({
   pedidos,
   selectedPedidos,
   onSelectPedido,
@@ -461,3 +474,5 @@ export default function TablaPedidos({
     </div>
   );
 }
+
+export default React.memo(TablaPedidos);

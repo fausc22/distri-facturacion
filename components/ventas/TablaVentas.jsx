@@ -1,5 +1,5 @@
-// components/ventas/TablaVentas.jsx - Fase 4: handlers por delegación para menos re-renders
-import { useState, useMemo, useCallback } from 'react';
+// components/ventas/TablaVentas.jsx - Fase 4: handlers por delegación; Fase 5: React.memo
+import React, { useState, useMemo, useCallback } from 'react';
 
 const formatearFecha = (fecha) => {
   if (!fecha) return 'Fecha no disponible';
@@ -283,7 +283,7 @@ function TablaEscritorio({
   );
 }
 
-// Componente para tarjetas en móvil (Fase 4: delegación de eventos)
+// Componente para tarjetas en móvil (Fase 4: touch targets y scroll)
 function TarjetasMovil({
   ventas,
   selectedVentas,
@@ -296,20 +296,20 @@ function TarjetasMovil({
   return (
     <div className="lg:hidden">
       <div className="bg-gray-100 p-3 rounded-t-lg flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2">
+        <label className="flex items-center gap-2 cursor-pointer min-h-[44px] min-w-[44px] py-2 -my-2 px-1 -mx-1 flex-1 touch-manipulation">
           <input
             type="checkbox"
             checked={selectedVentas.length === ventas.length && ventas.length > 0}
             onChange={onSelectAll}
-            className="w-4 h-4"
+            className="w-4 h-4 shrink-0"
             aria-label="Seleccionar todas"
           />
           <span className="text-sm font-medium text-gray-700">
             Seleccionar todos ({ventas.length})
           </span>
-        </div>
+        </label>
         {selectedVentas.length > 0 && (
-          <span className="text-sm font-medium text-blue-600">
+          <span className="text-sm font-medium text-blue-600 shrink-0">
             {selectedVentas.length} seleccionados
           </span>
         )}
@@ -323,7 +323,17 @@ function TarjetasMovil({
             <div
               key={venta.id}
               data-venta-id={venta.id}
-              className={`bg-white rounded-lg border-2 p-4 transition-all duration-200 cursor-pointer ${
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  const fakeCard = { getAttribute: (attr) => (attr === 'data-venta-id' ? String(venta.id) : null) };
+                  onCardAreaClick({ target: { closest: () => fakeCard, type: '' } });
+                }
+              }}
+              aria-label={`Venta ${venta.numero_factura || venta.id}, toca para ver detalles`}
+              className={`bg-white rounded-lg border-2 p-4 transition-all duration-200 cursor-pointer touch-manipulation active:scale-[0.99] ${
                 selectedVentas.includes(venta.id) 
                   ? 'border-blue-300 bg-blue-50 shadow-md' 
                   : 'border-gray-200 hover:border-gray-300'
@@ -332,13 +342,16 @@ function TarjetasMovil({
               {/* Header */}
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <input
-                    type="checkbox"
-                    checked={selectedVentas.includes(venta.id)}
-                    onChange={onCheckboxNoop}
-                    className="w-4 h-4 mt-1"
-                    aria-label={`Seleccionar venta ${venta.id}`}
-                  />
+                  <label className="flex items-center justify-center min-h-[44px] min-w-[44px] py-2 -my-2 px-1 -mx-1 cursor-pointer touch-manipulation shrink-0">
+                    <input
+                      type="checkbox"
+                      checked={selectedVentas.includes(venta.id)}
+                      onChange={onCheckboxNoop}
+                      className="w-4 h-4"
+                      aria-label={`Seleccionar venta ${venta.id}`}
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  </label>
                   <div>
                     {/* ✅ NUMERO_FACTURA en lugar de ID */}
                     {numeroFacturaDesglosado.numeroCompleto !== '-' ? (
@@ -406,8 +419,7 @@ function TarjetasMovil({
   );
 }
 
-// Componente principal (mantener igual, ya incluye TablaEscritorio y TarjetasMovil)
-export default function TablaVentas({
+function TablaVentas({
   ventas,
   selectedVentas,
   onSelectVenta,
@@ -560,3 +572,5 @@ export default function TablaVentas({
     </div>
   );
 }
+
+export default React.memo(TablaVentas);

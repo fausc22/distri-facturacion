@@ -68,20 +68,16 @@ export default function ModalEditarClientePedido({
   };
 
   const handleClienteCreado = (nuevoCliente) => {
-    console.log('🔔 handleClienteCreado llamado con:', nuevoCliente);
-    
-    // Asegurar que tenemos el objeto de cliente completo
-    if (!nuevoCliente || !nuevoCliente.id) {
-      console.error('❌ Cliente no tiene ID:', nuevoCliente);
-      toast.error('Error: Cliente creado pero sin ID');
+    const id = nuevoCliente?.id ?? nuevoCliente?.ID;
+    if (!nuevoCliente || id == null) {
+      console.error('❌ Cliente sin ID:', nuevoCliente);
+      toast.error('Error: Cliente creado pero sin ID. Recargá o buscá el cliente por nombre.');
       return;
     }
-    
-    // Establecer el cliente seleccionado
-    setClienteSeleccionado(nuevoCliente);
+    const clienteNormalizado = { ...nuevoCliente, id: Number(id) };
+    setClienteSeleccionado(clienteNormalizado);
     handleCerrarModalCrear();
     toast.success(`Cliente "${nuevoCliente.nombre}" creado y seleccionado correctamente`);
-    console.log('✅ Cliente seleccionado:', nuevoCliente);
   };
 
   const handleGuardarCambios = async () => {
@@ -185,13 +181,14 @@ export default function ModalEditarClientePedido({
                   value={busqueda}
                   onChange={(e) => setBusqueda(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  className="flex-1 p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-900"
+                  className="flex-1 min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm text-gray-900 touch-manipulation"
                   disabled={loading}
                 />
                 <button
+                  type="button"
                   onClick={handleBuscar}
                   disabled={loading || !busqueda.trim()}
-                  className="p-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-md transition-colors"
+                  className="min-h-[44px] min-w-[44px] p-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:bg-gray-400 text-white rounded-md transition-colors touch-manipulation flex items-center justify-center"
                   title="Buscar cliente"
                 >
                   {loading ? (
@@ -205,16 +202,19 @@ export default function ModalEditarClientePedido({
               {/* Resultados de Búsqueda */}
               {resultados.length > 0 && (
                 <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-md">
-                  {resultados.map((cliente, idx) => (
-                    <div
-                      key={idx}
-                      onClick={() => handleSeleccionarCliente(cliente)}
-                      className={`p-3 border-b last:border-b-0 cursor-pointer transition-colors ${
-                        clienteSeleccionado?.id === cliente.id
-                          ? 'bg-blue-100 hover:bg-blue-200'
-                          : 'hover:bg-gray-100'
-                      }`}
-                    >
+              {resultados.map((cliente, idx) => (
+                <div
+                  key={idx}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => handleSeleccionarCliente(cliente)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleSeleccionarCliente(cliente); } }}
+                  className={`min-h-[44px] p-3 border-b last:border-b-0 cursor-pointer transition-colors touch-manipulation flex items-center ${
+                    clienteSeleccionado?.id === cliente.id
+                      ? 'bg-blue-100 hover:bg-blue-200 active:bg-blue-300'
+                      : 'hover:bg-gray-100 active:bg-gray-200'
+                  }`}
+                >
                       <div className="font-medium text-gray-900">{cliente.nombre}</div>
                       {cliente.ciudad && (
                         <div className="text-sm text-gray-600">{cliente.ciudad}</div>
@@ -234,8 +234,9 @@ export default function ModalEditarClientePedido({
             {/* Botones para Crear/Editar Cliente */}
             <div className="border-t pt-3 space-y-2">
               <button
+                type="button"
                 onClick={handleAbrirModalCrear}
-                className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                className="w-full min-h-[44px] py-2 px-4 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 touch-manipulation"
               >
                 <MdPersonAdd size={20} />
                 Crear Nuevo Cliente
@@ -243,8 +244,9 @@ export default function ModalEditarClientePedido({
 
               {clienteSeleccionado && (
                 <button
+                  type="button"
                   onClick={handleAbrirModalEditar}
-                  className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+                  className="w-full min-h-[44px] py-2 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 touch-manipulation"
                 >
                   ✏️ Editar Cliente Seleccionado
                 </button>
@@ -271,9 +273,10 @@ export default function ModalEditarClientePedido({
           {/* Footer con botones */}
           <div className="sticky bottom-0 bg-white border-t px-4 py-3 flex flex-col sm:flex-row justify-end gap-2">
             <button
+              type="button"
               onClick={handleClose}
               disabled={guardando}
-              className="w-full sm:w-auto px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+              className="w-full sm:w-auto min-h-[44px] px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 active:bg-gray-100 transition-colors touch-manipulation"
             >
               Cancelar
             </button>
@@ -282,10 +285,10 @@ export default function ModalEditarClientePedido({
               loading={guardando}
               loadingText="Guardando..."
               disabled={!clienteSeleccionado}
-              className={`w-full sm:w-auto px-6 py-2 text-white rounded-md flex items-center justify-center gap-2 ${
+              className={`w-full sm:w-auto min-h-[44px] min-w-[44px] px-6 py-2 text-white rounded-md flex items-center justify-center gap-2 touch-manipulation ${
                 guardando || !clienteSeleccionado
                   ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-blue-600 hover:bg-blue-700'
+                  : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
               } transition-colors`}
             >
               Guardar Cambios

@@ -46,8 +46,6 @@ function HistorialVentasContent() {
     porPagina,
     selectedVentas,
     loading,
-    usarSoloRecientes,
-    diasRecientesDefault,
     ultimosFiltros,
     handleSelectVenta,
     handleSelectAllVentas,
@@ -78,15 +76,15 @@ function HistorialVentasContent() {
     [ventasAMostrar, selectedVentas]
   );
 
-  const cambiarPagina = (numeroPagina) => {
+  const cambiarPagina = useCallback((numeroPagina) => {
     if (ventasDesdeBackend !== null) return;
-    cargarPagina(numeroPagina, filtros, { usarTodoElHistorial: true });
-  };
+    cargarPagina(numeroPagina, filtros);
+  }, [ventasDesdeBackend, cargarPagina, filtros]);
 
-  const cambiarRegistrosPorPagina = (cantidad) => {
+  const cambiarRegistrosPorPagina = useCallback((cantidad) => {
     if (ventasDesdeBackend !== null) return;
-    cargarVentas({ pagina: 1, porPagina: cantidad, filtros }, { usarTodoElHistorial: true });
-  };
+    cargarVentas({ pagina: 1, porPagina: cantidad, filtros });
+  }, [ventasDesdeBackend, cargarVentas, filtros, porPagina]);
 
   const {
     selectedVenta,
@@ -155,13 +153,12 @@ function HistorialVentasContent() {
     solicitando: solicitandoCAE 
   } = useSolicitarCAE();
 
-  const handleBusquedaCliente = (ventasEncontradas) => {
+  const handleBusquedaCliente = useCallback((ventasEncontradas) => {
     setVentasDesdeBackend(ventasEncontradas);
     clearSelection();
-  };
+  }, [clearSelection]);
 
-  // Handlers para eventos de la tabla
-  const handleRowDoubleClick = async (venta) => {
+  const handleRowDoubleClick = useCallback(async (venta) => {
     try {
       await cargarProductosVenta(venta);
       await cargarCuenta(venta);
@@ -169,34 +166,31 @@ function HistorialVentasContent() {
     } catch (error) {
       toast.error('Error al cargar detalles de la venta');
     }
-  };
+  }, [cargarProductosVenta, cargarCuenta]);
 
-  const handleCloseModalDetalle = () => {
+  const handleCloseModalDetalle = useCallback(() => {
     setMostrarModalDetalle(false);
     cerrarEdicion();
-  };
+  }, [cerrarEdicion]);
 
-  // Handlers para comprobantes
-  const handleCargarComprobante = async () => {
+  const handleCargarComprobante = useCallback(async () => {
     if (!selectedVenta) {
       toast.error("Seleccione una venta primero");
       return;
     }
-    
     limpiarComprobante();
     await verificarComprobanteExistente(selectedVenta.id);
     setMostrarModalDetalle(false);
     setTimeout(() => setMostrarModalComprobante(true), 300);
-  };
+  }, [selectedVenta, limpiarComprobante, verificarComprobanteExistente]);
 
-  const handleCloseModalComprobante = () => {
+  const handleCloseModalComprobante = useCallback(() => {
     setMostrarModalComprobante(false);
     setTimeout(() => setMostrarModalDetalle(true), 300);
-  };
+  }, []);
 
-  const handleUploadComprobante = async () => {
+  const handleUploadComprobante = useCallback(async () => {
     if (!selectedVenta) return;
-    
     const exito = await uploadComprobante(selectedVenta.id);
     if (exito) {
       setTimeout(() => {
@@ -204,15 +198,14 @@ function HistorialVentasContent() {
         setTimeout(() => setMostrarModalDetalle(true), 300);
       }, 1500);
     }
-  };
+  }, [selectedVenta, uploadComprobante]);
 
-  const handleViewComprobante = () => {
+  const handleViewComprobante = useCallback(() => {
     if (!selectedVenta) return;
     viewComprobante(selectedVenta.id);
-  };
+  }, [selectedVenta, viewComprobante]);
 
-  // Handler para ver comprobante desde el modal de detalle
-  const handleVerComprobanteDesdeDetalle = async (ventaId, tipo) => {
+  const handleVerComprobanteDesdeDetalle = useCallback(async (ventaId, tipo) => {
     try {
       console.log(`👀 Abriendo comprobante: ${tipo}/${ventaId}`);
       
@@ -226,10 +219,9 @@ function HistorialVentasContent() {
       console.error('❌ Error abriendo comprobante:', error);
       toast.error('Error al abrir el comprobante');
     }
-  };
+  }, []);
 
-  // Handler para generar PDF individual
-  const handleGenerarPDF = async () => {
+  const handleGenerarPDF = useCallback(async () => {
     if (!selectedVenta || productos.length === 0) {
       toast.error("Seleccione una venta con productos");
       return;
@@ -237,10 +229,9 @@ function HistorialVentasContent() {
 
     console.log('🖨️ Generando PDF individual para venta:', selectedVenta.id);
     await generarPDFIndividualConModal(selectedVenta, productos);
-  };
+  }, [selectedVenta, productos, generarPDFIndividualConModal]);
 
-  // Función para imprimir múltiples con modal
-  const handleImprimirMultiple = async () => {
+  const handleImprimirMultiple = useCallback(async () => {
     // ✅ ACTUALIZADO: Usar ventasAMostrar en lugar de ventasFiltradas
     const ventasSeleccionadas = ventasAMostrar.filter(venta => 
       selectedVentas.includes(venta.id)
@@ -260,10 +251,9 @@ function HistorialVentasContent() {
     if (exito) {
       clearSelection();
     }
-  };
+  }, [ventasAMostrar, selectedVentas, generarPDFsMultiplesConModal, clearSelection]);
 
-  // Handler para generar ranking de ventas
-  const handleGenerarRankingVentas = async () => {
+  const handleGenerarRankingVentas = useCallback(async () => {
     // ✅ ACTUALIZADO: Usar ventasAMostrar
     const ventasSeleccionadas = ventasAMostrar.filter(venta => 
       selectedVentas.includes(venta.id)
@@ -287,19 +277,17 @@ function HistorialVentasContent() {
     if (exito) {
       console.log('✅ Ranking de ventas generado exitosamente');
     }
-  };
+  }, [ventasAMostrar, selectedVentas, generarRankingVentas]);
 
-  // Handlers para navegación
-  const handleConfirmarSalida = () => {
+  const handleConfirmarSalida = useCallback(() => {
     setMostrarConfirmacionSalida(true);
-  };
+  }, []);
 
-  const handleSalir = () => {
+  const handleSalir = useCallback(() => {
     window.location.href = '/';
-  };
+  }, []);
 
-  // Handler para solicitar CAE múltiple (Fase 5: guarda y lista estable)
-  const handleSolicitarCAE = async () => {
+  const handleSolicitarCAE = useCallback(async () => {
     if (solicitandoCAE) return;
 
     const ventasSeleccionadas = ventasSeleccionadasCompletas;
@@ -376,10 +364,19 @@ function HistorialVentasContent() {
     console.error('❌ Error en solicitud de CAE:', error);
     toast.error('Error al procesar solicitudes de CAE');
   }
-};
+  }, [
+    ventasSeleccionadasCompletas,
+    solicitarCAE,
+    solicitarCAEMultiple,
+    cargarVentas,
+    paginaActual,
+    porPagina,
+    filtros,
+    clearSelection,
+    solicitandoCAE
+  ]);
 
-  // Handler para solicitar CAE individual (Fase 5: guarda contra doble envío)
-  const handleSolicitarCAEIndividual = async (ventaId) => {
+  const handleSolicitarCAEIndividual = useCallback(async (ventaId) => {
     if (solicitandoCAE) return;
 
     console.log(`📋 Solicitando CAE para venta individual ${ventaId}...`);
@@ -399,7 +396,16 @@ function HistorialVentasContent() {
       console.error('❌ Error solicitando CAE individual:', error);
       toast.error('Error al solicitar CAE');
     }
-  };
+  }, [
+    solicitandoCAE,
+    solicitarCAE,
+    cargarVentas,
+    paginaActual,
+    porPagina,
+    filtros,
+    selectedVenta,
+    cargarProductosVenta
+  ]);
 
   // Fase 4: callbacks estables para evitar re-renders innecesarios de FiltrosHistorialVentas
   const handleFiltrosChangeConLimpieza = useCallback(
@@ -407,7 +413,7 @@ function HistorialVentasContent() {
       handleFiltrosChange(nuevosFiltros);
       setVentasDesdeBackend(null);
       clearSelection();
-      cargarVentas({ pagina: 1, porPagina, filtros: nuevosFiltros }, { usarTodoElHistorial: true });
+      cargarVentas({ pagina: 1, porPagina, filtros: nuevosFiltros });
     },
     [handleFiltrosChange, clearSelection, cargarVentas, porPagina]
   );
@@ -416,19 +422,22 @@ function HistorialVentasContent() {
     limpiarFiltros();
     setVentasDesdeBackend(null);
     clearSelection();
-    cargarVentas({ pagina: 1, porPagina }, { usarTodoElHistorial: true });
+    cargarVentas({ pagina: 1, porPagina, filtros: {} });
   }, [limpiarFiltros, clearSelection, cargarVentas, porPagina]);
 
-  const scrollToAcciones = () => {
+  const scrollToAcciones = useCallback(() => {
     if (botonesAccionRef.current) {
       botonesAccionRef.current.scrollIntoView({ 
         behavior: 'smooth', 
         block: 'center' 
       });
-      // Pequeño feedback visual
       toast.success('👇 Desliza para ver todas las acciones', { duration: 2000 });
     }
-  };
+  }, []);
+
+  const handleSelectAllTabla = useCallback(() => {
+    handleSelectAllVentas(ventasAMostrar);
+  }, [handleSelectAllVentas, ventasAMostrar]);
 
   // Mostrar loading mientras se autentica
   if (authLoading) {
@@ -443,35 +452,40 @@ function HistorialVentasContent() {
   }
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+    <div className="flex flex-col min-h-screen bg-gray-100">
       <Head>
         <title>VERTIMAR | HISTORIAL DE VENTAS</title>
         <meta name="description" content="Historial de ventas en el sistema VERTIMAR" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </Head>
-      
-      <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-6xl">
-        <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-          <h1 className="text-3xl font-bold text-center text-gray-800">
-            HISTORIAL DE VENTAS
-          </h1>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setMostrarModalNotaDebito(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2"
-            >
-              📝 NUEVA NOTA DE DÉBITO
-            </button>
-            <button
-              onClick={() => setMostrarModalNotaCredito(true)}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2"
-            >
-              📝 NUEVA NOTA DE CRÉDITO
-            </button>
+
+      <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-8">
+        <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-6xl mx-auto">
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
+            <h1 className="text-3xl font-bold text-center text-gray-800">
+              HISTORIAL DE VENTAS
+            </h1>
+            <div className="flex gap-2 flex-wrap justify-center sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setMostrarModalNotaDebito(true)}
+                className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-2.5 rounded-lg font-semibold transition-colors flex items-center gap-2 min-h-[44px] min-w-[44px] touch-manipulation"
+                aria-label="Nueva Nota de Débito"
+              >
+                📝 NUEVA NOTA DE DÉBITO
+              </button>
+              <button
+                type="button"
+                onClick={() => setMostrarModalNotaCredito(true)}
+                className="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-4 py-2.5 rounded-lg font-semibold transition-colors flex items-center gap-2 min-h-[44px] min-w-[44px] touch-manipulation"
+                aria-label="Nueva Nota de Crédito"
+              >
+                📝 NUEVA NOTA DE CRÉDITO
+              </button>
+            </div>
           </div>
-        </div>
-        
-        {/* ✅ ACTUALIZADO: Agregar props para búsqueda */}
-        <FiltrosHistorialVentas
+
+          <FiltrosHistorialVentas
           filtros={filtros}
           onFiltrosChange={handleFiltrosChangeConLimpieza}
           onLimpiarFiltros={handleLimpiarFiltrosConSeleccion}
@@ -482,36 +496,11 @@ function HistorialVentasContent() {
           ventasOriginales={ventas}
         />
 
-        {/* Fase 3: indicador de vista reciente + opción para ver todo el historial */}
-        {ventasDesdeBackend === null && (
-          <div className="flex flex-wrap items-center justify-between gap-2 py-2 px-3 bg-gray-50 rounded-lg border border-gray-200 mb-4">
-            <span className="text-sm text-gray-600">
-              {usarSoloRecientes ? (
-                <>Mostrando últimos <strong>{diasRecientesDefault}</strong> días</>
-              ) : (
-                <>Mostrando <strong>todo el historial</strong></>
-              )}
-            </span>
-            {usarSoloRecientes && (
-              <button
-                type="button"
-                onClick={() => cargarVentas(
-                  { pagina: 1, porPagina, filtros: ultimosFiltros },
-                  { usarTodoElHistorial: true }
-                )}
-                className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline"
-              >
-                Ver todo el historial
-              </button>
-            )}
-          </div>
-        )}
-        
         <TablaVentas
           ventas={ventasAMostrar}
           selectedVentas={selectedVentas}
           onSelectVenta={handleSelectVenta}
-          onSelectAll={() => handleSelectAllVentas(ventasAMostrar)}
+          onSelectAll={handleSelectAllTabla}
           onRowDoubleClick={handleRowDoubleClick}
           loading={loading}
         />
@@ -559,8 +548,10 @@ function HistorialVentasContent() {
             onCerrarModalRanking={cerrarModalRanking}
           />
         </div>
-      </div>
-       <BotonFlotanteAcciones
+        </div>
+      </main>
+
+      <BotonFlotanteAcciones
           cantidadSeleccionados={selectedVentas.length}
           onScrollToActions={scrollToAcciones}
         />

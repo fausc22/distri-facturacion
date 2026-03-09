@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import ModalBase from '../common/ModalBase';
 import { useProductos } from '../../hooks/useProductos';
 
-export default function ModalProducto({
+function ModalProducto({
   producto,
   isOpen,
   onClose,
@@ -148,7 +148,7 @@ export default function ModalProducto({
               name="nombre"
               value={formData.nombre}
               onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               required
               disabled={loading}
               placeholder="Ej: Aceite de Oliva Extra Virgen"
@@ -164,7 +164,7 @@ export default function ModalProducto({
               name="categoria_id"
               value={formData.categoria_id}
               onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               disabled={loading}
               required
             >
@@ -184,7 +184,7 @@ export default function ModalProducto({
               name="unidad_medida"
               value={formData.unidad_medida}
               onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               disabled={loading}
               required
             >
@@ -206,7 +206,7 @@ export default function ModalProducto({
               onChange={handleInputChange}
               step="0.01"
               min="0"
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               required
               disabled={loading}
               placeholder="0.00"
@@ -225,7 +225,7 @@ export default function ModalProducto({
               onChange={handleInputChange}
               step="0.01"
               min="0"
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               required
               disabled={loading}
               placeholder="0.00"
@@ -241,7 +241,7 @@ export default function ModalProducto({
               name="iva"
               value={formData.iva}
               onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               disabled={loading}
               required
             >
@@ -265,7 +265,7 @@ export default function ModalProducto({
               onChange={handleInputChange}
               step="0.5"
               min="0"
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               required
               disabled={loading}
               placeholder="0"
@@ -283,22 +283,22 @@ export default function ModalProducto({
           </div>
         )}
 
-        {/* Botones */}
-        <div className="flex justify-end gap-3 pt-4 border-t">
+        {/* Botones — Fase 5: áreas táctiles ≥44px */}
+        <div className="flex flex-wrap justify-end gap-3 pt-4 border-t">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+            className="min-h-[44px] min-w-[44px] px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 active:bg-gray-100 touch-manipulation"
             disabled={loading}
           >
             Cancelar
           </button>
           <button
             type="submit"
-            className={`px-6 py-2 text-white rounded-md ${
+            className={`min-h-[44px] min-w-[44px] px-6 py-2 text-white rounded-md touch-manipulation ${
               loading
                 ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
             }`}
             disabled={loading}
           >
@@ -309,3 +309,5 @@ export default function ModalProducto({
     </ModalBase>
   );
 }
+
+export default React.memo(ModalProducto);
