@@ -128,22 +128,6 @@ export default function GestionClientes() {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const clientesPaginados = clientesOrdenados.slice(startIndex, startIndex + itemsPerPage);
 
-  const handleNuevoCliente = () => {
-    setClienteSeleccionado(null);
-    setModoModal('crear');
-    setModalAbierto(true);
-  };
-
-  const handleEditarCliente = (cliente) => {
-    setClienteSeleccionado(cliente);
-    setModoModal('editar');
-    setModalAbierto(true);
-  };
-
-  const handleClienteGuardado = () => {
-    cargarClientes();
-  };
-
   const columnas = [
     { key: 'nombre', label: 'Nombre', sortable: true },
     { key: 'condicion_iva', label: 'Condición', sortable: true },
