@@ -1,5 +1,6 @@
 // components/pedidos/SelectorClientesHybrid.jsx - Selector Híbrido PWA/Web
 import { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { MdSearch, MdDeleteForever, MdKeyboardArrowDown, MdKeyboardArrowUp, MdWifi, MdWifiOff, MdPersonAdd } from "react-icons/md";
 import { usePedidosContext } from '../../context/PedidosContext';
 import { useClienteSearchHybrid } from '../../hooks/useBusquedaHybrid';
@@ -160,8 +161,12 @@ export default function ClienteSelectorHybrid() {
   };
 
   const handleClienteCreado = (nuevoCliente) => {
-    // Seleccionar el cliente recién creado automáticamente
-    setCliente(nuevoCliente);
+    const id = nuevoCliente?.id ?? nuevoCliente?.ID;
+    if (!nuevoCliente || id == null) {
+      toast.error('No se pudo obtener el cliente creado. Buscá el cliente por nombre.');
+      return;
+    }
+    setCliente({ ...nuevoCliente, id: Number(id) });
     setMostrarModalCrear(false);
   };
 

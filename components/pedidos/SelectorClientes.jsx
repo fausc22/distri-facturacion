@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { toast } from 'react-hot-toast';
 import { MdSearch, MdDeleteForever, MdKeyboardArrowDown, MdKeyboardArrowUp, MdPersonAdd} from "react-icons/md";
 import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
 import { useClienteSearch } from '../../hooks/useBusquedaClientes';
@@ -99,8 +100,12 @@ export default function ClienteSelectorListaPrecios() {
   };
 
   const handleClienteCreado = (nuevoCliente) => {
-    // Seleccionar el cliente recién creado automáticamente
-    setCliente(nuevoCliente);
+    const id = nuevoCliente?.id ?? nuevoCliente?.ID;
+    if (!nuevoCliente || id == null) {
+      toast.error('No se pudo obtener el cliente creado. Buscá el cliente por nombre.');
+      return;
+    }
+    setCliente({ ...nuevoCliente, id: Number(id) });
     setMostrarModalCrear(false);
   };
 

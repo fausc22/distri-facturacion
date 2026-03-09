@@ -10,7 +10,6 @@ export function useHistorialPedidos(filtroEmpleado = null) {
   const [selectedPedidos, setSelectedPedidos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filtros, setFiltros] = useState({
-    busquedaTexto: '',
     estado: '',
     cliente: '',
     ciudad: '',
@@ -51,13 +50,13 @@ export function useHistorialPedidos(filtroEmpleado = null) {
       if (filtroEmpleado) params.set('empleado_id', filtroEmpleado);
 
       const f = filtrosParaServidor || filtros;
-      if (f.fechaDesde) params.set('fechaDesde', f.fechaDesde);
-      if (f.fechaHasta) params.set('fechaHasta', f.fechaHasta);
-      const clienteVal = f.cliente || f.busquedaTexto;
-      if (clienteVal) params.set('cliente', clienteVal);
-      if (f.estado) params.set('estado', f.estado);
-      if (f.ciudad) params.set('ciudad', f.ciudad);
-      if (f.empleado) params.set('empleado_nombre', f.empleado);
+      const trim = (v) => (typeof v === 'string' ? v.trim() : v);
+      if (trim(f.fechaDesde)) params.set('fechaDesde', trim(f.fechaDesde));
+      if (trim(f.fechaHasta)) params.set('fechaHasta', trim(f.fechaHasta));
+      if (trim(f.cliente)) params.set('cliente', trim(f.cliente));
+      if (trim(f.estado)) params.set('estado', trim(f.estado));
+      if (trim(f.ciudad)) params.set('ciudad', trim(f.ciudad));
+      if (trim(f.empleado)) params.set('empleado_nombre', trim(f.empleado));
 
       if (!usarTodoElHistorial && usarSoloRecientes) {
         params.set('dias', '30');
@@ -115,13 +114,13 @@ export function useHistorialPedidos(filtroEmpleado = null) {
     cargarPedidos(null, {});
   }, [filtroEmpleado, modoOffline, isPWA]);
 
-  // Búsqueda rápida (busquedaTexto) se filtra en cliente sobre la página actual para no disparar request por tecla
+  // Búsqueda por cliente en memoria (mismo campo que en servidor)
   const pedidosFiltrados = useMemo(() => {
     if (!pedidosOriginales.length) return pedidosOriginales;
-    if (!filtros.busquedaTexto || !filtros.busquedaTexto.trim()) return pedidosOriginales;
-    const texto = filtros.busquedaTexto.toLowerCase().trim();
+    if (!filtros.cliente || !filtros.cliente.trim()) return pedidosOriginales;
+    const texto = filtros.cliente.toLowerCase().trim();
     return pedidosOriginales.filter(p => p.cliente_nombre?.toLowerCase().includes(texto));
-  }, [pedidosOriginales, filtros.busquedaTexto]);
+  }, [pedidosOriginales, filtros.cliente]);
 
   // Seleccionar/deseleccionar un pedido individual
   const handleSelectPedido = (pedidoId) => {
@@ -151,35 +150,27 @@ export function useHistorialPedidos(filtroEmpleado = null) {
     setSelectedPedidos([]);
   };
 
+  const FILTROS_VACIOS = {
+    estado: '',
+    cliente: '',
+    ciudad: '',
+    empleado: '',
+    fechaDesde: '',
+    fechaHasta: ''
+  };
+
   const actualizarFiltros = (nuevosFiltros) => {
     setFiltros(nuevosFiltros);
     clearSelection();
-    const tieneFiltrosServidor = !!(
-      nuevosFiltros.fechaDesde ||
-      nuevosFiltros.fechaHasta ||
-      nuevosFiltros.cliente ||
-      nuevosFiltros.busquedaTexto ||
-      nuevosFiltros.estado ||
-      nuevosFiltros.ciudad ||
-      nuevosFiltros.empleado
-    );
-    if (tieneFiltrosServidor) {
-      cargarPedidos(nuevosFiltros, { usarTodoElHistorial: true, pagina: 1 });
-    }
+    // Siempre refetch con los nuevos filtros (también al quitar el último filtro)
+    cargarPedidos(nuevosFiltros, { usarTodoElHistorial: true, pagina: 1 });
   };
 
   const limpiarFiltros = () => {
-    setFiltros({
-      busquedaTexto: '',
-      estado: '',
-      cliente: '',
-      ciudad: '',
-      empleado: '',
-      fechaDesde: '',
-      fechaHasta: ''
-    });
+    setFiltros(FILTROS_VACIOS);
     clearSelection();
-    cargarPedidos(null, { usarTodoElHistorial: true, pagina: 1 });
+    // Pasar filtros vacíos explícitos: cargarPedidos(null) usa el state anterior (aún no actualizado)
+    cargarPedidos(FILTROS_VACIOS, { usarTodoElHistorial: true, pagina: 1 });
   };
 
   const cargarPagina = (numeroPagina, nuevaPorPagina = null) => {
@@ -302,6 +293,17 @@ export function useHistorialPedidos(filtroEmpleado = null) {
     return Object.values(filtros).some(valor => valor && valor !== '');
   };
 
+  /**
+   * Actualiza un solo pedido en la lista sin recargar desde el servidor.
+   * Usado tras facturar (Fase 1). Reutilizar para anulación u otras actualizaciones
+   * puntuales: llamar con el id y { estado: 'Anulado' } (u otros campos) para evitar cargarPedidos().
+   */
+  const actualizarPedidoEnLista = (pedidoId, datosActualizados) => {
+    setPedidosOriginales(prev =>
+      prev.map(p => (p.id === pedidoId ? { ...p, ...datosActualizados } : p))
+    );
+  };
+
   return {
     pedidos: pedidosFiltrados,
     pedidosOriginales,
@@ -316,16 +318,17 @@ export function useHistorialPedidos(filtroEmpleado = null) {
     handleSelectPedido,
     handleSelectAllPedidos,
     clearSelection,
-    
+    actualizarPedidoEnLista,
+
     // Funciones de filtrado
     actualizarFiltros,
     limpiarFiltros,
     hayFiltrosActivos,
-    
+
     // Operaciones múltiples
     cambiarEstadoMultiple,
     eliminarMultiple,
-    
+
     // Utilidades
     getEstadisticas
   };

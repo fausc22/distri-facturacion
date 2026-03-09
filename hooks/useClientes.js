@@ -7,17 +7,23 @@ export const useClientes = () => {
   const [loading, setLoading] = useState(false);
   const [consultandoAfip, setConsultandoAfip] = useState(false);
 
-  // Crear cliente
+  // Crear cliente (Fase 2: garantizar que data siempre tenga id; usar insertId como respaldo)
   const crearCliente = async (clienteData) => {
     setLoading(true);
     try {
       const response = await axiosAuth.post('/personas/crear-cliente', clienteData);
-      
+
       if (response.data.success) {
         toast.success('Cliente creado correctamente');
-        // El backend devuelve: { success: true, message: "...", data: {...cliente} }
-        // Necesitamos pasar el cliente completo
-        return { success: true, data: response.data.data };
+        let data = response.data.data;
+        const insertId = response.data.insertId != null ? Number(response.data.insertId) : null;
+        if (!data || (data.id == null && insertId != null)) {
+          data = { id: insertId, ...(data || {}), ...clienteData };
+          data.id = data.id ?? insertId;
+        } else if (data && data.id == null && insertId != null) {
+          data = { ...data, id: insertId };
+        }
+        return { success: true, data, insertId: insertId ?? data?.id };
       }
     } catch (error) {
       console.error('Error al crear cliente:', error);
@@ -57,8 +63,11 @@ export const useClientes = () => {
       
       if (response.data.success) {
         toast.success('Cliente actualizado correctamente');
-        // El backend puede devolver el cliente actualizado o solo success
-        return { success: true, data: response.data.data || response.data };
+        const data = response.data.data || response.data;
+        const dataConId = data && (data.id != null || data.ID != null)
+          ? { ...data, id: data.id ?? data.ID }
+          : (data ? { ...data, id: Number(id) } : { id: Number(id), ...response.data });
+        return { success: true, data: dataConId };
       }
     } catch (error) {
       console.error('Error al actualizar cliente:', error);
@@ -126,7 +135,28 @@ export const useClientes = () => {
     return { success: false, error: 'CUIT o DNI inválido para consulta' };
   };
 
-  // Validar datos de cliente (alineado con backend Fase 2)
+  // Eliminar cliente (Fase 6)
+  const eliminarCliente = async (id) => {
+    setLoading(true);
+    try {
+      const response = await axiosAuth.delete(`/personas/eliminar-cliente/${id}`);
+      if (response.data.success) {
+        toast.success('Cliente eliminado correctamente');
+        return { success: true };
+      }
+      toast.error(response.data.message || 'Error al eliminar el cliente');
+      return { success: false, error: response.data.message };
+    } catch (error) {
+      console.error('Error al eliminar cliente:', error);
+      const message = error.response?.data?.message || 'Error al eliminar el cliente';
+      toast.error(message);
+      return { success: false, error: message };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Validar datos de cliente (alineado con backend). CUIT acepta formato con guiones/espacios (ej. 20-42234462-5).
   const validarDatosCliente = (datos) => {
     const errores = [];
 
@@ -183,6 +213,7 @@ export const useClientes = () => {
     crearCliente,
     buscarClientes,
     actualizarCliente,
+    eliminarCliente,
     consultarContribuyenteAfip,
     validarDatosCliente
   };

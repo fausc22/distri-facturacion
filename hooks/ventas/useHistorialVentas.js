@@ -1,10 +1,11 @@
-// hooks/ventas/useHistorialVentas.js - Paginación en servidor. Callbacks estables (Fase 2).
+// hooks/ventas/useHistorialVentas.js - Paginación en servidor. Sin parche de 30 días (Fase 2).
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 
 const POR_PAGINA_DEFAULT = 25;
-const DIAS_RECIENTES_DEFAULT = 30;
+
+const trim = (v) => (typeof v === 'string' ? v.trim() : v);
 
 export function useHistorialVentas() {
   const [ventas, setVentas] = useState([]);
@@ -14,40 +15,31 @@ export function useHistorialVentas() {
   const [loading, setLoading] = useState(true);
   const [selectedVentas, setSelectedVentas] = useState([]);
   const [ultimosFiltros, setUltimosFiltros] = useState({});
-  const [usarSoloRecientes, setUsarSoloRecientes] = useState(true);
 
-  // Refs para leer valor actual sin que cargarVentas/cargarPagina cambien de referencia
   const paginaActualRef = useRef(1);
   const porPaginaRef = useRef(POR_PAGINA_DEFAULT);
   const ultimosFiltrosRef = useRef({});
-  const usarSoloRecientesRef = useRef(true);
 
   useEffect(() => {
     paginaActualRef.current = paginaActual;
     porPaginaRef.current = porPagina;
     ultimosFiltrosRef.current = ultimosFiltros;
-    usarSoloRecientesRef.current = usarSoloRecientes;
-  }, [paginaActual, porPagina, ultimosFiltros, usarSoloRecientes]);
+  }, [paginaActual, porPagina, ultimosFiltros]);
 
-  const cargarVentas = useCallback(async (opts = {}, options = {}) => {
-    const usarTodoElHistorial = options.usarTodoElHistorial === true;
-    if (usarTodoElHistorial) setUsarSoloRecientes(false);
-
+  const cargarVentas = useCallback(async (opts = {}) => {
     const pagina = opts.pagina !== undefined ? opts.pagina : paginaActualRef.current;
     const porPaginaParam = opts.porPagina !== undefined ? opts.porPagina : porPaginaRef.current;
     const filtros = opts.filtros !== undefined ? opts.filtros : ultimosFiltrosRef.current;
-    const soloRecientes = usarTodoElHistorial ? false : usarSoloRecientesRef.current;
 
     setLoading(true);
     try {
       const params = { pagina, porPagina: porPaginaParam };
-      if (!usarTodoElHistorial && soloRecientes) params.dias = DIAS_RECIENTES_DEFAULT;
-      if (filtros.cliente) params.cliente = filtros.cliente;
-      if (filtros.fechaDesde) params.fechaDesde = filtros.fechaDesde;
-      if (filtros.fechaHasta) params.fechaHasta = filtros.fechaHasta;
-      if (filtros.tipoDocumento) params.tipoDocumento = filtros.tipoDocumento;
-      if (filtros.tipoFiscal) params.tipoFiscal = filtros.tipoFiscal;
-      if (filtros.empleado) params.empleado = filtros.empleado;
+      if (trim(filtros.cliente)) params.cliente = trim(filtros.cliente);
+      if (trim(filtros.fechaDesde)) params.fechaDesde = trim(filtros.fechaDesde);
+      if (trim(filtros.fechaHasta)) params.fechaHasta = trim(filtros.fechaHasta);
+      if (trim(filtros.tipoDocumento)) params.tipoDocumento = trim(filtros.tipoDocumento);
+      if (trim(filtros.tipoFiscal)) params.tipoFiscal = trim(filtros.tipoFiscal);
+      if (trim(filtros.empleado)) params.empleado = trim(filtros.empleado);
 
       const response = await axiosAuth.get('/ventas/obtener-ventas', { params });
 
@@ -62,7 +54,6 @@ export function useHistorialVentas() {
         paginaActualRef.current = newPagina;
         porPaginaRef.current = newPorPagina;
         ultimosFiltrosRef.current = filtros;
-        if (usarTodoElHistorial) usarSoloRecientesRef.current = false;
       } else {
         setVentas([]);
         setTotalVentas(0);
@@ -81,12 +72,12 @@ export function useHistorialVentas() {
     cargarVentas({ pagina: 1, porPagina: POR_PAGINA_DEFAULT });
   }, [cargarVentas]);
 
-  const cargarPagina = useCallback((numeroPagina, filtrosActuales, options = {}) => {
+  const cargarPagina = useCallback((numeroPagina, filtrosActuales) => {
     return cargarVentas({
       pagina: numeroPagina,
       porPagina: porPaginaRef.current,
       filtros: filtrosActuales !== undefined ? filtrosActuales : ultimosFiltrosRef.current
-    }, options);
+    });
   }, [cargarVentas]);
 
   const handleSelectVenta = useCallback((ventaId) => {
@@ -115,8 +106,6 @@ export function useHistorialVentas() {
     porPagina,
     selectedVentas,
     loading,
-    usarSoloRecientes,
-    diasRecientesDefault: DIAS_RECIENTES_DEFAULT,
     cargarVentas,
     cargarPagina,
     ultimosFiltros,

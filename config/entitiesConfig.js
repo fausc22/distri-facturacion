@@ -5,6 +5,8 @@ const apiUrl = process.env.NEXT_PUBLIC_API_URL;
 const liveValidations = {
   // Solo números: permite vacío y números
   onlyNumbers: (value) => value === '' || /^[\d]*$/.test(value),
+  // CUIT: permite dígitos, guiones y espacios (ej. formato AFIP "20-42234462-5")
+  cuitConGuiones: (value) => value === '' || /^[\d\s\-]*$/.test(value),
   // Email en vivo: permite caracteres de email mientras escribe
   emailLive: (value) => value === '' || /^[a-zA-Z0-9@._-]*$/.test(value),
   // Decimal en vivo: permite números y punto decimal
@@ -20,7 +22,8 @@ const strictValidations = {
   decimal: (value) => !value || /^\d*\.?\d+$/.test(value),
   usuario: (value) => !value || (/^[a-zA-Z0-9_]{3,20}$/.test(value) && value.length >= 3),
   password: (value) => !value || value.length >= 6,
-  cuit: (value) => !value || (/^\d{11}$/.test(value.replace(/-/g, '')))
+  // CUIT con o sin guiones/espacios: normaliza quitando no-dígitos y exige 11 dígitos
+  cuit: (value) => !value || (/^\d{11}$/.test(String(value).replace(/\D/g, '')))
 };
 
 // Configuración para Productos CON SELECT DINÁMICO DE CATEGORÍAS
@@ -194,17 +197,17 @@ export const clientesConfig = {
     saveError: 'Error al guardar cliente'
   },
   
-  // Validaciones en tiempo real (permisivas)
+  // Validaciones en tiempo real (permisivas) — CUIT acepta formato con guiones/espacios (ej. AFIP)
   liveValidations: {
-    cuit: liveValidations.onlyNumbers,
+    cuit: liveValidations.cuitConGuiones,
     dni: liveValidations.onlyNumbers,
     telefono: liveValidations.onlyNumbers,
     email: liveValidations.emailLive
   },
   
-  // Validaciones estrictas para envío
+  // Validaciones estrictas para envío — CUIT se normaliza (solo dígitos) y debe tener 11
   validations: {
-    cuit: strictValidations.onlyNumbers,
+    cuit: strictValidations.cuit,
     dni: strictValidations.onlyNumbers,
     telefono: strictValidations.onlyNumbers,
     email: strictValidations.email

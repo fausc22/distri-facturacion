@@ -75,10 +75,10 @@ export function BotonAccionesPedidos({
               onGenerar={onImprimirMultiple}
               loading={loading}
               texto={`🖨️ ${textos.imprimir} (${selectedPedidos.length})`}
-              className={`px-6 py-3 rounded text-white font-semibold flex items-center gap-2 ${
-                loading 
-                  ? "bg-gray-500 cursor-not-allowed" 
-                  : "bg-blue-600 hover:bg-blue-700"
+              className={`min-h-[44px] min-w-[44px] px-6 py-3 rounded-lg text-white font-semibold flex items-center gap-2 touch-manipulation ${
+                loading
+                  ? "bg-gray-500 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700 active:bg-blue-800"
               }`}
               disabled={loading}
             />
@@ -203,12 +203,14 @@ export function BotonAccionesPedidos({
           )}
         </div>
 
-        {/* Botón volver al menú (siempre visible) */}
+        {/* Botón volver al menú: área táctil ≥44px (Fase 4) */}
         <div className="flex-shrink-0">
-          <button 
-            className="bg-gray-600 hover:bg-gray-700 px-6 py-2 rounded text-white font-semibold transition-colors"
+          <button
+            type="button"
+            className="min-h-[44px] min-w-[44px] px-6 py-3 rounded-lg text-white font-semibold transition-colors touch-manipulation bg-gray-600 hover:bg-gray-700 active:bg-gray-800 disabled:opacity-50"
             onClick={onVolverMenu}
             disabled={loading}
+            aria-label={textos.volverMenu}
           >
             🏠 {textos.volverMenu}
           </button>

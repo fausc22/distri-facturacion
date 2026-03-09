@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Head from 'next/head';
 import { toast } from 'react-hot-toast';
 import useAuth from '../../hooks/useAuth';
@@ -93,6 +93,7 @@ function HistorialPedidosContent() {
     handleSelectPedido,
     handleSelectAllPedidos,
     clearSelection,
+    actualizarPedidoEnLista,
     cambiarEstadoMultiple,
     eliminarMultiple,
     cargarPedidos,
@@ -106,13 +107,13 @@ function HistorialPedidosContent() {
   const indexOfPrimero = (paginaActual - 1) * porPagina;
   const indexOfUltimo = Math.min(paginaActual * porPagina, totalPedidos);
 
-  const cambiarPagina = (numeroPagina) => {
+  const cambiarPagina = useCallback((numeroPagina) => {
     cargarPagina(numeroPagina);
-  };
+  }, [cargarPagina]);
 
-  const cambiarRegistrosPorPagina = (cantidad) => {
+  const cambiarRegistrosPorPagina = useCallback((cantidad) => {
     cargarPagina(1, cantidad);
-  };
+  }, [cargarPagina]);
 
   const {
     selectedPedido,
@@ -196,20 +197,19 @@ function HistorialPedidosContent() {
     }
   };
 
-  // Handlers para eventos de la tabla
-  const handleRowDoubleClick = async (pedido) => {
+  const handleRowDoubleClick = useCallback(async (pedido) => {
     try {
       await cargarProductosPedido(pedido);
       setMostrarModalDetalle(true);
     } catch (error) {
       toast.error('Error al cargar detalles del pedido');
     }
-  };
+  }, [cargarProductosPedido]);
 
-  const handleCloseModalDetalle = () => {
+  const handleCloseModalDetalle = useCallback(() => {
     setMostrarModalDetalle(false);
     cerrarEdicion();
-  };
+  }, [cerrarEdicion]);
 
   // HANDLERS PARA PRODUCTOS
   const handleAgregarProducto = () => {
@@ -457,47 +457,45 @@ function HistorialPedidosContent() {
     }
   };
 
-  // ✅ FUNCIÓN CORREGIDA: NO limpiar selección inmediatamente
-  const handleImprimirMultiple = async () => {
+  const handleImprimirMultiple = useCallback(async () => {
     if (selectedPedidos.length === 0) {
       toast.error('Seleccione al menos un pedido para imprimir');
       return;
     }
+    await generarPDFsPedidosMultiplesConModal(selectedPedidos);
+  }, [selectedPedidos, generarPDFsPedidosMultiplesConModal]);
 
-    console.log('🖨️ Iniciando impresión múltiple de pedidos con modal:', selectedPedidos);
-    
-    const exito = await generarPDFsPedidosMultiplesConModal(selectedPedidos);
-    
-    // ❌ NO limpiar selección aquí - se hará cuando se cierre el modal
-    console.log('✅ PDF múltiple generado, exito:', exito);
-  };
+  const handleCerrarModalPDFMultiple = useCallback(() => {
+    cerrarModalPDFMultiple();
+    clearSelection();
+  }, [cerrarModalPDFMultiple, clearSelection]);
 
-  // ✅ NUEVA FUNCIÓN: Limpiar selección cuando se cierre el modal múltiple
-  const handleCerrarModalPDFMultiple = () => {
-    console.log('🔄 Cerrando modal PDF múltiple y limpiando selección');
-    cerrarModalPDFMultiple(); // Cerrar el modal
-    clearSelection(); // Ahora sí limpiar la selección
-  };
-
-  // Handlers para navegación
-  const handleConfirmarSalida = () => {
+  const handleConfirmarSalida = useCallback(() => {
     setMostrarConfirmacionSalida(true);
-  };
+  }, []);
+
+  const handleSelectAll = useCallback(() => {
+    handleSelectAllPedidos(pedidos);
+  }, [handleSelectAllPedidos, pedidos]);
 
   const handleSalir = () => {
     window.location.href = '/';
   };
 
-  // FUNCIONES para manejar filtros
-  const handleFiltrosChange = (nuevosFiltros) => {
-    actualizarFiltros(nuevosFiltros);
-    cambiarPagina(1);
-  };
+  // Fase 5: callbacks estables para evitar re-renders en hijos
+  const handleFiltrosChange = useCallback((nuevosFiltros) => {
+    actualizarFiltros(nuevosFiltros); // ya hace refetch con nuevosFiltros y pagina 1
+  }, [actualizarFiltros]);
 
-  const handleLimpiarFiltros = () => {
-    limpiarFiltros();
-    cambiarPagina(1);
-  };
+  const handleLimpiarFiltros = useCallback(() => {
+    limpiarFiltros(); // ya hace refetch con filtros vacíos en página 1
+  }, [limpiarFiltros]);
+
+  /** Tras facturar: actualiza solo ese pedido en lista y cierra el modal (sin recargar toda la lista). Reutilizable para anulación u otras actualizaciones puntuales. */
+  const handlePedidoFacturado = useCallback((pedidoId) => {
+    actualizarPedidoEnLista(pedidoId, { estado: 'Facturado' });
+    cerrarEdicion();
+  }, [actualizarPedidoEnLista, cerrarEdicion]);
 
   // Obtener estadísticas para mostrar en filtros
   const estadisticas = getEstadisticas();
@@ -523,71 +521,75 @@ function HistorialPedidosContent() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+    <div className="flex flex-col min-h-screen bg-gray-100">
       <Head>
         <title>VERTIMAR | HISTORIAL DE PEDIDOS</title>
         <meta name="description" content="Historial de pedidos en el sistema VERTIMAR" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
       </Head>
-      
-      <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-6xl">
-        <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
-          {getTitulo()}
-        </h1>
-        
-        <FiltrosHistorialPedidos
-          filtros={filtros}
-          onFiltrosChange={handleFiltrosChange}
-          onLimpiarFiltros={handleLimpiarFiltros}
-          user={user}
-          totalPedidos={estadisticas.total}
-          pedidosFiltrados={estadisticas.filtrado}
-          pedidosOriginales={pedidosOriginales}
-        />
-        
-        <TablaPedidos
-          pedidos={pedidos}
-          selectedPedidos={selectedPedidos}
-          onSelectPedido={handleSelectPedido}
-          onSelectAll={() => handleSelectAllPedidos(pedidos)}
-          onRowDoubleClick={handleRowDoubleClick}
-          loading={loading}
-          mostrarPermisos={true}
-          verificarPermisos={() => true}
-          isPedidoFacturado={selectedPedido?.estado === 'Facturado'}
-        />
-        
-        <Paginacion
-          datosOriginales={pedidos}
-          totalRegistros={totalPedidos}
-          paginaActual={paginaActual}
-          registrosPorPagina={porPagina}
-          totalPaginas={totalPaginas}
-          indexOfPrimero={indexOfPrimero}
-          indexOfUltimo={indexOfUltimo}
-          onCambiarPagina={cambiarPagina}
-          onCambiarRegistrosPorPagina={cambiarRegistrosPorPagina}
-        />
-        
-        {/* ✅ BOTÓN ADAPTADO CON FUNCIÓN CORREGIDA PARA CERRAR MODAL */}
-        <BotonAccionesPedidos
-          contexto="historial"
-          selectedPedidos={selectedPedidos}
-          onImprimirMultiple={handleImprimirMultiple}
-          onVolverMenu={handleConfirmarSalida}
-          loading={generandoPDFMultiple || loading}
-          mostrarEstadisticas={false}
-          // ✅ Props para modal PDF múltiple
-          mostrarModalPDFMultiple={mostrarModalPDFMultiple}
-          pdfURLMultiple={pdfURLMultiple}
-          nombreArchivoMultiple={nombreArchivoMultiple}
-          tituloModalMultiple={tituloModalMultiple}
-          subtituloModalMultiple={subtituloModalMultiple}
-          onDescargarPDFMultiple={descargarPDFMultiple}
-          onCompartirPDFMultiple={compartirPDFMultiple}
-          onCerrarModalPDFMultiple={handleCerrarModalPDFMultiple} // ✅ Función corregida
-        />
-      </div>
-      
+
+      {/* Contenido scrolleable: evita que la página quede bloqueada en móvil (Fase 4) */}
+      <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-8">
+        <div className="flex flex-col items-center max-w-6xl mx-auto w-full">
+          <div className="bg-white shadow-lg rounded-lg p-4 sm:p-6 w-full">
+            <h1 className="text-xl sm:text-3xl font-bold mb-4 sm:mb-6 text-center text-gray-800">
+              {getTitulo()}
+            </h1>
+
+            <FiltrosHistorialPedidos
+              filtros={filtros}
+              onFiltrosChange={handleFiltrosChange}
+              onLimpiarFiltros={handleLimpiarFiltros}
+              user={user}
+              totalPedidos={estadisticas.total}
+              pedidosFiltrados={estadisticas.filtrado}
+              pedidosOriginales={pedidosOriginales}
+            />
+
+            <TablaPedidos
+              pedidos={pedidos}
+              selectedPedidos={selectedPedidos}
+              onSelectPedido={handleSelectPedido}
+              onSelectAll={handleSelectAll}
+              onRowDoubleClick={handleRowDoubleClick}
+              loading={loading}
+              mostrarPermisos={true}
+              verificarPermisos={() => true}
+              isPedidoFacturado={selectedPedido?.estado === 'Facturado'}
+            />
+
+            <Paginacion
+              datosOriginales={pedidos}
+              totalRegistros={totalPedidos}
+              paginaActual={paginaActual}
+              registrosPorPagina={porPagina}
+              totalPaginas={totalPaginas}
+              indexOfPrimero={indexOfPrimero}
+              indexOfUltimo={indexOfUltimo}
+              onCambiarPagina={cambiarPagina}
+              onCambiarRegistrosPorPagina={cambiarRegistrosPorPagina}
+            />
+
+            <BotonAccionesPedidos
+              contexto="historial"
+              selectedPedidos={selectedPedidos}
+              onImprimirMultiple={handleImprimirMultiple}
+              onVolverMenu={handleConfirmarSalida}
+              loading={generandoPDFMultiple || loading}
+              mostrarEstadisticas={false}
+              mostrarModalPDFMultiple={mostrarModalPDFMultiple}
+              pdfURLMultiple={pdfURLMultiple}
+              nombreArchivoMultiple={nombreArchivoMultiple}
+              tituloModalMultiple={tituloModalMultiple}
+              subtituloModalMultiple={subtituloModalMultiple}
+              onDescargarPDFMultiple={descargarPDFMultiple}
+              onCompartirPDFMultiple={compartirPDFMultiple}
+              onCerrarModalPDFMultiple={handleCerrarModalPDFMultiple}
+            />
+          </div>
+        </div>
+      </main>
+
       {/* MODALES CON PROPS ADAPTADAS PARA PDF */}
       <ModalDetallePedido
         pedido={selectedPedido}
@@ -598,6 +600,7 @@ function HistorialPedidosContent() {
         onEditarProducto={handleEditarProducto}
         onEliminarProducto={handleEliminarProducto}
         onCambiarEstado={handleCambiarEstadoPedido}
+        onPedidoFacturado={handlePedidoFacturado}
         onGenerarPDF={handleGenerarPDF}
         generandoPDF={generandoPDF}
         mostrarModalFacturacion={mostrarModalFacturacion}

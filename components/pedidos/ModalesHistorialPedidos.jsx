@@ -1691,6 +1691,7 @@ export function ModalDetallePedido({
   onEditarProducto,
   onEliminarProducto,
   onCambiarEstado,
+  onPedidoFacturado,
   onGenerarPDF,
   onActualizarObservaciones,
   onActualizarClientePedido,
@@ -1707,8 +1708,8 @@ export function ModalDetallePedido({
   onDescargarPDF,
   onCompartirPDF,
   onCerrarModalPDF,
-  cuentas = [],           // ✅ AGREGAR PROP
-  cargandoCuentas = false // ✅ AGREGAR PROP
+  cuentas = [],
+  cargandoCuentas = false
 }) {
   const [clienteExpandido, setClienteExpandido] = useState(false);
   const [productosExpandidos, setProductosExpandidos] = useState(false);
@@ -1742,21 +1743,18 @@ export function ModalDetallePedido({
     setMostrarModalFacturacion(true);
   };
 
-  // ✅ FUNCIÓN PARA CONFIRMAR FACTURACIÓN - CON MANEJO DE IDEMPOTENCIA
+  // ✅ CONFIRMAR FACTURACIÓN: cierra modales y actualiza solo ese pedido en lista (sin recargar toda la página)
   const handleConfirmarFacturacion = async (datosFacturacion) => {
     try {
-      // ✅ AGREGAR pedidoId al objeto antes de enviar
       const datosCompletos = {
         ...datosFacturacion,
-        pedidoId: pedido.id  // ✅ Usar pedido en lugar de selectedPedido
+        pedidoId: pedido.id
       };
-      
-      const resultado = await facturarPedido(datosCompletos); // ✅ Enviar objeto completo
-      
+
+      const resultado = await facturarPedido(datosCompletos);
+
       if (resultado.success) {
-        // ✅ MANEJAR RESPUESTA IDEMPOTENTE (existing: true)
         if (resultado.existing) {
-          console.log('ℹ️ Pedido ya estaba facturado, actualizando UI');
           toast.info(`El pedido #${pedido.id} ya estaba facturado anteriormente`, {
             duration: 4000,
             icon: 'ℹ️'
@@ -1764,10 +1762,10 @@ export function ModalDetallePedido({
         } else {
           toast.success(`Pedido #${pedido.id} facturado exitosamente!`);
         }
-        
-        // ✅ Actualizar estado y cerrar modal en ambos casos (éxito o duplicado)
-        await onCambiarEstado('Facturado');
+
+        // Cerrar modal de facturación primero, luego actualizar solo este pedido en lista y cerrar detalle (sin cargarPedidos)
         setMostrarModalFacturacion(false);
+        onPedidoFacturado?.(pedido.id, resultado.data);
       } else {
         toast.error(resultado.error || 'Error al facturar pedido');
       }

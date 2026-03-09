@@ -1,5 +1,6 @@
 // components/pedidos/ModalCrearClienteRapido.jsx
 import { useState, useEffect } from 'react';
+import { toast } from 'react-hot-toast';
 import { useClientes } from '../../hooks/useClientes';
 import { MdClose, MdPersonAdd, MdEdit } from 'react-icons/md';
 import CiudadAutocomplete from '../common/CiudadAutocomplete';
@@ -104,9 +105,17 @@ export default function ModalCrearClienteRapido({
 
     if (resultado.success) {
       setDatosValidadosConAfip(false);
-      console.log('✅ Cliente creado/actualizado:', resultado.data);
-      onClienteCreado(resultado.data);
-      onClose();
+      const clienteParaPasar = resultado.data?.id != null
+        ? resultado.data
+        : (resultado.insertId != null ? { id: resultado.insertId, ...resultado.data } : resultado.data);
+      if (clienteParaPasar && clienteParaPasar.id != null) {
+        console.log('✅ Cliente creado/actualizado:', clienteParaPasar);
+        onClienteCreado(clienteParaPasar);
+        onClose();
+      } else {
+        console.error('Cliente guardado pero sin ID en la respuesta');
+        toast.error('No se pudo obtener el cliente creado. Recargá la lista o buscá el cliente por nombre.');
+      }
     } else if (resultado.errors?.length) {
       setErrores(resultado.errors);
     }
@@ -211,7 +220,7 @@ export default function ModalCrearClienteRapido({
                   name="nombre"
                   value={formData.nombre}
                   onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900"
+                  className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
                   required
                   disabled={loading}
                 />
@@ -227,7 +236,7 @@ export default function ModalCrearClienteRapido({
                     name="condicion_iva"
                     value={formData.condicion_iva}
                     onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 bg-white"
+                    className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 bg-white touch-manipulation"
                     disabled={loading}
                     required
                   >
@@ -250,7 +259,7 @@ export default function ModalCrearClienteRapido({
                       value={formData.dni}
                       onChange={handleInputChange}
                       placeholder="12345678"
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900"
+                      className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
                       disabled={loading}
                     />
                   </div>
@@ -265,7 +274,7 @@ export default function ModalCrearClienteRapido({
                       value={formData.cuit}
                       onChange={handleInputChange}
                       placeholder="20-12345678-9"
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900"
+                      className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
                       disabled={loading}
                     />
                   </div>
@@ -278,7 +287,7 @@ export default function ModalCrearClienteRapido({
                   type="button"
                   onClick={handleValidarAfip}
                   disabled={loading || consultandoAfip}
-                  className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  className="min-h-[44px] min-w-[44px] px-4 py-2 bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white text-sm font-medium rounded-md disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 touch-manipulation"
                 >
                   {consultandoAfip ? (
                     <>
@@ -302,7 +311,7 @@ export default function ModalCrearClienteRapido({
                   name="telefono"
                   value={formData.telefono}
                   onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900"
+                  className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
                   disabled={loading}
                 />
               </div>
@@ -317,7 +326,7 @@ export default function ModalCrearClienteRapido({
                   name="direccion"
                   value={formData.direccion}
                   onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900"
+                  className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
                   disabled={loading}
                 />
               </div>
@@ -342,7 +351,7 @@ export default function ModalCrearClienteRapido({
             <button
               type="button"
               onClick={() => setMostrarCamposOpcionales(!mostrarCamposOpcionales)}
-              className="w-full py-2 px-3 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2"
+              className="w-full min-h-[44px] py-2 px-3 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-700 rounded-md text-sm font-medium transition-colors flex items-center justify-center gap-2 touch-manipulation"
             >
               {mostrarCamposOpcionales ? '▲ Ocultar' : '▼ Mostrar'} campos opcionales
             </button>
@@ -362,7 +371,7 @@ export default function ModalCrearClienteRapido({
                     name="nombre_alternativo"
                     value={formData.nombre_alternativo}
                     onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900"
+                    className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
                     disabled={loading}
                   />
                 </div>
@@ -379,7 +388,7 @@ export default function ModalCrearClienteRapido({
                       value={formData.cuit}
                       onChange={handleInputChange}
                       placeholder="20-12345678-9"
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900"
+                      className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
                       disabled={loading}
                     />
                   </div>
@@ -394,7 +403,7 @@ export default function ModalCrearClienteRapido({
                       value={formData.dni}
                       onChange={handleInputChange}
                       placeholder="12345678"
-                      className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900"
+                      className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
                       disabled={loading}
                     />
                   </div>
@@ -410,7 +419,7 @@ export default function ModalCrearClienteRapido({
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900"
+                    className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
                     disabled={loading}
                   />
                 </div>
@@ -425,7 +434,7 @@ export default function ModalCrearClienteRapido({
                     name="provincia"
                     value={formData.provincia}
                     onChange={handleInputChange}
-                    className="w-full p-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900"
+                    className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
                     disabled={loading}
                   />
                 </div>
@@ -438,7 +447,7 @@ export default function ModalCrearClienteRapido({
             <button
               type="button"
               onClick={onClose}
-              className="w-full sm:w-auto px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition-colors"
+              className="w-full sm:w-auto min-h-[44px] px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 active:bg-gray-100 transition-colors touch-manipulation"
               disabled={loading}
             >
               Cancelar
@@ -447,10 +456,10 @@ export default function ModalCrearClienteRapido({
               type="submit"
               loading={loading}
               loadingText={modo === 'editar' ? 'Guardando...' : 'Creando...'}
-              className={`w-full sm:w-auto px-6 py-2 text-white rounded-md flex items-center justify-center gap-2 ${
+              className={`w-full sm:w-auto min-h-[44px] min-w-[44px] px-6 py-2 text-white rounded-md flex items-center justify-center gap-2 touch-manipulation ${
                 loading
                   ? 'bg-gray-400 cursor-not-allowed'
-                  : 'bg-green-600 hover:bg-green-700'
+                  : 'bg-green-600 hover:bg-green-700 active:bg-green-800'
               } transition-colors`}
             >
               <>
