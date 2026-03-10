@@ -76,15 +76,29 @@ function HistorialVentasContent() {
     [ventasAMostrar, selectedVentas]
   );
 
+  // Etapa 5: al cambiar de página se limpia la selección para evitar IDs de otra página
   const cambiarPagina = useCallback((numeroPagina) => {
     if (ventasDesdeBackend !== null) return;
+    const cambiaPagina = numeroPagina !== paginaActual;
+    if (cambiaPagina && selectedVentas.length > 0) {
+      clearSelection();
+      toast.success('Página cambiada. Selección limpiada.', { duration: 2500 });
+    } else if (cambiaPagina) {
+      clearSelection();
+    }
     cargarPagina(numeroPagina, filtros);
-  }, [ventasDesdeBackend, cargarPagina, filtros]);
+  }, [ventasDesdeBackend, cargarPagina, filtros, paginaActual, selectedVentas.length, clearSelection]);
 
+  // Etapa 5: al cambiar registros por página se limpia la selección
   const cambiarRegistrosPorPagina = useCallback((cantidad) => {
     if (ventasDesdeBackend !== null) return;
+    const teniaSeleccion = selectedVentas.length > 0;
+    clearSelection();
+    if (teniaSeleccion) {
+      toast.success('Cantidad por página cambiada. Selección limpiada.', { duration: 2500 });
+    }
     cargarVentas({ pagina: 1, porPagina: cantidad, filtros });
-  }, [ventasDesdeBackend, cargarVentas, filtros, porPagina]);
+  }, [ventasDesdeBackend, cargarVentas, filtros, selectedVentas.length, clearSelection]);
 
   const {
     selectedVenta,
@@ -407,23 +421,31 @@ function HistorialVentasContent() {
     cargarProductosVenta
   ]);
 
-  // Fase 4: callbacks estables para evitar re-renders innecesarios de FiltrosHistorialVentas
+  // Etapa 5: aplicar filtros y avisar si se limpió la selección
   const handleFiltrosChangeConLimpieza = useCallback(
     (nuevosFiltros) => {
+      const teniaSeleccion = selectedVentas.length > 0;
       handleFiltrosChange(nuevosFiltros);
       setVentasDesdeBackend(null);
       clearSelection();
       cargarVentas({ pagina: 1, porPagina, filtros: nuevosFiltros });
+      if (teniaSeleccion) {
+        toast.success('Filtros aplicados. Selección limpiada.', { duration: 2500 });
+      }
     },
-    [handleFiltrosChange, clearSelection, cargarVentas, porPagina]
+    [handleFiltrosChange, clearSelection, cargarVentas, porPagina, selectedVentas.length]
   );
 
   const handleLimpiarFiltrosConSeleccion = useCallback(() => {
+    const teniaSeleccion = selectedVentas.length > 0;
     limpiarFiltros();
     setVentasDesdeBackend(null);
     clearSelection();
     cargarVentas({ pagina: 1, porPagina, filtros: {} });
-  }, [limpiarFiltros, clearSelection, cargarVentas, porPagina]);
+    if (teniaSeleccion) {
+      toast.success('Filtros limpiados. Selección limpiada.', { duration: 2500 });
+    }
+  }, [limpiarFiltros, clearSelection, cargarVentas, porPagina, selectedVentas.length]);
 
   const scrollToAcciones = useCallback(() => {
     if (botonesAccionRef.current) {
