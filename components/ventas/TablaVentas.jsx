@@ -1,9 +1,8 @@
-// components/ventas/TablaVentas.jsx - Fase 4: handlers por delegación; Fase 5: React.memo
+// components/ventas/TablaVentas.jsx - Etapa 2: Set para selección O(1) + filas/tarjetas memoizadas
 import React, { useState, useMemo, useCallback } from 'react';
 
 const formatearFecha = (fecha) => {
   if (!fecha) return 'Fecha no disponible';
-  
   return new Date(fecha).toLocaleString('es-AR', {
     day: '2-digit',
     month: '2-digit',
@@ -12,6 +11,25 @@ const formatearFecha = (fecha) => {
     minute: '2-digit',
     hour12: false
   });
+};
+
+const getDocumentoStyle = (tipoDoc) => {
+  switch (tipoDoc) {
+    case 'FACTURA': return 'bg-blue-100 text-blue-800 border-blue-200';
+    case 'NOTA_DEBITO': return 'bg-orange-100 text-orange-800 border-orange-200';
+    case 'NOTA_CREDITO': return 'bg-green-100 text-green-800 border-green-200';
+    default: return 'bg-gray-100 text-gray-800 border-gray-200';
+  }
+};
+
+const getTipoFiscalStyle = (tipoF) => {
+  switch (tipoF) {
+    case 'A': return 'bg-purple-100 text-purple-800 border-purple-200';
+    case 'B': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+    case 'C':
+    case 'X': return 'bg-pink-100 text-pink-800 border-pink-200';
+    default: return 'bg-gray-100 text-gray-800 border-gray-200';
+  }
 };
 
 // ✅ FUNCIÓN: Desglosar numero_factura (maneja facturas y notas)
@@ -76,15 +94,92 @@ const desglosarNumeroFactura = (numeroCompleto, tipoDoc) => {
   }
 };
 
-// Componente para tabla en escritorio (Fase 4: delegación de eventos en tbody)
+// Etapa 2 + Etapa 4: Fila memo con transiciones y microanimación de entrada
+const FilaVenta = React.memo(function FilaVenta({ venta, isSelected, onSelectVenta, animationDelay }) {
+  const numeroFacturaDesglosado = desglosarNumeroFactura(venta.numero_factura, venta.tipo_doc);
+  return (
+    <tr
+      data-venta-id={venta.id}
+      className={`border-b cursor-pointer animate-fila-entrada transition-colors duration-200 ease-out ${
+        isSelected ? 'bg-blue-50 hover:bg-blue-100/80' : 'hover:bg-gray-100'
+      }`}
+      style={animationDelay != null ? { animationDelay: `${animationDelay}ms` } : undefined}
+    >
+      <td className="p-3 text-center" onClick={(e) => e.stopPropagation()}>
+        <input
+          type="checkbox"
+          checked={isSelected}
+          onChange={() => onSelectVenta(venta.id)}
+          onClick={(e) => e.stopPropagation()}
+          tabIndex={0}
+          className="w-4 h-4 cursor-pointer accent-blue-600 transition-opacity duration-150"
+          aria-label={`Seleccionar venta ${venta.id}`}
+        />
+      </td>
+      <td className="p-3 text-sm">{formatearFecha(venta.fecha)}</td>
+      <td className="p-3 font-medium">
+        <div>
+          <div className="font-semibold">{venta.cliente_nombre || 'Cliente no especificado'}</div>
+          {venta.cliente_ciudad && <div className="text-xs text-gray-500">{venta.cliente_ciudad}</div>}
+        </div>
+      </td>
+      <td className="p-3 text-center">
+        {numeroFacturaDesglosado.numeroCompleto !== '-' ? (
+          <div className="font-mono text-sm">
+            {numeroFacturaDesglosado.esNota ? (
+              <div className="font-bold text-purple-600">{numeroFacturaDesglosado.numeroCompleto}</div>
+            ) : (
+              <>
+                <div className="font-bold text-blue-600">{numeroFacturaDesglosado.tipoFactura}</div>
+                <div className="text-xs text-gray-600">
+                  {numeroFacturaDesglosado.puntoVenta}-{numeroFacturaDesglosado.numeroComprobante}
+                </div>
+              </>
+            )}
+          </div>
+        ) : (
+          <span className="text-gray-400 text-xs">Sin número</span>
+        )}
+      </td>
+      <td className="p-3 text-center">
+        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getDocumentoStyle(venta.tipo_doc)}`}>
+          {venta.tipo_doc || 'N/A'}
+        </span>
+      </td>
+      <td className="p-3 text-center">
+        <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getTipoFiscalStyle(venta.tipo_f)}`}>
+          {venta.tipo_f || 'N/A'}
+        </span>
+      </td>
+      <td className="p-3 text-right">
+        <div className="font-semibold text-green-600">${Number(venta.total || 0).toFixed(2)}</div>
+        {venta.subtotal && <div className="text-xs text-gray-500">Subtotal: ${Number(venta.subtotal || 0).toFixed(2)}</div>}
+      </td>
+      <td className="p-3 text-center">
+        <div className="flex items-center justify-center gap-1">
+          {venta.cae_id ? (
+            <><span className="text-green-600 text-lg">✅</span><span className="text-xs text-green-600 font-medium">Aprobado</span></>
+          ) : (
+            <><span className="text-red-600 text-lg">❌</span><span className="text-xs text-red-600 font-medium">Pendiente</span></>
+          )}
+        </div>
+      </td>
+      <td className="p-3">
+        <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm">{venta.empleado_nombre || 'No especificado'}</span>
+      </td>
+    </tr>
+  );
+});
+
+// Componente para tabla en escritorio (Etapa 2: selectedSet + filas memo)
 function TablaEscritorio({
   ventas,
-  selectedVentas,
+  selectedSet,
   onSelectAll,
+  onSelectVenta,
   onSort,
   onTbodyClick,
   onTbodyDoubleClick,
-  onCheckboxNoop,
   sortField,
   sortDirection
 }) {
@@ -93,32 +188,7 @@ function TablaEscritorio({
     return sortDirection === 'asc' ? '↑' : '↓';
   };
 
-  const getDocumentoStyle = (tipoDoc) => {
-    switch (tipoDoc) {
-      case 'FACTURA':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'NOTA_DEBITO':
-        return 'bg-orange-100 text-orange-800 border-orange-200';
-      case 'NOTA_CREDITO':
-        return 'bg-green-100 text-green-800 border-green-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
-  const getTipoFiscalStyle = (tipoF) => {
-    switch (tipoF) {
-      case 'A':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'B':
-        return 'bg-indigo-100 text-indigo-800 border-indigo-200';
-      case 'C':
-      case 'X':
-        return 'bg-pink-100 text-pink-800 border-pink-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
+  const allSelected = selectedSet.size === ventas.length && ventas.length > 0;
 
   return (
     <div className="hidden lg:block overflow-x-auto bg-white rounded-lg shadow">
@@ -128,9 +198,9 @@ function TablaEscritorio({
             <th className="p-3 text-center">
               <input
                 type="checkbox"
-                checked={selectedVentas.length === ventas.length && ventas.length > 0}
+                checked={allSelected}
                 onChange={onSelectAll}
-                className="w-4 h-4"
+                className="w-4 h-4 cursor-pointer accent-blue-600"
                 aria-label="Seleccionar todas"
               />
             </th>
@@ -170,128 +240,105 @@ function TablaEscritorio({
           </tr>
         </thead>
         <tbody onClick={onTbodyClick} onDoubleClick={onTbodyDoubleClick}>
-          {ventas.map((venta) => {
-            const numeroFacturaDesglosado = desglosarNumeroFactura(venta.numero_factura, venta.tipo_doc);
-            
-            return (
-              <tr
-                key={venta.id}
-                data-venta-id={venta.id}
-                className={`border-b hover:bg-gray-50 cursor-pointer transition-colors ${
-                  selectedVentas.includes(venta.id) ? 'bg-blue-50' : ''
-                }`}
-              >
-                <td className="p-3 text-center">
-                  <input
-                    type="checkbox"
-                    checked={selectedVentas.includes(venta.id)}
-                    onChange={onCheckboxNoop}
-                    tabIndex={0}
-                    className="w-4 h-4"
-                    aria-label={`Seleccionar venta ${venta.id}`}
-                  />
-                </td>
-                {/* FECHA */}
-                <td className="p-3 text-sm">
-                  {formatearFecha(venta.fecha)}
-                </td>
-                {/* CLIENTE */}
-                <td className="p-3 font-medium">
-                  <div>
-                    <div className="font-semibold">{venta.cliente_nombre || 'Cliente no especificado'}</div>
-                    {venta.cliente_ciudad && (
-                      <div className="text-xs text-gray-500">{venta.cliente_ciudad}</div>
-                    )}
-                  </div>
-                </td>
-                {/* ✅ NUMERO_FACTURA */}
-                <td className="p-3 text-center">
-                  {numeroFacturaDesglosado.numeroCompleto !== '-' ? (
-                    <div className="font-mono text-sm">
-                      {numeroFacturaDesglosado.esNota ? (
-                        // ✅ Formato para NOTAS: "0004-00001"
-                        <div className="font-bold text-purple-600">
-                          {numeroFacturaDesglosado.numeroCompleto}
-                        </div>
-                      ) : (
-                        // ✅ Formato para FACTURAS: "A" arriba, "0004-00000001" abajo
-                        <>
-                          <div className="font-bold text-blue-600">
-                            {numeroFacturaDesglosado.tipoFactura}
-                          </div>
-                          <div className="text-xs text-gray-600">
-                            {numeroFacturaDesglosado.puntoVenta}-{numeroFacturaDesglosado.numeroComprobante}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  ) : (
-                    <span className="text-gray-400 text-xs">Sin número</span>
-                  )}
-                </td>
-                {/* DOCUMENTO */}
-                <td className="p-3 text-center">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getDocumentoStyle(venta.tipo_doc)}`}>
-                    {venta.tipo_doc || 'N/A'}
-                  </span>
-                </td>
-                {/* TIPO FISCAL */}
-                <td className="p-3 text-center">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getTipoFiscalStyle(venta.tipo_f)}`}>
-                    {venta.tipo_f || 'N/A'}
-                  </span>
-                </td>
-                {/* TOTAL */}
-                <td className="p-3 text-right">
-                  <div className="font-semibold text-green-600">
-                    ${Number(venta.total || 0).toFixed(2)}
-                  </div>
-                  {venta.subtotal && (
-                    <div className="text-xs text-gray-500">
-                      Subtotal: ${Number(venta.subtotal || 0).toFixed(2)}
-                    </div>
-                  )}
-                </td>
-                {/* ESTADO CAE */}
-                <td className="p-3 text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    {venta.cae_id ? (
-                      <>
-                        <span className="text-green-600 text-lg">✅</span>
-                        <span className="text-xs text-green-600 font-medium">Aprobado</span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-red-600 text-lg">❌</span>
-                        <span className="text-xs text-red-600 font-medium">Pendiente</span>
-                      </>
-                    )}
-                  </div>
-                </td>
-                {/* VENDEDOR */}
-                <td className="p-3">
-                  <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm">
-                    {venta.empleado_nombre || 'No especificado'}
-                  </span>
-                </td>
-              </tr>
-            );
-          })}
+          {ventas.map((venta, index) => (
+            <FilaVenta
+              key={venta.id}
+              venta={venta}
+              isSelected={selectedSet.has(venta.id)}
+              onSelectVenta={onSelectVenta}
+              animationDelay={Math.min(index * 28, 320)}
+            />
+          ))}
         </tbody>
       </table>
     </div>
   );
 }
 
-// Componente para tarjetas en móvil (Fase 4: touch targets y scroll)
+// Etapa 2 + Etapa 4: Tarjeta memo con transiciones y microanimación de entrada
+const TarjetaVenta = React.memo(function TarjetaVenta({ venta, isSelected, onSelectVenta, onCardAreaClick, animationDelay }) {
+  const numeroFacturaDesglosado = desglosarNumeroFactura(venta.numero_factura, venta.tipo_doc);
+  return (
+    <div
+      data-venta-id={venta.id}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const fakeCard = { getAttribute: (attr) => (attr === 'data-venta-id' ? String(venta.id) : null) };
+          onCardAreaClick({ target: { closest: () => fakeCard, type: '' } });
+        }
+      }}
+      aria-label={`Venta ${venta.numero_factura || venta.id}, toca para ver detalles`}
+      className={`bg-white rounded-lg border-2 p-4 animate-tarjeta-entrada transition-all duration-200 ease-out cursor-pointer touch-manipulation active:scale-[0.99] ${
+        isSelected
+          ? 'border-blue-300 bg-blue-50 shadow-md'
+          : 'border-gray-200 hover:border-gray-300 hover:shadow-md'
+      }`}
+      style={animationDelay != null ? { animationDelay: `${animationDelay}ms` } : undefined}
+    >
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+          <label className="flex items-center justify-center min-h-[44px] min-w-[44px] py-2 -my-2 px-1 -mx-1 cursor-pointer touch-manipulation shrink-0">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              onChange={() => onSelectVenta(venta.id)}
+              className="w-4 h-4 cursor-pointer accent-blue-600 transition-opacity duration-150"
+              aria-label={`Seleccionar venta ${venta.id}`}
+              onClick={(e) => e.stopPropagation()}
+            />
+          </label>
+          <div>
+            {numeroFacturaDesglosado.numeroCompleto !== '-' ? (
+              <div className={`font-mono text-sm font-bold ${numeroFacturaDesglosado.esNota ? 'text-purple-600' : 'text-blue-600'}`}>
+                {numeroFacturaDesglosado.numeroCompleto}
+              </div>
+            ) : (
+              <div className="text-xs text-gray-400">Sin número de factura</div>
+            )}
+            <p className="text-xs text-gray-500">{formatearFecha(venta.fecha)}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-lg">{venta.cae_id ? '✅' : '❌'}</span>
+          <span className={`text-xs font-medium ${venta.cae_id ? 'text-green-600' : 'text-red-600'}`}>
+            {venta.cae_id ? 'CAE' : 'Pendiente'}
+          </span>
+        </div>
+      </div>
+      <div className="mb-3 p-3 bg-gray-50 rounded-lg">
+        <h4 className="font-semibold text-gray-800">👤 {venta.cliente_nombre || 'Cliente no especificado'}</h4>
+        {venta.cliente_ciudad && <p className="text-sm text-gray-600">📍 {venta.cliente_ciudad}</p>}
+      </div>
+      <div className="grid grid-cols-2 gap-4 mb-3">
+        <div className="text-center p-2 bg-green-50 rounded">
+          <div className="text-lg font-bold text-green-600">${Number(venta.total || 0).toFixed(2)}</div>
+          <div className="text-xs text-green-800">Total</div>
+        </div>
+        <div className="text-center p-2 bg-blue-50 rounded">
+          <div className="text-sm font-bold text-blue-600 truncate">{venta.empleado_nombre || 'No especificado'}</div>
+          <div className="text-xs text-blue-800">Vendedor</div>
+        </div>
+      </div>
+      <div className="mt-3 pt-3 border-t border-gray-200 text-center">
+        <p className="text-xs text-gray-500">💡 Toca para ver detalles</p>
+      </div>
+    </div>
+  );
+});
+
+// Componente para tarjetas en móvil (Etapa 2: selectedSet + tarjetas memo)
 function TarjetasMovil({
   ventas,
-  selectedVentas,
+  selectedSet,
   onSelectAll,
-  onCardAreaClick,
-  onCheckboxNoop
+  onSelectVenta,
+  onCardAreaClick
 }) {
-  const getCAEIcon = (caeId) => (caeId ? '✅' : '❌');
+  const allSelected = selectedSet.size === ventas.length && ventas.length > 0;
+  const selectedCount = selectedSet.size;
 
   return (
     <div className="lg:hidden">
@@ -299,121 +346,29 @@ function TarjetasMovil({
         <label className="flex items-center gap-2 cursor-pointer min-h-[44px] min-w-[44px] py-2 -my-2 px-1 -mx-1 flex-1 touch-manipulation">
           <input
             type="checkbox"
-            checked={selectedVentas.length === ventas.length && ventas.length > 0}
+            checked={allSelected}
             onChange={onSelectAll}
-            className="w-4 h-4 shrink-0"
+            className="w-4 h-4 shrink-0 cursor-pointer accent-blue-600"
             aria-label="Seleccionar todas"
           />
-          <span className="text-sm font-medium text-gray-700">
-            Seleccionar todos ({ventas.length})
-          </span>
+          <span className="text-sm font-medium text-gray-700">Seleccionar todos ({ventas.length})</span>
         </label>
-        {selectedVentas.length > 0 && (
-          <span className="text-sm font-medium text-blue-600 shrink-0">
-            {selectedVentas.length} seleccionados
-          </span>
+        {selectedCount > 0 && (
+          <span className="animate-fade-in text-sm font-medium text-blue-600 shrink-0">{selectedCount} seleccionados</span>
         )}
       </div>
 
       <div className="space-y-3" onClick={onCardAreaClick}>
-        {ventas.map((venta) => {
-          const numeroFacturaDesglosado = desglosarNumeroFactura(venta.numero_factura, venta.tipo_doc);
-          
-          return (
-            <div
-              key={venta.id}
-              data-venta-id={venta.id}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  const fakeCard = { getAttribute: (attr) => (attr === 'data-venta-id' ? String(venta.id) : null) };
-                  onCardAreaClick({ target: { closest: () => fakeCard, type: '' } });
-                }
-              }}
-              aria-label={`Venta ${venta.numero_factura || venta.id}, toca para ver detalles`}
-              className={`bg-white rounded-lg border-2 p-4 transition-all duration-200 cursor-pointer touch-manipulation active:scale-[0.99] ${
-                selectedVentas.includes(venta.id) 
-                  ? 'border-blue-300 bg-blue-50 shadow-md' 
-                  : 'border-gray-200 hover:border-gray-300'
-              }`}
-            >
-              {/* Header */}
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center justify-center min-h-[44px] min-w-[44px] py-2 -my-2 px-1 -mx-1 cursor-pointer touch-manipulation shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={selectedVentas.includes(venta.id)}
-                      onChange={onCheckboxNoop}
-                      className="w-4 h-4"
-                      aria-label={`Seleccionar venta ${venta.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                    />
-                  </label>
-                  <div>
-                    {/* ✅ NUMERO_FACTURA en lugar de ID */}
-                    {numeroFacturaDesglosado.numeroCompleto !== '-' ? (
-                      <div className={`font-mono text-sm font-bold ${numeroFacturaDesglosado.esNota ? 'text-purple-600' : 'text-blue-600'}`}>
-                        {numeroFacturaDesglosado.numeroCompleto}
-                      </div>
-                    ) : (
-                      <div className="text-xs text-gray-400">Sin número de factura</div>
-                    )}
-                    <p className="text-xs text-gray-500">
-                      {formatearFecha(venta.fecha)}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-1">
-                  <span className="text-lg">{getCAEIcon(venta.cae_id)}</span>
-                  <span className={`text-xs font-medium ${
-                    venta.cae_id ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {venta.cae_id ? 'CAE' : 'Pendiente'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Cliente */}
-              <div className="mb-3 p-3 bg-gray-50 rounded-lg">
-                <h4 className="font-semibold text-gray-800">
-                  👤 {venta.cliente_nombre || 'Cliente no especificado'}
-                </h4>
-                {venta.cliente_ciudad && (
-                  <p className="text-sm text-gray-600">
-                    📍 {venta.cliente_ciudad}
-                  </p>
-                )}
-              </div>
-
-              {/* Total y Vendedor */}
-              <div className="grid grid-cols-2 gap-4 mb-3">
-                <div className="text-center p-2 bg-green-50 rounded">
-                  <div className="text-lg font-bold text-green-600">
-                    ${Number(venta.total || 0).toFixed(2)}
-                  </div>
-                  <div className="text-xs text-green-800">Total</div>
-                </div>
-                <div className="text-center p-2 bg-blue-50 rounded">
-                  <div className="text-sm font-bold text-blue-600 truncate">
-                    {venta.empleado_nombre || 'No especificado'}
-                  </div>
-                  <div className="text-xs text-blue-800">Vendedor</div>
-                </div>
-              </div>
-
-              {/* Footer */}
-              <div className="mt-3 pt-3 border-t border-gray-200 text-center">
-                <p className="text-xs text-gray-500">
-                  💡 Toca para ver detalles
-                </p>
-              </div>
-            </div>
-          );
-        })}
+        {ventas.map((venta, index) => (
+          <TarjetaVenta
+            key={venta.id}
+            venta={venta}
+            isSelected={selectedSet.has(venta.id)}
+            onSelectVenta={onSelectVenta}
+            onCardAreaClick={onCardAreaClick}
+            animationDelay={Math.min(index * 40, 400)}
+          />
+        ))}
       </div>
     </div>
   );
@@ -438,6 +393,9 @@ function TablaVentas({
       setSortDirection('asc');
     }
   };
+
+  // Etapa 2: Set para lookups O(1) y menos re-renders en filas/tarjetas memo
+  const selectedSet = useMemo(() => new Set(selectedVentas), [selectedVentas]);
 
   // Fase 3: memoizar ordenamiento para no recalcular en cada render
   const sortedVentas = useMemo(() => {
@@ -468,15 +426,12 @@ function TablaVentas({
     });
   }, [ventas, sortField, sortDirection]);
 
-  const noop = useCallback(() => {}, []);
-
-  // Fase 4: un solo handler en tbody (escritorio) en lugar de uno por fila
+  // Etapa 1: click en la fila (no en el checkbox) también alterna selección; el checkbox tiene su propio onChange
   const handleTbodyClick = useCallback((e) => {
-    if (e.target.type === 'checkbox') {
-      const row = e.target.closest('tr[data-venta-id]');
-      if (row) onSelectVenta(Number(row.getAttribute('data-venta-id')));
-      e.preventDefault();
-    }
+    const row = e.target.closest('tr[data-venta-id]');
+    if (!row) return;
+    if (e.target.type === 'checkbox') return; // el checkbox ya tiene onChange y stopPropagation
+    onSelectVenta(Number(row.getAttribute('data-venta-id')));
   }, [onSelectVenta]);
 
   const handleTbodyDoubleClick = useCallback((e) => {
@@ -487,19 +442,15 @@ function TablaVentas({
     if (venta) onRowDoubleClick(venta);
   }, [onRowDoubleClick, sortedVentas]);
 
-  // Fase 4: un solo handler en el contenedor de tarjetas (móvil)
+  // Click en la tarjeta (móvil): si es el checkbox ya tiene onChange; si es el resto, abrir detalle
   const handleCardAreaClick = useCallback((e) => {
     const card = e.target.closest('[data-venta-id]');
     if (!card) return;
+    if (e.target.type === 'checkbox' || e.target.closest('input[type=checkbox]')) return; // ya manejado por onChange
     const id = Number(card.getAttribute('data-venta-id'));
-    if (e.target.type === 'checkbox' || e.target.closest('input[type=checkbox]')) {
-      onSelectVenta(id);
-      e.preventDefault();
-      return;
-    }
     const venta = sortedVentas.find((v) => v.id === id);
     if (venta) onRowDoubleClick(venta);
-  }, [onSelectVenta, onRowDoubleClick, sortedVentas]);
+  }, [onRowDoubleClick, sortedVentas]);
 
   // Fase 3: memoizar monto total del pie de tabla
   const montoTotal = useMemo(
@@ -530,11 +481,11 @@ function TablaVentas({
     <div>
       <TablaEscritorio
         ventas={sortedVentas}
-        selectedVentas={selectedVentas}
+        selectedSet={selectedSet}
         onSelectAll={onSelectAll}
+        onSelectVenta={onSelectVenta}
         onTbodyClick={handleTbodyClick}
         onTbodyDoubleClick={handleTbodyDoubleClick}
-        onCheckboxNoop={noop}
         sortField={sortField}
         sortDirection={sortDirection}
         onSort={handleSort}
@@ -542,18 +493,18 @@ function TablaVentas({
 
       <TarjetasMovil
         ventas={sortedVentas}
-        selectedVentas={selectedVentas}
+        selectedSet={selectedSet}
         onSelectAll={onSelectAll}
+        onSelectVenta={onSelectVenta}
         onCardAreaClick={handleCardAreaClick}
-        onCheckboxNoop={noop}
       />
       
       <div className="bg-gray-50 px-4 py-3 border-t rounded-b-lg mt-4">
         <div className="flex flex-col sm:flex-row justify-between items-center text-sm text-gray-600 gap-2">
           <span>
-            {selectedVentas.length > 0 && (
+            {selectedSet.size > 0 && (
               <span className="font-medium text-blue-600">
-                {selectedVentas.length} de {ventas.length} seleccionados
+                {selectedSet.size} de {ventas.length} seleccionados
               </span>
             )}
           </span>

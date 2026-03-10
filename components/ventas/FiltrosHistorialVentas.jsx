@@ -117,6 +117,9 @@ export default function FiltrosHistorialVentas({
       <p className="text-xs text-gray-500">
         Completa los criterios y haz clic en <strong>Filtrar</strong> para buscar.
       </p>
+      <p className="text-xs text-amber-700/90 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2" role="note">
+        Al aplicar o limpiar filtros, la selección de ventas se reinicia.
+      </p>
 
       {/* Principales: Cliente, Empleado, Tipo fiscal, Fecha, Tipo documento */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">

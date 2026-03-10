@@ -251,3 +251,59 @@ textarea {
 .font-general-bold-italic {
 	font-family: 'GeneralSans-BoldItalic';
 }
+
+/* Etapa 3 UX: animación de entrada del FAB de acciones (Historial Ventas) */
+@keyframes fab-enter {
+	from {
+		opacity: 0;
+		transform: scale(0.85) translateY(8px);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1) translateY(0);
+	}
+}
+
+.fab-acciones-enter {
+	animation: fab-enter 0.25s ease-out forwards;
+}
+
+/* Etapa 4 UX: microanimaciones en Historial Ventas */
+@keyframes fadeInRow {
+	from {
+		opacity: 0;
+		transform: translateY(2px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@keyframes fadeInCard {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+.animate-fila-entrada {
+	animation: fadeInRow 0.35s ease-out backwards;
+}
+
+.animate-tarjeta-entrada {
+	animation: fadeInCard 0.35s ease-out backwards;
+}
+
+@keyframes fadeIn {
+	from { opacity: 0; }
+	to { opacity: 1; }
+}
+
+.animate-fade-in {
+	animation: fadeIn 0.2s ease-out forwards;
+}
