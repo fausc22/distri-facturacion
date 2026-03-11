@@ -1,6 +1,111 @@
-import { useState, useEffect, useRef, useId } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { MdFilterList, MdClear, MdExpandMore, MdExpandLess, MdSearch } from 'react-icons/md';
 import ModalBase from '../common/ModalBase';
+import { axiosAuth } from '../../utils/apiClient';
+
+const DEBOUNCE_MS = 350;
+
+/** Autocomplete que busca en TODAS las ventas vía API (sugerencias-filtros). */
+function AutocompleteFiltro({ tipo, value, onChange, placeholder, ariaLabel }) {
+  const [sugerencias, setSugerencias] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [abierto, setAbierto] = useState(false);
+  const ref = useRef(null);
+  const debounceRef = useRef(null);
+
+  const buscar = useCallback(async (q) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ tipo, q: (q || '').trim() });
+      const res = await axiosAuth.get(`/ventas/sugerencias-filtros?${params.toString()}`);
+      if (res.data?.success && Array.isArray(res.data.data)) {
+        setSugerencias(res.data.data);
+        setAbierto(true);
+      } else {
+        setSugerencias([]);
+      }
+    } catch (err) {
+      console.error('Error sugerencias filtros:', err);
+      setSugerencias([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [tipo]);
+
+  useEffect(() => {
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, []);
+
+  const handleChange = (e) => {
+    const v = e.target.value;
+    onChange(v);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (v.trim() === '') {
+      setSugerencias([]);
+      setAbierto(false);
+      return;
+    }
+    debounceRef.current = setTimeout(() => buscar(v), DEBOUNCE_MS);
+  };
+
+  const handleFocus = () => {
+    if (value?.trim()) buscar(value);
+    else buscar('');
+  };
+
+  const handleBlur = () => {
+    setTimeout(() => setAbierto(false), 180);
+  };
+
+  const handleSelect = (item) => {
+    onChange(item);
+    setAbierto(false);
+  };
+
+  return (
+    <div className="relative" ref={ref}>
+      <div className="relative">
+        <input
+          type="text"
+          value={value || ''}
+          onChange={handleChange}
+          onFocus={handleFocus}
+          onBlur={handleBlur}
+          placeholder={placeholder}
+          aria-label={ariaLabel}
+          aria-autocomplete="list"
+          aria-expanded={abierto}
+          className="w-full p-2.5 pr-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px]"
+        />
+        <MdSearch className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
+      </div>
+      {abierto && (
+        <div
+          className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+          role="listbox"
+        >
+          {loading ? (
+            <div className="p-3 text-sm text-gray-500">Buscando...</div>
+          ) : sugerencias.length === 0 ? (
+            <div className="p-3 text-sm text-gray-500">Sin resultados. Escribí y aplicá filtro.</div>
+          ) : (
+            sugerencias.map((item, i) => (
+              <button
+                key={i}
+                type="button"
+                role="option"
+                className="w-full text-left px-3 py-2.5 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0"
+                onMouseDown={(e) => { e.preventDefault(); handleSelect(item); }}
+              >
+                {item}
+              </button>
+            ))
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function FiltrosHistorialVentas({
   filtros,
@@ -12,66 +117,40 @@ export default function FiltrosHistorialVentas({
   ventasFiltradas = 0,
   ventasOriginales = []
 }) {
-  const [expandido, setExpandido] = useState(false);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [avanzadosExpandido, setAvanzadosExpandido] = useState(false);
 
   const [localFiltros, setLocalFiltros] = useState(() => ({ ...filtros }));
 
-  const [ciudadesUnicas, setCiudadesUnicas] = useState([]);
-  const [clientesUnicos, setClientesUnicos] = useState([]);
   const [empleadosUnicos, setEmpleadosUnicos] = useState([]);
   const [loadingDatos, setLoadingDatos] = useState(false);
-  const ultimaLongitudProcesada = useRef(0);
+  const datosCargadosRef = useRef(false);
 
   const esGerente = user?.rol === 'GERENTE';
-  const clientesListId = useId();
-  const ciudadesListId = useId();
 
   useEffect(() => {
     setLocalFiltros({ ...filtros });
   }, [filtros]);
 
-  const necesitaCargarDatos = expandido || modalAbierto;
+  const necesitaCargarDatos = modalAbierto;
   useEffect(() => {
-    if (!necesitaCargarDatos) return;
-    const len = ventasOriginales?.length ?? 0;
-    const yaProcesado = ultimaLongitudProcesada.current === len && len > 0;
-    if (yaProcesado) return;
-    ultimaLongitudProcesada.current = len;
-    if (len > 0) {
-      setLoadingDatos(true);
-      extraerDatosDeLocal();
-      if (esGerente) extraerEmpleadosUnicos();
-      setLoadingDatos(false);
+    if (!necesitaCargarDatos) {
+      datosCargadosRef.current = false;
+      return;
     }
-  }, [necesitaCargarDatos, ventasOriginales?.length, esGerente]);
-
-  const extraerEmpleadosUnicos = () => {
-    if (!ventasOriginales?.length) return;
-    const empleados = [...new Set(
-      ventasOriginales
-        .map((v) => v.empleado_nombre)
-        .filter((n) => n && n.trim() !== '' && n !== 'No especificado')
-    )].sort();
-    setEmpleadosUnicos(empleados);
-  };
-
-  const extraerDatosDeLocal = () => {
-    if (!ventasOriginales?.length) return;
-    const ciudades = [...new Set(
-      ventasOriginales
-        .map((v) => v.cliente_ciudad)
-        .filter((c) => c && c.trim() !== '' && c !== 'No especificada')
-    )].sort();
-    const clientes = [...new Set(
-      ventasOriginales
-        .map((v) => v.cliente_nombre)
-        .filter((c) => c && c.trim() !== '' && c !== 'Cliente no especificado')
-    )].sort();
-    setCiudadesUnicas(ciudades);
-    setClientesUnicos(clientes);
-  };
+    if (datosCargadosRef.current) return;
+    datosCargadosRef.current = true;
+    setLoadingDatos(true);
+    axiosAuth.get('/ventas/datos-filtros')
+      .then((res) => {
+        if (res.data?.success && res.data.data) {
+          const { empleados = [] } = res.data.data;
+          setEmpleadosUnicos(empleados);
+        }
+      })
+      .catch((err) => console.error('Error cargando datos filtros ventas:', err))
+      .finally(() => setLoadingDatos(false));
+  }, [necesitaCargarDatos]);
 
   const handleFiltroChange = (campo, valor) => {
     setLocalFiltros((prev) => ({ ...prev, [campo]: valor }));
@@ -89,6 +168,12 @@ export default function FiltrosHistorialVentas({
 
   const limpiarTodosFiltros = () => {
     onLimpiarFiltros();
+  };
+
+  const limpiarYCerrarModal = (e) => {
+    e?.stopPropagation();
+    onLimpiarFiltros();
+    setModalAbierto(false);
   };
 
   const hayFiltrosActivos = () => {
@@ -121,27 +206,17 @@ export default function FiltrosHistorialVentas({
         Al aplicar o limpiar filtros, la selección de ventas se reinicia.
       </p>
 
-      {/* Principales: Cliente, Empleado, Tipo fiscal, Fecha, Tipo documento */}
+      {/* Principales: Cliente (busca en todas las ventas), Empleado, Tipo fiscal, Fecha, Tipo documento */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
-          <div className="relative">
-            <input
-              type="text"
-              value={localFiltros.cliente || ''}
-              onChange={(e) => handleFiltroChange('cliente', e.target.value)}
-              placeholder="Buscar cliente..."
-              list={clientesListId}
-              className="w-full p-2.5 pr-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px]"
-              aria-label="Cliente"
-            />
-            <MdSearch className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
-          </div>
-          <datalist id={clientesListId}>
-            {clientesUnicos.map((c, i) => (
-              <option key={i} value={c} />
-            ))}
-          </datalist>
+          <AutocompleteFiltro
+            tipo="cliente"
+            value={localFiltros.cliente || ''}
+            onChange={(v) => handleFiltroChange('cliente', v)}
+            placeholder="Buscar cliente (en todo el historial)..."
+            ariaLabel="Cliente"
+          />
         </div>
 
         {esGerente && (
@@ -217,7 +292,7 @@ export default function FiltrosHistorialVentas({
         </div>
       </div>
 
-      {/* Filtros avanzados: Ciudad (no enviado al backend actualmente) */}
+      {/* Filtros avanzados: Ciudad (busca en todas las ventas) */}
       <div>
         <button
           type="button"
@@ -234,20 +309,13 @@ export default function FiltrosHistorialVentas({
         <div className={`overflow-hidden transition-all duration-200 ${avanzadosExpandido ? 'max-h-40 opacity-100 mt-2' : 'max-h-0 opacity-0'}`}>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
-            <input
-              type="text"
+            <AutocompleteFiltro
+              tipo="ciudad"
               value={localFiltros.ciudad || ''}
-              onChange={(e) => handleFiltroChange('ciudad', e.target.value)}
-              placeholder="Buscar ciudad..."
-              list={ciudadesListId}
-              className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px]"
-              aria-label="Ciudad"
+              onChange={(v) => handleFiltroChange('ciudad', v)}
+              placeholder="Buscar ciudad (en todo el historial)..."
+              ariaLabel="Ciudad"
             />
-            <datalist id={ciudadesListId}>
-              {ciudadesUnicas.map((c, i) => (
-                <option key={i} value={c} />
-              ))}
-            </datalist>
           </div>
         </div>
       </div>
@@ -283,25 +351,22 @@ export default function FiltrosHistorialVentas({
         </div>
       )}
 
-      {/* Botones */}
-      <div className={`flex flex-col sm:flex-row gap-2 ${esEnModal ? 'pt-2' : 'pt-2 sm:justify-end'} flex-wrap`}>
+      {/* Botones: siempre en modal (Filtrar aplica y cierra, Limpiar limpia y cierra, Cerrar solo cierra) */}
+      <div className="flex flex-col sm:flex-row gap-2 pt-2 sm:justify-end flex-wrap">
         <button
           type="button"
-          onClick={esEnModal ? aplicarYCerrarModal : aplicarFiltros}
+          onClick={aplicarYCerrarModal}
           className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium min-h-[44px] min-w-[44px]"
           title="Aplicar los filtros y buscar ventas"
           aria-label="Filtrar"
         >
           <MdSearch size={18} />
-          {esEnModal ? 'Aplicar' : 'Filtrar'}
+          Filtrar
         </button>
         {hayFiltrosActivos() && (
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              limpiarTodosFiltros();
-            }}
+            onClick={limpiarYCerrarModal}
             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium min-h-[44px] min-w-[44px]"
             title="Quitar todos los filtros y recargar"
             aria-label="Limpiar filtros"
@@ -310,19 +375,14 @@ export default function FiltrosHistorialVentas({
             Limpiar Filtros
           </button>
         )}
-        {!esEnModal && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setExpandido(false);
-            }}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium min-h-[44px] min-w-[44px]"
-            aria-label="Cerrar filtros"
-          >
-            Cerrar Filtros
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => setModalAbierto(false)}
+          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium min-h-[44px] min-w-[44px]"
+          aria-label="Cerrar filtros sin aplicar"
+        >
+          Cerrar
+        </button>
       </div>
     </div>
   );
@@ -330,86 +390,54 @@ export default function FiltrosHistorialVentas({
   return (
     <>
       <div className="bg-white border rounded-lg shadow-sm mb-4">
-        {/* Móvil: barra con contador + botón Filtros que abre modal */}
-        <div className="md:hidden flex items-center justify-between p-4 border-b border-gray-200">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-sm font-medium text-gray-700 truncate">
-              {ventasFiltradas} de {totalVentas} ventas
-            </span>
-            {hayFiltrosActivos() && (
-              <span className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full text-xs font-medium shrink-0">
-                {contarFiltrosActivos()} activo{contarFiltrosActivos() !== 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setModalAbierto(true)}
-            className="flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-semibold min-h-[44px] min-w-[44px] shrink-0"
-            aria-label="Abrir filtros"
-          >
-            <MdFilterList size={22} />
-            <span>Filtros</span>
-          </button>
-        </div>
-
-        {/* Desktop: acordeón con panel scrolleable */}
-        <div className="hidden md:block">
-          <div
-            className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors"
-            onClick={() => setExpandido(!expandido)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setExpandido((prev) => !prev);
-              }
-            }}
-            aria-expanded={expandido}
-            aria-label={expandido ? 'Cerrar filtros' : 'Abrir filtros'}
-          >
-            <div className="flex items-center gap-3">
-              <MdFilterList className="text-blue-600 shrink-0" size={24} />
-              <div>
-                <h3 className="font-semibold text-gray-800">Filtros de Búsqueda</h3>
-                <div className="flex items-center gap-4 text-sm text-gray-600">
-                  <span>Mostrando {ventasFiltradas} de {totalVentas} ventas</span>
-                  {hayFiltrosActivos() && (
-                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
-                      {contarFiltrosActivos()} filtro{contarFiltrosActivos() !== 1 ? 's' : ''} activo{contarFiltrosActivos() !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                </div>
+        {/* Barra única (desktop y móvil): abre modal al hacer clic */}
+        <div
+          className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors border-b border-gray-200"
+          onClick={() => setModalAbierto(true)}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setModalAbierto(true);
+            }
+          }}
+          aria-expanded={modalAbierto}
+          aria-haspopup="dialog"
+          aria-label="Abrir filtros de búsqueda"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <MdFilterList className="text-blue-600 shrink-0" size={24} />
+            <div className="min-w-0">
+              <h3 className="font-semibold text-gray-800">Filtros de Búsqueda</h3>
+              <div className="flex items-center gap-2 sm:gap-4 text-sm text-gray-600 flex-wrap">
+                <span>Mostrando {ventasFiltradas} de {totalVentas} ventas</span>
+                {hayFiltrosActivos() && (
+                  <span className="bg-blue-100 text-blue-800 px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium shrink-0">
+                    {contarFiltrosActivos()} filtro{contarFiltrosActivos() !== 1 ? 's' : ''} activo{contarFiltrosActivos() !== 1 ? 's' : ''}
+                  </span>
+                )}
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {hayFiltrosActivos() && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    limpiarTodosFiltros();
-                  }}
-                  className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-                  title="Limpiar todos los filtros"
-                  aria-label="Limpiar filtros"
-                >
-                  <MdClear size={20} />
-                </button>
-              )}
-              <span className="text-gray-400" aria-hidden>
-                {expandido ? <MdExpandLess size={24} /> : <MdExpandMore size={24} />}
-              </span>
-            </div>
           </div>
-
-          <div
-            className={`transition-all duration-300 ease-in-out overflow-hidden ${expandido ? 'max-h-[75vh] opacity-100' : 'max-h-0 opacity-0'}`}
-          >
-            <div className="border-t border-gray-200 px-4 pb-4 pt-4 max-h-[70vh] overflow-y-auto">
-              {contenidoFiltros(false)}
-            </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {hayFiltrosActivos() && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  limpiarTodosFiltros();
+                }}
+                className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                title="Limpiar todos los filtros"
+                aria-label="Limpiar filtros"
+              >
+                <MdClear size={20} />
+              </button>
+            )}
+            <span className="text-gray-400" aria-hidden>
+              <MdExpandMore size={24} />
+            </span>
           </div>
         </div>
       </div>
@@ -417,10 +445,10 @@ export default function FiltrosHistorialVentas({
       <ModalBase
         isOpen={modalAbierto}
         onClose={() => setModalAbierto(false)}
-        title="Filtros"
+        title="Filtros de Búsqueda"
         size="md"
-        closeOnOverlay
-        closeOnEscape
+        closeOnOverlay={false}
+        closeOnEscape={true}
         showHeader
         panelClassName="max-h-[90vh] flex flex-col"
         contentClassName="overflow-y-auto flex-1 min-h-0"

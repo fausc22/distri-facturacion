@@ -1,5 +1,5 @@
 // hooks/pedidos/useHistorialPedidos.js - VERSIÓN COMPLETA ACTUALIZADA
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 import { offlineManager, getAppMode } from '../../utils/offlineManager';
@@ -114,13 +114,8 @@ export function useHistorialPedidos(filtroEmpleado = null) {
     cargarPedidos(null, {});
   }, [filtroEmpleado, modoOffline, isPWA]);
 
-  // Búsqueda por cliente en memoria (mismo campo que en servidor)
-  const pedidosFiltrados = useMemo(() => {
-    if (!pedidosOriginales.length) return pedidosOriginales;
-    if (!filtros.cliente || !filtros.cliente.trim()) return pedidosOriginales;
-    const texto = filtros.cliente.toLowerCase().trim();
-    return pedidosOriginales.filter(p => p.cliente_nombre?.toLowerCase().includes(texto));
-  }, [pedidosOriginales, filtros.cliente]);
+  // Lista a mostrar = lo que devuelve el servidor (filtrado y paginado en backend). Sin filtro local.
+  const pedidos = pedidosOriginales;
 
   // Seleccionar/deseleccionar un pedido individual
   const handleSelectPedido = (pedidoId) => {
@@ -272,11 +267,11 @@ export function useHistorialPedidos(filtroEmpleado = null) {
 
   const getEstadisticas = () => {
     const total = totalPedidos;
-    const filtrado = pedidosFiltrados.length;
-    const exportados = pedidosFiltrados.filter(p => p.estado === 'Exportado').length;
-    const facturados = pedidosFiltrados.filter(p => p.estado === 'Facturado').length;
-    const anulados = pedidosFiltrados.filter(p => p.estado === 'Anulado').length;
-    const totalMonto = pedidosFiltrados.reduce((acc, p) => acc + parseFloat(p.total || 0), 0);
+    const filtrado = pedidosOriginales.length; // cantidad en la página actual
+    const exportados = pedidosOriginales.filter(p => p.estado === 'Exportado').length;
+    const facturados = pedidosOriginales.filter(p => p.estado === 'Facturado').length;
+    const anulados = pedidosOriginales.filter(p => p.estado === 'Anulado').length;
+    const totalMonto = pedidosOriginales.reduce((acc, p) => acc + parseFloat(p.total || 0), 0);
     return {
       total,
       filtrado,
@@ -305,7 +300,7 @@ export function useHistorialPedidos(filtroEmpleado = null) {
   };
 
   return {
-    pedidos: pedidosFiltrados,
+    pedidos,
     pedidosOriginales,
     totalPedidos,
     paginaActual,
