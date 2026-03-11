@@ -28,11 +28,13 @@ export function useRankingVentas() {
 
     // Preparar los datos de las ventas para el backend
     const ventasData = ventasSeleccionadas.map(venta => ({
+      cliente_id: venta.cliente_id ?? null,
       cliente_nombre: venta.cliente_nombre,
       direccion: venta.cliente_direccion || '',
       telefono: venta.cliente_telefono || '',
       email: venta.cliente_email || '',
       dni: venta.cliente_dni || venta.cliente_cuit || '',
+      tipo_doc: venta.tipo_doc || '',
       subtotal: Number(venta.subtotal || 0),
       iva_total: Number(venta.iva_total || 0),
       total: Number(venta.total || 0)
