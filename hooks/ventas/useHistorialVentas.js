@@ -35,6 +35,7 @@ export function useHistorialVentas() {
     try {
       const params = { pagina, porPagina: porPaginaParam };
       if (trim(filtros.cliente)) params.cliente = trim(filtros.cliente);
+      if (trim(filtros.ciudad)) params.ciudad = trim(filtros.ciudad);
       if (trim(filtros.fechaDesde)) params.fechaDesde = trim(filtros.fechaDesde);
       if (trim(filtros.fechaHasta)) params.fechaHasta = trim(filtros.fechaHasta);
       if (trim(filtros.tipoDocumento)) params.tipoDocumento = trim(filtros.tipoDocumento);

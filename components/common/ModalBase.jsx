@@ -4,13 +4,24 @@ import { useScrollLock } from '../../hooks/shared/useScrollLock';
 import { Z_INDEX } from '../../constants/zIndex';
 
 /**
- * Componente modal base reutilizable
+ * Componente modal base reutilizable.
+ * - Overlay a pantalla completa (bloquea interacción con la página mientras está abierto).
+ * - Focus trap: Tab / Shift+Tab mantienen el foco dentro del panel; al abrir se enfoca el primer elemento focuseable y al cerrar se restaura el foco al elemento que abrió el modal.
+ * - Bloqueo de scroll en body mientras está abierto (useScrollLock).
+ *
  * @param {boolean} isOpen - Estado de apertura del modal
  * @param {Function} onClose - Callback para cerrar
  * @param {string} title - Título del modal
  * @param {ReactNode} children - Contenido del modal
  * @param {boolean} loading - Estado de carga
- * @param {string} size - Tamaño del modal ('sm', 'md', 'lg', 'xl')
+ * @param {string} size - Tamaño del modal ('sm', 'md', 'lg', 'xl', '2xl')
+ * @param {boolean} closeOnOverlay - Si true, clic en el overlay (fondo oscuro) cierra el modal. Por defecto false para modales "bloqueantes" (ej. filtros).
+ * @param {boolean} closeOnEscape - Si true, la tecla Escape cierra el modal. Por defecto false para obligar a usar botones.
+ * @param {string} zIndexClass - Clases CSS adicionales para el overlay
+ * @param {number} zIndex - z-index del overlay
+ * @param {string} panelClassName - Clases CSS para el panel del modal
+ * @param {string} contentClassName - Clases CSS para el contenedor del contenido
+ * @param {boolean} showHeader - Si se muestra el encabezado con título y botón cerrar
  */
 export default function ModalBase({ 
   isOpen, 
@@ -149,7 +160,7 @@ export default function ModalBase({
         <motion.div
           className={`fixed inset-0 bg-black bg-opacity-50 ${zIndexClass} flex items-center justify-center p-4`}
           onClick={handleOverlayClick}
-          onKeyDown={handleKeyDown}
+          onKeyDownCapture={handleKeyDown}
           role="dialog"
           aria-modal="true"
           aria-labelledby={title ? titleId : undefined}
