@@ -213,8 +213,8 @@ export default function Inicio() {
         </div>
       </div>
 
-      {/* ✅ BOTÓN "RECONECTAR APP" - Solo visible cuando está en modo offline */}
-      {estaEnModoOffline && (
+      {/* ✅ BOTÓN "RECONECTAR APP" - Visible cuando está en modo offline (PWA o desktop con estado desincronizado) */}
+      {modoOffline && (
         <div className="mb-6 border-2 rounded-xl p-6 shadow-lg bg-orange-50 border-orange-500">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
