@@ -46,7 +46,9 @@ function HistorialPedidosContent() {
 
   // Hook de autenticación
   const { user, loading: authLoading } = useAuth();
-  const { modoOffline } = useConnectionContext();
+  const { modoOffline, isPWA } = useConnectionContext();
+  // Solo bloquear edición en PWA cuando está en modo offline (en desktop no mostramos "Reconectar" y modoOffline puede quedar true por un fallo previo)
+  const bloqueoEdicionOffline = isPWA && modoOffline;
 
   // Hook para anular pedidos
   const { loading: loadingAnular, anularPedido } = useAnularPedido();
@@ -163,7 +165,7 @@ function HistorialPedidosContent() {
 
   // FUNCIÓN para cambiar estado de pedido
   const handleCambiarEstadoPedido = async (nuevoEstado) => {
-    if (modoOffline) {
+    if (bloqueoEdicionOffline) {
       toast.error('Cambio de estado no disponible sin conexión');
       return;
     }
@@ -213,7 +215,7 @@ function HistorialPedidosContent() {
 
   // HANDLERS PARA PRODUCTOS
   const handleAgregarProducto = () => {
-    if (modoOffline) {
+    if (bloqueoEdicionOffline) {
       toast.error('Para editar pedidos debes reconectar la app');
       return;
     }
@@ -222,7 +224,7 @@ function HistorialPedidosContent() {
   };
 
   const handleEditarProducto = async (producto) => {
-  if (modoOffline) {
+  if (bloqueoEdicionOffline) {
     toast.error('Para editar pedidos debes reconectar la app');
     return;
   }
@@ -255,7 +257,7 @@ function HistorialPedidosContent() {
   };
 
   const handleEliminarProducto = (producto) => {
-    if (modoOffline) {
+    if (bloqueoEdicionOffline) {
       toast.error('Para editar pedidos debes reconectar la app');
       return;
     }
@@ -423,7 +425,7 @@ function HistorialPedidosContent() {
 
   // Handler para actualizar cliente del pedido
   const handleActualizarClientePedido = async (nuevoCliente) => {
-    if (modoOffline) {
+    if (bloqueoEdicionOffline) {
       toast.error('Cambio de cliente no disponible sin conexión');
       throw new Error('Sin conexión');
     }
