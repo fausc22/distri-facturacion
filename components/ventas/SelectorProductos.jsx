@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { MdSearch } from "react-icons/md";
 import { useVenta } from '../../context/VentasContext';
 import { useProductoSearch } from '../../hooks/useBusquedaProductos';
@@ -77,42 +78,57 @@ function ModalProductos({
   onCerrar, 
   loading 
 }) {
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-      <div className="bg-white rounded-lg p-4 max-w-md w-full">
-        <h3 className="text-lg font-semibold mb-4 text-black">Seleccionar Producto</h3>
-        <ul className="max-h-60 overflow-y-auto">
-          {loading ? (
-            <li className="text-gray-500 text-center">Buscando...</li>
-          ) : resultados.length > 0 ? (
-            resultados.map((producto, idx) => {
-              const precioConIva = parseFloat(producto.precio) * 1.21;
-              return (
-                <li
-                  key={idx}
-                  className="p-2 border-b hover:bg-gray-100 cursor-pointer text-black"
-                  onClick={() => onSeleccionar(producto)}
-                >
-                  {producto.nombre} - ${precioConIva.toFixed(2)} (IVA incl.)
-                </li>
-              );
-            })
-          ) : (
-            <li className="text-gray-500">No se encontraron resultados.</li>
-          )}
-        </ul>
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
 
-        <DetallesProducto
-          producto={productoSeleccionado}
-          cantidad={cantidad}
-          subtotal={subtotal}
-          onCantidadChange={onCantidadChange}
-          onAgregar={onAgregar}
-        />
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4">
+      <div className="flex h-[100dvh] w-screen flex-col bg-white p-4 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-md sm:rounded-lg">
+        <h3 className="mb-4 shrink-0 text-lg font-semibold text-black">Seleccionar Producto</h3>
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1 sm:max-h-[70vh]">
+          <ul>
+            {loading ? (
+              <li className="text-center text-gray-500">Buscando...</li>
+            ) : resultados.length > 0 ? (
+              resultados.map((producto, idx) => {
+                const precioConIva = parseFloat(producto.precio) * 1.21;
+                return (
+                  <li
+                    key={idx}
+                    className="cursor-pointer border-b p-2 text-black hover:bg-gray-100"
+                    onClick={() => onSeleccionar(producto)}
+                  >
+                    <p className="text-sm font-medium leading-snug sm:text-base whitespace-normal break-words">
+                      {producto.nombre}
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      ${precioConIva.toFixed(2)} (IVA incl.)
+                    </p>
+                  </li>
+                );
+              })
+            ) : (
+              <li className="text-gray-500">No se encontraron resultados.</li>
+            )}
+          </ul>
+
+          <DetallesProducto
+            producto={productoSeleccionado}
+            cantidad={cantidad}
+            subtotal={subtotal}
+            onCantidadChange={onCantidadChange}
+            onAgregar={onAgregar}
+          />
+        </div>
 
         <button
           onClick={onCerrar}
-          className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+          className="mt-4 shrink-0 bg-red-500 px-4 py-2 text-white hover:bg-red-600 sm:rounded"
         >
           Cerrar
         </button>

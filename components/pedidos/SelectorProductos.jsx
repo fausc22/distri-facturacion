@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { MdSearch } from "react-icons/md";
 import { toast } from 'react-hot-toast'; // Importar toast
 import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
@@ -183,60 +183,80 @@ function ModalProductos({
   loading,
   mostrarPreciosConIva = true
 }) {
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-      <div className="bg-white rounded-lg p-4 max-w-md w-full">
-        <h3 className="text-lg font-semibold mb-4 text-black ">Seleccionar Producto</h3>
-        <ul className="max-h-60 overflow-y-auto">
-          {loading ? (
-            <li className="text-gray-500 text-center">Buscando...</li>
-          ) : resultados.length > 0 ? (
-            resultados.map((producto, idx) => (
-              <li
-                key={idx}
-                className={`p-2 border-b cursor-pointer text-black ${
-                  producto.stock_actual > 0 
-                    ? 'hover:bg-gray-100' 
-                    : 'bg-red-50 text-red-600'
-                }`}
-                onClick={() => onSeleccionar(producto)}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{producto.nombre}</p>
-                    <p className="text-sm text-gray-700">Neto: {formatearMoneda(producto.precio)}</p>
-                    {mostrarPreciosConIva && (
-                      <p className="text-sm font-semibold text-green-700">
-                        Final c/IVA ({obtenerPorcentajeIva(producto)}%):{" "}
-                        {formatearMoneda(calcularMontoConIva(producto.precio, obtenerPorcentajeIva(producto)))}
-                      </p>
-                    )}
-                  </div>
-                  <span className={`text-sm ${
-                    producto.stock_actual > 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    Stock: {producto.stock_actual}
-                  </span>
-                </div>
-              </li>
-            ))
-          ) : (
-            <li className="text-gray-500">No se encontraron resultados.</li>
-          )}
-        </ul>
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
 
-        <DetallesProducto
-          producto={productoSeleccionado}
-          cantidad={cantidad}
-          subtotal={subtotal}
-          onCantidadChange={onCantidadChange}
-          onAgregar={onAgregar}
-          mostrarPreciosConIva={mostrarPreciosConIva}
-        />
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4">
+      <div className="flex h-[100dvh] w-screen flex-col bg-white p-4 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-md sm:rounded-lg">
+        <h3 className="mb-4 shrink-0 text-lg font-semibold text-black">Seleccionar Producto</h3>
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1 sm:max-h-[70vh]">
+          <ul>
+            {loading ? (
+              <li className="text-center text-gray-500">Buscando...</li>
+            ) : resultados.length > 0 ? (
+              resultados.map((producto, idx) => {
+                const isSelected = productoSeleccionado?.id === producto.id;
+                return (
+                  <li key={producto.id ?? idx} className="border-b">
+                    <div
+                      className={`cursor-pointer p-2 text-black ${
+                        producto.stock_actual > 0 
+                          ? 'hover:bg-gray-100' 
+                          : 'bg-red-50 text-red-600'
+                      } ${isSelected ? 'bg-blue-50/60' : ''}`}
+                      onClick={() => onSeleccionar(producto)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium leading-snug text-black sm:text-base whitespace-normal break-words">
+                            {producto.nombre}
+                          </p>
+                          <p className="text-sm text-gray-700">Neto: {formatearMoneda(producto.precio)}</p>
+                          {mostrarPreciosConIva && (
+                            <p className="text-sm font-semibold text-green-700">
+                              Final c/IVA ({obtenerPorcentajeIva(producto)}%):{" "}
+                              {formatearMoneda(calcularMontoConIva(producto.precio, obtenerPorcentajeIva(producto)))}
+                            </p>
+                          )}
+                        </div>
+                        <span className={`min-w-[88px] shrink-0 text-right text-sm ${
+                          producto.stock_actual > 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          Stock: {producto.stock_actual}
+                        </span>
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <div className="border-t bg-white p-3">
+                        <DetallesProducto
+                          producto={productoSeleccionado}
+                          cantidad={cantidad}
+                          subtotal={subtotal}
+                          onCantidadChange={onCantidadChange}
+                          onAgregar={onAgregar}
+                          mostrarPreciosConIva={mostrarPreciosConIva}
+                        />
+                      </div>
+                    )}
+                  </li>
+                );
+              })
+            ) : (
+              <li className="text-gray-500">No se encontraron resultados.</li>
+            )}
+          </ul>
+
+        </div>
 
         <button
           onClick={onCerrar}
-          className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+          className="mt-4 shrink-0 bg-red-500 px-4 py-2 text-white hover:bg-red-600 sm:rounded"
         >
           Cerrar
         </button>
