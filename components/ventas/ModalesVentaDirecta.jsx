@@ -4,6 +4,7 @@ import ModalBase from '../common/ModalBase';
 import LoadingButton from '../common/LoadingButton';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Z_INDEX } from '../../constants/zIndex';
+import { roundFacturacion } from '../../utils/rounding';
 
 // Modal de descuentos (SIN CAMBIOS)
 export function ModalDescuentosVentaDirecta({
@@ -58,7 +59,7 @@ export function ModalDescuentosVentaDirecta({
 
   if (!mostrar) return null;
 
-  const nuevoTotal = (totalConIva || 0) - descuentoCalculado;
+  const nuevoTotal = roundFacturacion((totalConIva || 0) - descuentoCalculado);
 
   return (
     <ModalBase
@@ -223,7 +224,7 @@ export function ModalFacturacionVentaDirecta({
     return tipo === tipoCorrectoPorIVA;
   };
 
-  // Inicializar valores cuando se abre el modal (productos puede incluir líneas de flete con nombre/precio personalizados)
+  // Inicializar valores cuando se abre el modal (con redondeo ,01–,59 mantienen; ,60–,99 suben)
   useEffect(() => {
     if (mostrar && productos && productos.length > 0 && cliente?.condicion_iva !== undefined) {
       const subtotal = productos.reduce((acc, prod) => acc + (Number(prod.subtotal) || 0), 0);
@@ -240,10 +241,10 @@ export function ModalFacturacionVentaDirecta({
           }, 0)
         : 0;
 
-      setSubtotalSinIva(subtotal);
-      setIvaTotal(iva);
-      setMontoExento(montoExento);  // ✅ Guardar monto exento
-      setTotalConIva(total);
+      setSubtotalSinIva(roundFacturacion(subtotal));
+      setIvaTotal(roundFacturacion(iva));
+      setMontoExento(roundFacturacion(montoExento));
+      setTotalConIva(roundFacturacion(total));
       setDescuentoAplicado(null);
       
       setTimeout(() => {
@@ -267,7 +268,7 @@ export function ModalFacturacionVentaDirecta({
 
     const totalOriginal = subtotalSinIva + ivaTotal;
     const descuentoMonto = descuentoAplicado?.descuentoCalculado || 0;
-    const totalFinal = totalOriginal - descuentoMonto;
+    const totalFinal = roundFacturacion(totalOriginal - descuentoMonto);
 
     const datosFacturacion = {
       cuentaId: cuentaId, // ✅ Se determina automáticamente

@@ -1,5 +1,6 @@
 // context/PedidosContext.js
 import { createContext, useContext, useReducer } from 'react';
+import { roundFacturacion } from '../utils/rounding';
 
 export const PedidosContext = createContext();
 
@@ -234,10 +235,13 @@ const initialState = {
 export function PedidosProvider({ children }) {
   const [state, dispatch] = useReducer(pedidosReducer, initialState);
 
-  // Calcular totales dinámicamente
-  const subtotal = state.productos.reduce((acc, prod) => acc + prod.subtotal, 0); // Suma subtotales SIN IVA
-  const totalIva = state.productos.reduce((acc, prod) => acc + prod.iva_calculado, 0); // Suma IVAs calculados
-  const total = subtotal + totalIva; // Total con IVA incluido
+  // Calcular totales dinámicamente (redondeo ,01–,59 mantienen; ,60–,99 suben)
+  const subtotalRaw = state.productos.reduce((acc, prod) => acc + prod.subtotal, 0);
+  const totalIvaRaw = state.productos.reduce((acc, prod) => acc + prod.iva_calculado, 0);
+  const totalRaw = subtotalRaw + totalIvaRaw;
+  const subtotal = roundFacturacion(subtotalRaw);
+  const totalIva = roundFacturacion(totalIvaRaw);
+  const total = roundFacturacion(totalRaw);
   const totalProductos = state.productos.reduce((acc, prod) => acc + prod.cantidad, 0);
 
   const actions = {
