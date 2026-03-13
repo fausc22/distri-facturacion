@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { MdSearch } from "react-icons/md";
 import { toast } from 'react-hot-toast';
 import { usePedidosContext } from '../../context/PedidosContext';
@@ -196,10 +197,18 @@ function ModalProductos({
   isOnline,
   mostrarPreciosConIva = true
 }) {
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
+
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-      <div className="bg-white rounded-lg p-4 max-w-md w-full">
-        <div className="flex justify-between items-center mb-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4">
+      <div className="flex h-[100dvh] w-screen flex-col bg-white p-4 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-md sm:rounded-lg">
+        <div className="mb-4 flex shrink-0 items-center justify-between">
           <h3 className="text-lg font-semibold text-black">Seleccionar Producto</h3>
           {/* ✅ INDICADOR DE MODO */}
           {isPWA && (
@@ -211,75 +220,85 @@ function ModalProductos({
             </div>
           )}
         </div>
-        
-        <ul className="max-h-60 overflow-y-auto">
-          {loading ? (
-            <li className="text-gray-500 text-center py-4">
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                Buscando{isPWA && !isOnline ? ' offline' : ''}...
-              </div>
-            </li>
-          ) : resultados.length > 0 ? (
-            resultados.map((producto, idx) => (
-              <li
-                key={idx}
-                className={`p-2 border-b cursor-pointer text-black transition-colors ${
-                  producto.stock_actual > 0 
-                    ? 'hover:bg-gray-100' 
-                    : 'bg-red-50 text-red-600'
-                }`}
-                onClick={() => onSeleccionar(producto)}
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{producto.nombre}</p>
-                    <p className="text-sm text-gray-700">
-                      Neto: {formatearMoneda(producto.precio)}
-                    </p>
-                    {mostrarPreciosConIva && (
-                      <p className="text-sm font-semibold text-green-700">
-                        Final c/IVA ({obtenerPorcentajeIva(producto)}%):{" "}
-                        {formatearMoneda(calcularMontoConIva(producto.precio, obtenerPorcentajeIva(producto)))}
-                      </p>
-                    )}
-                  </div>
-                  <div className="text-right">
-                    <span className={`text-sm ${
-                      producto.stock_actual > 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      Stock: {formatearStock(producto.stock_actual)} 
-                    </span>
-                    {/* ✅ BADGE DE ORIGEN PARA CADA PRODUCTO */}
-                    
-                  </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1 sm:max-h-[70vh]">
+          <ul>
+            {loading ? (
+              <li className="py-4 text-center text-gray-500">
+                <div className="flex items-center justify-center">
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-blue-600"></div>
+                  Buscando{isPWA && !isOnline ? ' offline' : ''}...
                 </div>
               </li>
-            ))
-          ) : (
-            <li className="text-gray-500 text-center py-4">
-              {isPWA && !isOnline 
-                ? "No se encontraron productos en datos offline." 
-                : "No se encontraron resultados."
-              }
-            </li>
-          )}
-        </ul>
+            ) : resultados.length > 0 ? (
+              resultados.map((producto, idx) => {
+                const isSelected = productoSeleccionado?.id === producto.id;
+                return (
+                  <li key={producto.id ?? idx} className="border-b">
+                    <div
+                      className={`cursor-pointer p-2 text-black transition-colors ${
+                        producto.stock_actual > 0 
+                          ? 'hover:bg-gray-100' 
+                          : 'bg-red-50 text-red-600'
+                      } ${isSelected ? 'bg-blue-50/60' : ''}`}
+                      onClick={() => onSeleccionar(producto)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium leading-snug text-black sm:text-base whitespace-normal break-words">
+                            {producto.nombre}
+                          </p>
+                          <p className="text-sm text-gray-700">
+                            Neto: {formatearMoneda(producto.precio)}
+                          </p>
+                          {mostrarPreciosConIva && (
+                            <p className="text-sm font-semibold text-green-700">
+                              Final c/IVA ({obtenerPorcentajeIva(producto)}%):{" "}
+                              {formatearMoneda(calcularMontoConIva(producto.precio, obtenerPorcentajeIva(producto)))}
+                            </p>
+                          )}
+                        </div>
+                        <div className="min-w-[88px] shrink-0 text-right">
+                          <span className={`text-sm ${
+                            producto.stock_actual > 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            Stock: {formatearStock(producto.stock_actual)} 
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <div className="border-t bg-white p-3">
+                        <DetallesProducto
+                          producto={productoSeleccionado}
+                          cantidad={cantidad}
+                          subtotal={subtotal}
+                          onCantidadChange={onCantidadChange}
+                          onAgregar={onAgregar}
+                          isPWA={isPWA}
+                          isOnline={isOnline}
+                          mostrarPreciosConIva={mostrarPreciosConIva}
+                        />
+                      </div>
+                    )}
+                  </li>
+                );
+              })
+            ) : (
+              <li className="py-4 text-center text-gray-500">
+                {isPWA && !isOnline 
+                  ? "No se encontraron productos en datos offline." 
+                  : "No se encontraron resultados."
+                }
+              </li>
+            )}
+          </ul>
 
-        <DetallesProducto
-          producto={productoSeleccionado}
-          cantidad={cantidad}
-          subtotal={subtotal}
-          onCantidadChange={onCantidadChange}
-          onAgregar={onAgregar}
-          isPWA={isPWA}
-          isOnline={isOnline}
-          mostrarPreciosConIva={mostrarPreciosConIva}
-        />
+        </div>
 
         <button
           onClick={onCerrar}
-          className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors"
+          className="mt-4 shrink-0 bg-red-500 px-4 py-2 text-white transition-colors hover:bg-red-600 sm:rounded"
         >
           Cerrar
         </button>
