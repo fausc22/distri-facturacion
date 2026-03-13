@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import ModalBase from '../common/ModalBase';
 import LoadingButton from '../common/LoadingButton';
 import { Z_INDEX } from '../../constants/zIndex';
+import { roundFacturacion } from '../../utils/rounding';
 
 // ✅ MODAL DE DESCUENTOS (sin cambios)
 export function ModalDescuentos({
@@ -58,7 +59,7 @@ export function ModalDescuentos({
 
   if (!mostrar) return null;
 
-  const nuevoTotal = (totalConIva || 0) - descuentoCalculado;
+  const nuevoTotal = roundFacturacion((totalConIva || 0) - descuentoCalculado);
 
   return (
     <ModalBase
@@ -192,6 +193,9 @@ export function ModalFacturacion({
   const [mostrarModalDescuentos, setMostrarModalDescuentos] = useState(false);
   const [descuentoAplicado, setDescuentoAplicado] = useState(null);
   const [procesando, setProcesando] = useState(false); // ✅ Estado local para bloqueo inmediato
+  const [totalEditadoManual, setTotalEditadoManual] = useState(null); // ✅ Total final editado por el usuario (null = usar calculado)
+  const [editandoTotalFinal, setEditandoTotalFinal] = useState(false);
+  const [totalFinalTemp, setTotalFinalTemp] = useState('');
 
   // ✅ FUNCIÓN: Determinar tipo fiscal según condición IVA
   const determinarTipoFiscal = (condicionIva) => {
@@ -223,17 +227,18 @@ export function ModalFacturacion({
     return tipo === tipoCorrectoPorIVA;
   };
 
-  // ✅ Inicializar valores cuando se abre el modal
+  // ✅ Inicializar valores cuando se abre el modal (con redondeo ,01–,59 mantienen; ,60–,99 suben)
   useEffect(() => {
     if (mostrar && productos && productos.length > 0 && pedido?.cliente_condicion !== undefined) {
       const subtotal = productos.reduce((acc, prod) => acc + (Number(prod.subtotal) || 0), 0);
       const iva = productos.reduce((acc, prod) => acc + (Number(prod.iva) || 0), 0);
       const total = subtotal + iva;
 
-      setSubtotalSinIva(subtotal);
-      setIvaTotal(iva);
-      setTotalConIva(total);
+      setSubtotalSinIva(roundFacturacion(subtotal));
+      setIvaTotal(roundFacturacion(iva));
+      setTotalConIva(roundFacturacion(total));
       setDescuentoAplicado(null);
+      setTotalEditadoManual(null);
       
       setTimeout(() => {
         const tipoFiscalAuto = determinarTipoFiscal(pedido.cliente_condicion);
@@ -244,10 +249,12 @@ export function ModalFacturacion({
 
   const handleAplicarDescuento = (descuento) => {
     setDescuentoAplicado(descuento);
+    setTotalEditadoManual(null);
   };
 
   const limpiarDescuento = () => {
     setDescuentoAplicado(null);
+    setTotalEditadoManual(null);
   };
 
   const handleConfirmar = async () => {
@@ -264,14 +271,15 @@ export function ModalFacturacion({
 
       const totalOriginal = subtotalSinIva + ivaTotal;
       const descuentoMonto = descuentoAplicado?.descuentoCalculado || 0;
-      const totalFinal = totalOriginal - descuentoMonto;
+      const totalFinalCalculado = roundFacturacion(totalOriginal - descuentoMonto);
+      const totalAEnviar = totalEditadoManual !== null ? totalEditadoManual : totalFinalCalculado;
 
       const datosFacturacion = {
         cuentaId: cuentaId,
         tipoFiscal,
         subtotalSinIva,
         ivaTotal,
-        totalConIva: totalFinal,
+        totalConIva: totalAEnviar,
         descuentoAplicado
       };
 
@@ -293,7 +301,10 @@ export function ModalFacturacion({
     setIvaTotal(0);
     setTotalConIva(0);
     setDescuentoAplicado(null);
-    setProcesando(false); // ✅ Resetear estado de procesamiento
+    setProcesando(false);
+    setTotalEditadoManual(null);
+    setEditandoTotalFinal(false);
+    setTotalFinalTemp('');
   };
 
   const handleClose = () => {
@@ -316,7 +327,25 @@ export function ModalFacturacion({
 
   const totalOriginal = subtotalSinIva + ivaTotal;
   const descuentoMonto = descuentoAplicado?.descuentoCalculado || 0;
-  const totalFinalConDescuento = totalOriginal - descuentoMonto;
+  const totalFinalConDescuento = roundFacturacion(totalOriginal - descuentoMonto);
+  const totalFinalDisplay = totalEditadoManual !== null ? totalEditadoManual : totalFinalConDescuento;
+
+  const guardarTotalEditado = () => {
+    const n = Number(totalFinalTemp);
+    if (Number.isFinite(n) && n >= 0) {
+      setTotalEditadoManual(Math.round(n));
+      toast.success('Total actualizado');
+    } else {
+      toast.error('Ingrese un total válido');
+    }
+    setEditandoTotalFinal(false);
+    setTotalFinalTemp('');
+  };
+
+  const cancelarEdicionTotal = () => {
+    setEditandoTotalFinal(false);
+    setTotalFinalTemp('');
+  };
   
   // ✅ Determinar el tipo fiscal correcto según la condición IVA
   const tipoFiscalCorrecto = determinarTipoFiscal(pedido?.cliente_condicion);
@@ -463,9 +492,56 @@ export function ModalFacturacion({
                     <span>-${descuentoMonto.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="flex justify-between font-bold text-lg border-t pt-1">
+                <div className="flex justify-between font-bold text-lg border-t pt-1 items-center gap-2">
                   <span>Total Final:</span>
-                  <span className="text-green-600">${totalFinalConDescuento.toFixed(2)}</span>
+                  {editandoTotalFinal ? (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-gray-600">$</span>
+                      <input
+                        type="number"
+                        value={totalFinalTemp}
+                        onChange={(e) => setTotalFinalTemp(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') guardarTotalEditado();
+                          if (e.key === 'Escape') cancelarEdicionTotal();
+                        }}
+                        min="0"
+                        step="1"
+                        className="border border-green-500 rounded px-2 py-1 w-24 text-right text-green-600 font-bold"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={guardarTotalEditado}
+                        className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-sm"
+                      >
+                        Guardar
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelarEdicionTotal}
+                        className="bg-gray-500 hover:bg-gray-600 text-white px-2 py-1 rounded text-sm"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      <span className="text-green-600">${totalFinalDisplay.toFixed(2)}</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTotalFinalTemp(String(totalFinalDisplay));
+                          setEditandoTotalFinal(true);
+                        }}
+                        className="p-1 rounded hover:bg-green-100 text-gray-600 hover:text-green-700 transition-colors"
+                        title="Editar total final"
+                        aria-label="Editar total final"
+                      >
+                        <span role="img" aria-hidden>✏️</span>
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

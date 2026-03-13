@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 import ModalBase from '../common/ModalBase';
 import { Z_INDEX } from '../../constants/zIndex';
+import { roundFacturacion } from '../../utils/rounding';
 
 export function ModalFacturacionNota({ 
   mostrar, 
@@ -69,7 +70,7 @@ export function ModalFacturacionNota({
     }
   }, [mostrar]);
 
-  // Inicializar valores cuando se abre el modal
+  // Inicializar valores cuando se abre el modal (con redondeo ,01–,59 mantienen; ,60–,99 suben)
   useEffect(() => {
     if (mostrar && productos && productos.length > 0 && cliente?.condicion_iva !== undefined) {
       const subtotal = productos.reduce((acc, prod) => acc + (Number(prod.subtotal) || 0), 0);
@@ -86,10 +87,10 @@ export function ModalFacturacionNota({
           }, 0)
         : 0;
 
-      setSubtotalSinIva(subtotal);
-      setIvaTotal(iva);
-      setMontoExento(montoExento);
-      setTotalConIva(total);
+      setSubtotalSinIva(roundFacturacion(subtotal));
+      setIvaTotal(roundFacturacion(iva));
+      setMontoExento(roundFacturacion(montoExento));
+      setTotalConIva(roundFacturacion(total));
       
       setTimeout(() => {
         const tipoFiscalAuto = determinarTipoFiscal(cliente.condicion_iva);

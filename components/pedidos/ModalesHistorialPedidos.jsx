@@ -12,6 +12,7 @@ import ModalBase from '../common/ModalBase';
 import LoadingButton from '../common/LoadingButton';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Z_INDEX } from '../../constants/zIndex';
+import { roundFacturacion } from '../../utils/rounding';
 
 // ✅ MODAL DE DESCUENTOS CORREGIDO - APLICA % SOBRE SUBTOTAL
 export function ModalDescuentos({
@@ -1590,16 +1591,16 @@ export function TablaProductos({ productos, onEditarProducto, onEliminarProducto
 
 
 export function ResumenTotales({ productos, pedido }) {
-  const subtotalNeto = productos.reduce((acc, prod) => {
+  const subtotalNetoRaw = productos.reduce((acc, prod) => {
     return acc + (Number(prod.subtotal) || 0);
   }, 0);
 
-  const ivaTotal = productos.reduce((acc, prod) => {
+  const ivaTotalRaw = productos.reduce((acc, prod) => {
     return acc + (Number(prod.iva) || 0);
   }, 0);
 
   // 🆕 CALCULAR DESCUENTOS TOTALES
-  const totalDescuentos = productos.reduce((acc, prod) => {
+  const totalDescuentosRaw = productos.reduce((acc, prod) => {
     const precio = Number(prod.precio) || 0;
     const cantidad = Number(prod.cantidad) || 0;
     const descuento = Number(prod.descuento_porcentaje) || 0;
@@ -1610,29 +1611,34 @@ export function ResumenTotales({ productos, pedido }) {
   
   // ✅ Obtener monto exento del pedido si está disponible, o calcularlo si el cliente es exento
   const esClienteExento = pedido?.cliente_condicion?.toUpperCase() === 'EXENTO';
-  let montoExento = pedido?.exento ? Number(pedido.exento) : 0;
+  let montoExentoRaw = pedido?.exento ? Number(pedido.exento) : 0;
   
   // Si el cliente es exento pero no hay monto exento guardado, calcularlo
-  if (esClienteExento && montoExento === 0 && productos.length > 0) {
-    montoExento = productos.reduce((acc, prod) => {
+  if (esClienteExento && montoExentoRaw === 0 && productos.length > 0) {
+    montoExentoRaw = productos.reduce((acc, prod) => {
       const subtotal = Number(prod.subtotal) || 0;
-      // Intentar obtener el porcentaje de IVA del producto, o usar 21% por defecto
       const porcentajeIva = Number(prod.porcentaje_iva) || 21;
       const ivaQueDeberiaCobrarse = parseFloat((subtotal * (porcentajeIva / 100)).toFixed(2));
       return acc + ivaQueDeberiaCobrarse;
     }, 0);
   }
 
-  const totalFinal = subtotalNeto + ivaTotal;
+  // ✅ Redondeo para facturación: ,01–,59 mantienen; ,60–,99 suben
+  const subtotalNeto = roundFacturacion(subtotalNetoRaw);
+  const ivaTotal = roundFacturacion(ivaTotalRaw);
+  const montoExento = roundFacturacion(montoExentoRaw);
+  const totalDescuentos = roundFacturacion(totalDescuentosRaw);
+  const totalFinal = roundFacturacion(subtotalNetoRaw + ivaTotalRaw);
 
-  // 🆕 CALCULAR TOTAL SIN DESCUENTOS PARA COMPARACIÓN
-  const totalSinDescuentos = productos.reduce((acc, prod) => {
+  // 🆕 CALCULAR TOTAL SIN DESCUENTOS PARA COMPARACIÓN (redondeado para consistencia visual)
+  const totalSinDescuentosRaw = productos.reduce((acc, prod) => {
     const precio = Number(prod.precio) || 0;
     const cantidad = Number(prod.cantidad) || 0;
     const subtotalBase = precio * cantidad;
-    const ivaBase = subtotalBase * 0.21; // Asumiendo 21% IVA
+    const ivaBase = subtotalBase * 0.21;
     return acc + subtotalBase + ivaBase;
   }, 0);
+  const totalSinDescuentos = roundFacturacion(totalSinDescuentosRaw);
 
   if (productos.length === 0) return null;
 
