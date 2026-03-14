@@ -21,8 +21,7 @@ export default function ModalCrearClienteRapido({
     nombre: '',
     nombre_alternativo: '',
     condicion_iva: '',
-    cuit: '',
-    dni: '',
+    cuit_dni: '',
     direccion: '',
     ciudad: '',
     ciudad_id: '',
@@ -44,8 +43,7 @@ export default function ModalCrearClienteRapido({
           nombre: clienteEditar.nombre || '',
           nombre_alternativo: clienteEditar.nombre_alternativo || '',
           condicion_iva: clienteEditar.condicion_iva || '',
-          cuit: clienteEditar.cuit || '',
-          dni: clienteEditar.dni || '',
+          cuit_dni: (clienteEditar.cuit || clienteEditar.dni || '').toString().trim(),
           direccion: clienteEditar.direccion || '',
           ciudad: clienteEditar.ciudad || '',
           ciudad_id: clienteEditar.ciudad_id || '',
@@ -63,8 +61,7 @@ export default function ModalCrearClienteRapido({
           nombre: '',
           nombre_alternativo: '',
           condicion_iva: '',
-          cuit: '',
-          dni: '',
+          cuit_dni: '',
           direccion: '',
           ciudad: '',
           ciudad_id: '',
@@ -87,15 +84,17 @@ export default function ModalCrearClienteRapido({
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validar datos
-    const erroresValidacion = validarDatosCliente(formData);
+    const digits = (formData.cuit_dni || '').replace(/\D/g, '');
+    const cuit = digits.length === 11 ? (formData.cuit_dni || '').trim() : '';
+    const dni = (digits.length >= 7 && digits.length <= 8) ? (formData.cuit_dni || '').trim() : '';
+    const datosParaValidar = { ...formData, cuit, dni };
+    const erroresValidacion = validarDatosCliente(datosParaValidar);
     if (erroresValidacion.length > 0) {
       setErrores(erroresValidacion);
       return;
     }
-
-    const payload = { ...formData, validado_afip: datosValidadosConAfip };
+    const { cuit_dni: _, ...rest } = formData;
+    const payload = { ...rest, cuit, dni, validado_afip: datosValidadosConAfip };
     let resultado;
     if (modo === 'editar' && clienteEditar) {
       resultado = await actualizarCliente(clienteEditar.id, payload);
@@ -130,14 +129,15 @@ export default function ModalCrearClienteRapido({
   };
 
   const handleValidarAfip = async () => {
-    const result = await consultarContribuyenteAfip(formData.cuit, formData.dni);
+    const valor = formData.cuit_dni || '';
+    const result = await consultarContribuyenteAfip(valor, valor);
     if (!result.success || !result.data) return;
+    const nuevoCuitDni = (result.data.cuit || result.data.dni || '').toString().trim();
     setFormData(prev => ({
       ...prev,
+      cuit_dni: nuevoCuitDni || prev.cuit_dni,
       nombre: result.data.nombre ?? prev.nombre,
       condicion_iva: result.data.condicion_iva ?? prev.condicion_iva,
-      cuit: result.data.cuit ?? prev.cuit,
-      dni: result.data.dni ? String(result.data.dni) : prev.dni,
       direccion: result.data.direccion ?? prev.direccion,
       ciudad: result.data.ciudad ?? prev.ciudad,
       provincia: result.data.provincia ?? prev.provincia,
@@ -154,9 +154,6 @@ export default function ModalCrearClienteRapido({
     'Exento',
     'Consumidor Final'
   ];
-
-  // Determinar si mostrar DNI o CUIT según la condición IVA
-  const esConsumidorFinal = formData.condicion_iva === 'Consumidor Final';
 
   if (!isOpen) return null;
 
@@ -247,38 +244,21 @@ export default function ModalCrearClienteRapido({
                   </select>
                 </div>
 
-                {/* DNI o CUIT según condición IVA */}
-                {esConsumidorFinal ? (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      DNI
-                    </label>
-                    <input
-                      type="text"
-                      name="dni"
-                      value={formData.dni}
-                      onChange={handleInputChange}
-                      placeholder="12345678"
-                      className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
-                      disabled={loading}
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      CUIT
-                    </label>
-                    <input
-                      type="text"
-                      name="cuit"
-                      value={formData.cuit}
-                      onChange={handleInputChange}
-                      placeholder="20-12345678-9"
-                      className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
-                      disabled={loading}
-                    />
-                  </div>
-                )}
+                {/* CUIT/DNI único: 11 dígitos = CUIT, 7 u 8 = DNI */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    CUIT / DNI
+                  </label>
+                  <input
+                    type="text"
+                    name="cuit_dni"
+                    value={formData.cuit_dni}
+                    onChange={handleInputChange}
+                    placeholder="CUIT (11 dígitos) o DNI (7-8 dígitos)"
+                    className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
+                    disabled={loading}
+                  />
+                </div>
               </div>
 
               {/* Validar con AFIP */}
@@ -375,39 +355,6 @@ export default function ModalCrearClienteRapido({
                     disabled={loading}
                   />
                 </div>
-
-                {/* CUIT (solo si es Consumidor Final, ya que muestra DNI arriba) o DNI (si no es Consumidor Final) */}
-                {esConsumidorFinal ? (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      CUIT
-                    </label>
-                    <input
-                      type="text"
-                      name="cuit"
-                      value={formData.cuit}
-                      onChange={handleInputChange}
-                      placeholder="20-12345678-9"
-                      className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
-                      disabled={loading}
-                    />
-                  </div>
-                ) : (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      DNI
-                    </label>
-                    <input
-                      type="text"
-                      name="dni"
-                      value={formData.dni}
-                      onChange={handleInputChange}
-                      placeholder="12345678"
-                      className="w-full min-h-[44px] px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500 focus:border-green-500 text-base text-gray-900 touch-manipulation"
-                      disabled={loading}
-                    />
-                  </div>
-                )}
 
                 {/* Email */}
                 <div>

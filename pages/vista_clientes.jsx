@@ -14,8 +14,7 @@ function ModalEditarCliente({ cliente, isOpen, onClose, onClienteActualizado }) 
   const [formData, setFormData] = useState({
     nombre: '',
     condicion_iva: '',
-    cuit: '',
-    dni: '',
+    cuit_dni: '',
     direccion: '',
     ciudad: '',
     ciudad_id: '',
@@ -31,8 +30,7 @@ function ModalEditarCliente({ cliente, isOpen, onClose, onClienteActualizado }) 
       setFormData({
         nombre: cliente.nombre || '',
         condicion_iva: cliente.condicion_iva || '',
-        cuit: cliente.cuit || '',
-        dni: cliente.dni || '',
+        cuit_dni: (cliente.cuit || cliente.dni || '').toString().trim(),
         direccion: cliente.direccion || '',
         ciudad: cliente.ciudad || '',
         ciudad_id: cliente.ciudad_id || '',
@@ -49,14 +47,15 @@ function ModalEditarCliente({ cliente, isOpen, onClose, onClienteActualizado }) 
   };
 
   const handleValidarAfip = async () => {
-    const result = await consultarContribuyenteAfip(formData.cuit, formData.dni);
+    const valor = formData.cuit_dni || '';
+    const result = await consultarContribuyenteAfip(valor, valor);
     if (!result.success || !result.data) return;
+    const nuevoCuitDni = (result.data.cuit || result.data.dni || '').toString().trim();
     setFormData(prev => ({
       ...prev,
+      cuit_dni: nuevoCuitDni || prev.cuit_dni,
       nombre: result.data.nombre ?? prev.nombre,
       condicion_iva: result.data.condicion_iva ?? prev.condicion_iva,
-      cuit: result.data.cuit ?? prev.cuit,
-      dni: result.data.dni ? String(result.data.dni) : prev.dni,
       direccion: result.data.direccion ?? prev.direccion,
       ciudad: result.data.ciudad ?? prev.ciudad,
       provincia: result.data.provincia ?? prev.provincia,
@@ -68,18 +67,21 @@ function ModalEditarCliente({ cliente, isOpen, onClose, onClienteActualizado }) 
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    const erroresValidacion = validarDatosCliente(formData);
+    const digits = (formData.cuit_dni || '').replace(/\D/g, '');
+    const cuit = digits.length === 11 ? (formData.cuit_dni || '').trim() : '';
+    const dni = (digits.length >= 7 && digits.length <= 8) ? (formData.cuit_dni || '').trim() : '';
+    const datosParaValidar = { ...formData, cuit, dni };
+    const erroresValidacion = validarDatosCliente(datosParaValidar);
     if (erroresValidacion.length > 0) {
       setErrores(erroresValidacion);
       toast.error(erroresValidacion[0]);
       return;
     }
     setErrores([]);
-
+    const { cuit_dni: _, ...rest } = formData;
+    const payload = { ...rest, cuit, dni, validado_afip: datosValidadosConAfip };
     setLoading(true);
     try {
-      const payload = { ...formData, validado_afip: datosValidadosConAfip };
       const response = await axiosAuth.put(`/personas/actualizar-cliente/${cliente.id}`, payload);
 
       if (response.data.success) {
@@ -169,38 +171,20 @@ function ModalEditarCliente({ cliente, isOpen, onClose, onClienteActualizado }) 
             </select>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* CUIT */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                CUIT
-              </label>
-              <input
-                type="text"
-                name="cuit"
-                value={formData.cuit}
-                onChange={handleInputChange}
-                className="w-full p-2.5 border border-gray-300 rounded-md"
-                placeholder="20-12345678-9"
-                disabled={loading}
-              />
-            </div>
-
-            {/* DNI */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                DNI
-              </label>
-              <input
-                type="text"
-                name="dni"
-                value={formData.dni}
-                onChange={handleInputChange}
-                className="w-full p-2.5 border border-gray-300 rounded-md"
-                placeholder="12345678"
-                disabled={loading}
-              />
-            </div>
+          {/* CUIT/DNI único: 11 dígitos = CUIT, 7 u 8 = DNI */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              CUIT / DNI
+            </label>
+            <input
+              type="text"
+              name="cuit_dni"
+              value={formData.cuit_dni}
+              onChange={handleInputChange}
+              className="w-full p-2.5 border border-gray-300 rounded-md"
+              placeholder="CUIT (11 dígitos) o DNI (7-8 dígitos)"
+              disabled={loading}
+            />
           </div>
 
           {/* Validar con AFIP */}
