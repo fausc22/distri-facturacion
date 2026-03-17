@@ -1,5 +1,5 @@
 // components/notas/ModalCrearNota.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import { NotasProvider, useNotasContext } from '../../context/NotasContext';
 import { useNotas } from '../../hooks/notas/useNotas';
@@ -16,8 +16,10 @@ import ObservacionesPedido from '../pedidos/ObservacionesPedido';
 import { ModalFacturacionNota } from './ModalFacturacionNota';
 import { ModalBuscarVenta } from './ModalBuscarVenta';
 import { ModalProductoManual } from './ModalProductoManual';
+import { TablaItemsReferenciaNC } from './TablaItemsReferenciaNC';
 import ModalBase from '../common/ModalBase';
 import LoadingButton from '../common/LoadingButton';
+import LoadingSpinner from '../common/LoadingSpinner';
 import { Z_INDEX } from '../../constants/zIndex';
 
 function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
@@ -33,6 +35,7 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
     total,
     setCliente,
     setVentaReferencia,
+    setProductos,
     clearCliente,
     clearVentaReferencia,
     clearNota,
@@ -44,11 +47,18 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
   const [mostrarModalProductoManual, setMostrarModalProductoManual] = useState(false);
   const [modoCreacion, setModoCreacion] = useState(null); // 'con_referencia' o 'sin_referencia'
 
+  // Estado para NC con referencia: ítems de la venta y cantidades a anular
+  const [itemsReferenciaVenta, setItemsReferenciaVenta] = useState([]);
+  const [loadingItemsReferencia, setLoadingItemsReferencia] = useState(false);
+  const [cantidadAAnular, setCantidadAAnular] = useState({});
+
   // Inicializar cuando se abre el modal
   useEffect(() => {
     if (mostrar) {
       clearNota();
       setModoCreacion(null);
+      setItemsReferenciaVenta([]);
+      setCantidadAAnular({});
     }
   }, [mostrar]);
 
@@ -112,6 +122,50 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
     cargarClienteCompleto();
   }, [ventaReferencia]);
 
+  // Mantener el modo alineado con la referencia seleccionada (evita volver a Paso 1)
+  useEffect(() => {
+    if (ventaReferencia && modoCreacion !== 'con_referencia') {
+      setModoCreacion('con_referencia');
+    }
+    if (!ventaReferencia && modoCreacion === 'con_referencia') {
+      setModoCreacion(null);
+    }
+  }, [ventaReferencia, modoCreacion]);
+
+  // Cargar ítems de la venta de referencia para NC (precios y cantidades facturadas)
+  useEffect(() => {
+    if (tipoNota !== 'NOTA_CREDITO' || !ventaReferencia?.id) {
+      setItemsReferenciaVenta([]);
+      setCantidadAAnular({});
+      return;
+    }
+    let cancelled = false;
+    setLoadingItemsReferencia(true);
+    axiosAuth
+      .get(`/ventas/obtener-productos-venta/${ventaReferencia.id}`)
+      .then((res) => {
+        const data = Array.isArray(res.data) ? res.data : [];
+        if (!cancelled) {
+          setItemsReferenciaVenta(data);
+          const inicial = {};
+          data.forEach((_, i) => { inicial[i] = 0; });
+          setCantidadAAnular(inicial);
+        }
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          console.error('Error cargando ítems de venta de referencia:', err);
+          toast.error('No se pudieron cargar los ítems de la venta');
+          setItemsReferenciaVenta([]);
+          setCantidadAAnular({});
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingItemsReferencia(false);
+      });
+    return () => { cancelled = true; };
+  }, [tipoNota, ventaReferencia?.id]);
+
   const handleSeleccionarVenta = (venta) => {
     setVentaReferencia(venta);
     setMostrarModalVenta(false);
@@ -124,15 +178,75 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
     setModoCreacion('sin_referencia');
   };
 
+  const esNCConReferencia = tipoNota === 'NOTA_CREDITO' && ventaReferencia;
+  const esClienteExento = (cliente?.condicion_iva || ventaReferencia?.cliente_condicion || '').toUpperCase() === 'EXENTO';
+
+  const handleCantidadAAnularChange = useCallback((index, value) => {
+    setCantidadAAnular((prev) => ({ ...prev, [index]: value }));
+  }, []);
+
+  const handleAnularTodo = useCallback(() => {
+    const nuevo = {};
+    itemsReferenciaVenta.forEach((item, i) => {
+      nuevo[i] = parseFloat(item.cantidad) || 0;
+    });
+    setCantidadAAnular(nuevo);
+  }, [itemsReferenciaVenta]);
+
+  const handleLimpiarAnulacion = useCallback(() => {
+    const nuevo = {};
+    itemsReferenciaVenta.forEach((_, i) => { nuevo[i] = 0; });
+    setCantidadAAnular(nuevo);
+  }, [itemsReferenciaVenta]);
+
+  const buildProductosDesdeReferencia = useCallback(() => {
+    const lista = [];
+    itemsReferenciaVenta.forEach((item, index) => {
+      const cantAAnular = cantidadAAnular[index] ?? 0;
+      if (cantAAnular <= 0) return;
+      const cantFacturada = parseFloat(item.cantidad) || 0;
+      const precio = parseFloat(item.precio) || 0;
+      const ivaLinea = parseFloat(item.iva) || 0;
+      const subtotalLinea = parseFloat(item.subtotal) || 0;
+      const subtotalAnular = precio * cantAAnular;
+      const ivaCalculado = cantFacturada > 0 && subtotalLinea > 0
+        ? (ivaLinea * cantAAnular) / cantFacturada
+        : 0;
+      const ivaFinal = esClienteExento ? 0 : ivaCalculado;
+      const porcentajeIva = subtotalLinea > 0 ? (ivaLinea / subtotalLinea) * 100 : 21;
+      lista.push({
+        id: item.producto_id,
+        nombre: item.producto_nombre,
+        unidad_medida: item.producto_um || 'Unidad',
+        cantidad: cantAAnular,
+        precio,
+        subtotal: parseFloat((subtotalAnular).toFixed(2)),
+        iva_calculado: parseFloat((ivaFinal).toFixed(2)),
+        porcentaje_iva: porcentajeIva,
+        esManual: false
+      });
+    });
+    return lista;
+  }, [itemsReferenciaVenta, cantidadAAnular, esClienteExento]);
+
   const handleContinuarAFacturacion = () => {
     if (!ventaReferencia && !cliente) {
       toast.error('Debe seleccionar una venta de referencia o un cliente');
       return;
     }
 
-    if (productos.length === 0) {
-      toast.error('Debe agregar al menos un producto');
-      return;
+    if (esNCConReferencia) {
+      const productosDesdeRef = buildProductosDesdeReferencia();
+      if (productosDesdeRef.length === 0) {
+        toast.error('Indique al menos una cantidad a anular');
+        return;
+      }
+      setProductos(productosDesdeRef);
+    } else {
+      if (productos.length === 0) {
+        toast.error('Debe agregar al menos un producto');
+        return;
+      }
     }
 
     setMostrarModalFacturacion(true);
@@ -209,7 +323,7 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
             </div>
 
             {/* Paso 1: Seleccionar modo de creación */}
-            {!modoCreacion && (
+            {!modoCreacion && !ventaReferencia && (
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                 <h3 className="font-semibold mb-4 text-gray-800">Seleccione el modo de creación:</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -286,60 +400,107 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
               </div>
             )}
 
-            {/* Selector de productos */}
+            {/* Paso 2: NC con referencia → grilla de anulación; resto → selector + carrito */}
             {(ventaReferencia || cliente) && (
               <>
-                <div className="mb-6">
-                  <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-semibold text-gray-800">Agregar Productos:</h3>
-                    <button
-                      onClick={handleAgregarProductoManual}
-                      className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2"
-                    >
-                      ➕ Producto Manual
-                    </button>
-                  </div>
-                  <ProductoSelector mostrarPreciosConIva />
-                </div>
-
-                {/* Carrito de productos */}
-                <ProductosCarrito />
-
-                {/* Observaciones */}
-                <ObservacionesPedido />
-
-                {/* Resumen y botones */}
-                <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
-                    <div className="text-lg font-semibold text-gray-800 mb-2 sm:mb-0">
-                      <p>Total de productos: <span className="text-blue-600">{productos.length}</span></p>
-                      <p>Total de la nota: <span className="text-green-600">${total.toFixed(2)}</span></p>
+                {esNCConReferencia ? (
+                  <>
+                    <div className="mb-6">
+                      <h3 className="font-semibold mb-2 text-gray-800">Indique qué cantidades anular de la venta de referencia:</h3>
+                      {loadingItemsReferencia ? (
+                        <div className="flex items-center justify-center py-12 border border-gray-200 rounded-lg bg-gray-50">
+                          <LoadingSpinner size="lg" colorClass="border-red-600" className="mx-auto" />
+                          <span className="ml-2 text-gray-600">Cargando ítems de la venta...</span>
+                        </div>
+                      ) : itemsReferenciaVenta.length === 0 ? (
+                        <div className="py-8 text-center text-gray-500 border border-gray-200 rounded-lg bg-gray-50">
+                          No hay ítems en esta venta o no se pudieron cargar.
+                        </div>
+                      ) : (
+                        <TablaItemsReferenciaNC
+                          items={itemsReferenciaVenta}
+                          cantidadAAnular={cantidadAAnular}
+                          onCantidadAAnularChange={handleCantidadAAnularChange}
+                          onAnularTodo={handleAnularTodo}
+                          onLimpiar={handleLimpiarAnulacion}
+                          esClienteExento={esClienteExento}
+                        />
+                      )}
                     </div>
-                  </div>
-                  
-                  <div className="flex flex-col sm:flex-row justify-end gap-4">
-                    <LoadingButton
-                      className={`px-6 py-3 rounded text-white font-semibold transition-colors ${
-                        loading 
-                          ? 'bg-gray-500 cursor-not-allowed' 
-                          : `bg-${colorBoton}-600 hover:bg-${colorBoton}-700`
-                      }`}
-                      onClick={handleContinuarAFacturacion}
-                      disabled={productos.length === 0}
-                      loading={loading}
-                      loadingText="Procesando..."
-                    >
-                      {`💰 CREAR ${titulo}`}
-                    </LoadingButton>
-                    <button 
-                      onClick={onClose}
-                      className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded font-semibold transition-colors"
-                      disabled={loading}
-                    >
-                      CANCELAR
-                    </button>
-                  </div>
-                </div>
+                    <div className="mb-6">
+                      <ObservacionesPedido />
+                    </div>
+                    <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                      <div className="flex flex-col sm:flex-row justify-end gap-4">
+                        <LoadingButton
+                          className={`px-6 py-3 rounded text-white font-semibold transition-colors ${
+                            loading ? 'bg-gray-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'
+                          }`}
+                          onClick={handleContinuarAFacturacion}
+                          disabled={loadingItemsReferencia || itemsReferenciaVenta.length === 0 || !Object.values(cantidadAAnular).some((c) => (c ?? 0) > 0)}
+                          loading={loading}
+                          loadingText="Procesando..."
+                        >
+                          Continuar a facturación
+                        </LoadingButton>
+                        <button
+                          type="button"
+                          onClick={onClose}
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded font-semibold transition-colors"
+                          disabled={loading}
+                        >
+                          CANCELAR
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mb-6">
+                      <div className="flex justify-between items-center mb-4">
+                        <h3 className="font-semibold text-gray-800">Agregar Productos:</h3>
+                        <button
+                          onClick={handleAgregarProductoManual}
+                          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2"
+                        >
+                          ➕ Producto Manual
+                        </button>
+                      </div>
+                      <ProductoSelector mostrarPreciosConIva />
+                    </div>
+                    <ProductosCarrito />
+                    <ObservacionesPedido />
+                    <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+                        <div className="text-lg font-semibold text-gray-800 mb-2 sm:mb-0">
+                          <p>Total de productos: <span className="text-blue-600">{productos.length}</span></p>
+                          <p>Total de la nota: <span className="text-green-600">${total.toFixed(2)}</span></p>
+                        </div>
+                      </div>
+                      <div className="flex flex-col sm:flex-row justify-end gap-4">
+                        <LoadingButton
+                          className={`px-6 py-3 rounded text-white font-semibold transition-colors ${
+                            loading ? 'bg-gray-500 cursor-not-allowed' : `bg-${colorBoton}-600 hover:bg-${colorBoton}-700`
+                          }`}
+                          onClick={handleContinuarAFacturacion}
+                          disabled={productos.length === 0}
+                          loading={loading}
+                          loadingText="Procesando..."
+                        >
+                          {`💰 CREAR ${titulo}`}
+                        </LoadingButton>
+                        <button
+                          type="button"
+                          onClick={onClose}
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded font-semibold transition-colors"
+                          disabled={loading}
+                        >
+                          CANCELAR
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
       </ModalBase>

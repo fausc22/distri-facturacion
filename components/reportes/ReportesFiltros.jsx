@@ -12,23 +12,46 @@ export function ReportesFiltros({ onFiltrosChange, empleados = [], ciudades = []
     setMostrarFiltros,
     validarFiltros,
     formatearPeriodo,
-    diasEnPeriodo
+    diasEnPeriodo,
+    finanzasApi
   } = useReportesContext();
 
   const [filtrosLocales, setFiltrosLocales] = useState(filtros);
+  const [cuentasDisponibles, setCuentasDisponibles] = useState([]);
 
   // Sincronizar filtros locales con el context
   useEffect(() => {
     setFiltrosLocales(filtros);
   }, [filtros]);
 
+  useEffect(() => {
+    const cargarCuentas = async () => {
+      try {
+        const response = await finanzasApi.obtenerBalancePorCuenta({
+          desde: filtros.desde,
+          hasta: filtros.hasta
+        });
+        if (response?.success && Array.isArray(response.data)) {
+          const cuentas = response.data.map(c => c.cuenta).filter(Boolean);
+          setCuentasDisponibles([...new Set(cuentas)]);
+        }
+      } catch (error) {
+        // noop
+      }
+    };
+    cargarCuentas();
+  }, [finanzasApi, filtros.desde, filtros.hasta]);
+
   // Aplicar filtros
   const aplicarFiltros = () => {
-    if (validarFiltros()) {
-      updateFiltros(filtrosLocales);
-      if (onFiltrosChange) {
-        onFiltrosChange(filtrosLocales);
-      }
+    const fechaDesde = new Date(filtrosLocales.desde);
+    const fechaHasta = new Date(filtrosLocales.hasta);
+    if (isNaN(fechaDesde.getTime()) || isNaN(fechaHasta.getTime()) || fechaDesde > fechaHasta) {
+      return;
+    }
+    updateFiltros(filtrosLocales);
+    if (onFiltrosChange) {
+      onFiltrosChange(filtrosLocales);
     }
   };
 
@@ -215,6 +238,57 @@ export function ReportesFiltros({ onFiltrosChange, empleados = [], ciudades = []
             </div>
           </div>
 
+          {/* Segmentaciones avanzadas */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Cuenta
+              </label>
+              <select
+                value={filtrosLocales.cuenta_id || ''}
+                onChange={(e) => handleFiltroChange('cuenta_id', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Todas</option>
+                <option value="1">ARCA</option>
+                <option value="2">X</option>
+                {cuentasDisponibles.map((cuenta) => (
+                  <option key={cuenta} value={cuenta}>{cuenta}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo Fiscal
+              </label>
+              <select
+                value={filtrosLocales.tipo_fiscal || ''}
+                onChange={(e) => handleFiltroChange('tipo_fiscal', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="">Todos</option>
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="X">X</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Comparativo
+              </label>
+              <select
+                value={filtrosLocales.comparativo || 'periodo_anterior'}
+                onChange={(e) => handleFiltroChange('comparativo', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="periodo_anterior">Vs período anterior</option>
+                <option value="anio_anterior">Vs mismo período año anterior</option>
+              </select>
+            </div>
+          </div>
+
           {/* Información adicional del período móvil */}
           <div className="sm:hidden">
             <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
@@ -275,6 +349,15 @@ export function IndicadoresFiltros() {
     
     if (filtros.ciudad) {
       activos.push({ key: 'ciudad', label: `Ciudad: ${filtros.ciudad}` });
+    }
+
+    if (filtros.cuenta_id) {
+      const cuentaLabel = filtros.cuenta_id === '1' ? 'ARCA' : filtros.cuenta_id === '2' ? 'X' : filtros.cuenta_id;
+      activos.push({ key: 'cuenta', label: `Cuenta: ${cuentaLabel}` });
+    }
+
+    if (filtros.tipo_fiscal) {
+      activos.push({ key: 'tipo_fiscal', label: `Tipo: ${filtros.tipo_fiscal}` });
     }
     
     return activos;

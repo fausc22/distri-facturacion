@@ -134,7 +134,10 @@ export function DashboardReportes() {
   }
 
   const resumen = dashboardData?.resumen?.data;
+  const ejecutivo = dashboardData?.ejecutivo?.data;
   const empleados = dashboardData?.empleados?.data;
+  const mejoresClientes = ejecutivo?.clientes || [];
+  const cuentas = ejecutivo?.cuentas || [];
 
   return (
     <div className="space-y-6">
@@ -460,6 +463,55 @@ export function DashboardReportes() {
             <p className="mt-2 text-sm text-gray-500">No hay datos de empleados en el período seleccionado</p>
           </div>
         )}
+      </div>
+
+      {/* Clientes y cuentas */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-lg p-6 border border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Mejores Clientes</h3>
+          {mejoresClientes.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Ventas</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
+                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Ticket</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {mejoresClientes.slice(0, 8).map((cliente, index) => (
+                    <tr key={index}>
+                      <td className="px-4 py-2 text-sm text-gray-900">{cliente.nombre}</td>
+                      <td className="px-4 py-2 text-sm text-right text-gray-900">{cliente.cantidad_ventas}</td>
+                      <td className="px-4 py-2 text-sm text-right text-green-600">{formatCurrency(cliente.monto_total)}</td>
+                      <td className="px-4 py-2 text-sm text-right text-blue-600">{formatCurrency(cliente.ticket_promedio)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">Sin datos de clientes para el período.</p>
+          )}
+        </div>
+
+        <div className="bg-white rounded-lg p-6 border border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Facturación por Cuenta</h3>
+          {cuentas.length > 0 ? (
+            <div className="space-y-3">
+              {cuentas.map((cuenta, index) => (
+                <div key={index} className="flex items-center justify-between p-3 rounded-md bg-gray-50">
+                  <div className="font-medium text-gray-800">{cuenta.nombre}</div>
+                  <div className="font-semibold text-indigo-600">{formatCurrency(cuenta.facturacion_neta)}</div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">Sin datos por cuenta para el período.</p>
+          )}
+        </div>
       </div>
 
       {/* ✅ MÉTRICAS OPERATIVAS ÚTILES - REEMPLAZA MÉTRICAS ADICIONALES */}

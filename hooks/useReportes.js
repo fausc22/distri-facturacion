@@ -10,6 +10,9 @@ export function useReportes() {
     periodo: 'mensual',
     empleado_id: '',
     ciudad: '',
+    cuenta_id: '',
+    tipo_fiscal: '',
+    comparativo: 'periodo_anterior',
     limite: 20
   });
 
@@ -53,7 +56,11 @@ export function useReportes() {
       hasta: hoy.toISOString().split('T')[0],
       periodo: 'mensual',
       empleado_id: '',
-      ciudad: ''
+      ciudad: '',
+      cuenta_id: '',
+      tipo_fiscal: '',
+      comparativo: 'periodo_anterior',
+      limite: 20
       
     });
 
@@ -218,7 +225,7 @@ const setPeriodoPredefinido = (periodo) => {
     // ✅ PERÍODOS PREDEFINIDOS MEJORADOS (SIN SEMANA)
     periodosPredefinidos: [
       { key: 'hoy', label: 'Hoy', periodo: 'diario' },
-      { key: 'mes', label: 'Último mes', periodo: 'diario' },
+      { key: 'mes', label: 'Mes actual', periodo: 'diario' },
       { key: 'trimestre', label: 'Último trimestre', periodo: 'mensual' },
       { key: 'año', label: 'Últimos 6 meses', periodo: 'mensual' } // ✅ CAMBIADO
     ]

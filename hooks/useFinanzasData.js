@@ -45,6 +45,19 @@ export function useFinanzasData() {
     return { success: false, data: null, error: message };
   };
 
+  const appendFiltrosComunes = (params, filtros = {}, incluirPeriodo = false) => {
+    if (filtros.desde) params.append('desde', filtros.desde);
+    if (filtros.hasta) params.append('hasta', filtros.hasta);
+    if (filtros.cuenta_id) params.append('cuenta_id', filtros.cuenta_id);
+    if (filtros.tipo_fiscal) params.append('tipo_fiscal', filtros.tipo_fiscal);
+    if (filtros.empleado_id) params.append('empleado_id', filtros.empleado_id);
+    if (filtros.ciudad) params.append('ciudad', filtros.ciudad);
+    if (filtros.cliente_id) params.append('cliente_id', filtros.cliente_id);
+    if (filtros.limite) params.append('limite', filtros.limite);
+    if (incluirPeriodo && filtros.periodo) params.append('periodo', filtros.periodo);
+    if (filtros.comparativo) params.append('comparativo', filtros.comparativo);
+  };
+
   // ✅ OBTENER GANANCIAS DETALLADAS MEJORADO
   const obtenerGananciasDetalladas = useCallback(async (filtros = {}) => {
     const endpoint = 'ganancias-detalladas';
@@ -74,9 +87,10 @@ export function useFinanzasData() {
 
       // ✅ Configurar parámetros con valores por defecto
       const params = new URLSearchParams();
-      params.append('desde', filtros.desde);
-      params.append('hasta', filtros.hasta);
-      params.append('periodo', filtros.periodo || 'mensual');
+      appendFiltrosComunes(params, filtros, true);
+      if (!params.get('periodo')) {
+        params.append('periodo', 'mensual');
+      }
       
       // if (filtros.limite) {
       //   params.append('limite', filtros.limite);
@@ -138,10 +152,7 @@ export function useFinanzasData() {
 
     try {
       const params = new URLSearchParams();
-      
-      // ✅ Solo agregar filtros de fecha si están presentes
-      if (filtros.desde) params.append('desde', filtros.desde);
-      if (filtros.hasta) params.append('hasta', filtros.hasta);
+      appendFiltrosComunes(params, filtros);
 
       console.log('📈 Solicitando resumen financiero:', params.toString());
 
@@ -605,6 +616,27 @@ export function useFinanzasData() {
   }
   }, []);
 
+  const obtenerDashboardSimplificado = useCallback(async (filtros = {}) => {
+    const endpoint = 'dashboard-simplificado';
+    setLoadingState(endpoint, true);
+    setError(null);
+
+    try {
+      const params = new URLSearchParams();
+      appendFiltrosComunes(params, filtros);
+
+      const response = await axiosAuth.get(`/finanzas/dashboard-simplificado?${params.toString()}`);
+      if (response.data.success) {
+        return { success: true, data: response.data.data || {} };
+      }
+      return handleError(new Error(response.data.message), endpoint);
+    } catch (error) {
+      return handleError(error, endpoint);
+    } finally {
+      setLoadingState(endpoint, false);
+    }
+  }, []);
+
   return {
     loading,
     error,
@@ -618,6 +650,7 @@ export function useFinanzasData() {
     obtenerProductosMasRentables,
     obtenerBalanceGeneral,
     obtenerTopProductosTabla,
+    obtenerDashboardSimplificado,
     obtenerProductosMasVendidos,
 
     // ✅ NUEVAS FUNCIONES
