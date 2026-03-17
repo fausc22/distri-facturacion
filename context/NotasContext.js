@@ -178,6 +178,12 @@ function notasReducer(state, action) {
     case 'SET_OBSERVACIONES':
       return { ...state, observaciones: action.payload };
     
+    case 'SET_PRODUCTOS':
+      return {
+        ...state,
+        productos: action.payload || []
+      };
+
     case 'CLEAR_NOTA':
       return {
         cliente: null,
@@ -246,6 +252,9 @@ export function NotasProvider({ children }) {
     // Acciones de observaciones
     setObservaciones: (observaciones) => dispatch({ type: 'SET_OBSERVACIONES', payload: observaciones }),
     
+    // Reemplazar lista de productos (ej. desde ítems de venta de referencia)
+    setProductos: (productos) => dispatch({ type: 'SET_PRODUCTOS', payload: productos }),
+
     // Limpiar todo
     clearNota: () => dispatch({ type: 'CLEAR_NOTA' }),
     

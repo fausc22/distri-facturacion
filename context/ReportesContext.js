@@ -240,29 +240,49 @@ export function ReportesProvider({ children }) {
         throw new Error('No se pueden cargar datos sin fechas válidas');
       }
 
-      // ✅ Cargar datos principales del dashboard
+      // Dashboard ejecutivo consolidado + datasets complementarios
       const resultados = await Promise.allSettled([
-        finanzasApi.obtenerResumenFinanciero(filtros),
+        finanzasApi.obtenerDashboardSimplificado(filtros),
         finanzasApi.obtenerGananciasDetalladas(filtros),
-        finanzasApi.obtenerGananciasPorProducto(filtros), // 
         finanzasApi.obtenerGananciasPorEmpleado(filtros),
-        finanzasApi.obtenerGananciasPorCiudad(filtros), // 
-        finanzasApi.obtenerVentasPorVendedor(filtros),
+        finanzasApi.obtenerTopProductosTabla(filtros),
+        finanzasApi.obtenerGananciasPorCiudad(filtros),
         finanzasApi.obtenerBalanceGeneral(filtros),
-        finanzasApi.obtenerProductosMasVendidos(filtros), // 
-        finanzasApi.obtenerTopProductosTabla(filtros) // 
+        finanzasApi.obtenerProductosMasVendidos(filtros)
       ]);
 
-      // ✅ Procesar resultados de manera más robusta
+      const ejecutivo = resultados[0].status === 'fulfilled' && resultados[0].value?.success
+        ? resultados[0].value.data
+        : null;
+
+      const resumenLegacy = ejecutivo ? {
+        ventas: {
+          monto_total: ejecutivo?.resumen?.ventas?.monto || 0,
+          total_ventas: ejecutivo?.resumen?.ventas?.cantidad || 0,
+          factura_promedio: ejecutivo?.resumen?.ventas?.ticket_promedio || 0
+        },
+        ganancias: {
+          ganancia_bruta: ejecutivo?.resumen?.ganancias?.bruta || 0,
+          ganancia_neta: ejecutivo?.resumen?.ganancias?.neta || 0
+        },
+        balance: {
+          ingresos_totales: ejecutivo?.resumen?.ventas?.monto || 0,
+          egresos_totales: ejecutivo?.resumen?.egresos?.total || 0,
+          rentabilidad: ejecutivo?.resumen?.ventas?.monto > 0
+            ? ((ejecutivo?.resumen?.resultado_neto || 0) / ejecutivo?.resumen?.ventas?.monto) * 100
+            : 0
+        }
+      } : null;
+
       const dashboardData = {
-        resumen: resultados[0].status === 'fulfilled' && resultados[0].value?.success ? resultados[0].value : null,
+        ejecutivo: { success: !!ejecutivo, data: ejecutivo },
+        resumen: { success: !!resumenLegacy, data: resumenLegacy },
         ganancias: resultados[1].status === 'fulfilled' && resultados[1].value?.success ? resultados[1].value : null,
-        topProductos: resultados[2].status === 'fulfilled' && resultados[2].value?.success ? resultados[2].value : null,
-        empleados: resultados[3].status === 'fulfilled' && resultados[3].value?.success ? resultados[3].value : null,
+        empleados: resultados[2].status === 'fulfilled' && resultados[2].value?.success ? resultados[2].value : null,
+        topProductos: resultados[3].status === 'fulfilled' && resultados[3].value?.success ? resultados[3].value : null,
         ciudades: resultados[4].status === 'fulfilled' && resultados[4].value?.success ? resultados[4].value : null,
-        vendedores: resultados[5].status === 'fulfilled' && resultados[5].value?.success ? resultados[5].value : null,
-        balance: resultados[6].status === 'fulfilled' && resultados[6].value?.success ? resultados[6].value : null,
-        topVendidos: resultados[7].status === 'fulfilled' && resultados[7].value?.success ? resultados[7].value : null
+        balance: resultados[5].status === 'fulfilled' && resultados[5].value?.success ? resultados[5].value : null,
+        topVendidos: resultados[6].status === 'fulfilled' && resultados[6].value?.success ? resultados[6].value : null
       };
 
       // ✅ Verificar errores específicos
@@ -270,7 +290,7 @@ export function ReportesProvider({ children }) {
       const exitos = [];
       
       resultados.forEach((resultado, index) => {
-        const nombres = ['resumen', 'ganancias', 'topProductos', 'empleados', 'ciudades', 'vendedores', 'balance', 'topVendidos'];
+        const nombres = ['ejecutivo', 'ganancias', 'empleados', 'topProductos', 'ciudades', 'balance', 'topVendidos'];
         const nombre = nombres[index];
         
         if (resultado.status === 'rejected') {
