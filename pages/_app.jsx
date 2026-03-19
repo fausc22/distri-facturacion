@@ -105,6 +105,64 @@ function MyApp({ Component, pageProps }) {
     };
   }, [isPublicRoute]);
 
+  // ✅ ACTUALIZACIÓN MANUAL DE PWA (sin tocar estrategia de caché)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    window.__forcePwaUpdate = async () => {
+      try {
+        if (!navigator.onLine) {
+          toast('📴 Sin conexión: conectate para buscar actualizaciones', {
+            duration: 2500,
+            icon: '📴',
+          });
+          return;
+        }
+
+        const registration = await navigator.serviceWorker.getRegistration();
+        if (!registration) {
+          toast('ℹ️ No se encontró Service Worker activo', {
+            duration: 2500,
+            icon: 'ℹ️',
+          });
+          return;
+        }
+
+        toast.loading('🔎 Buscando actualización...');
+        await registration.update();
+
+        if (registration.waiting) {
+          registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          toast.dismiss();
+          toast.success('🔄 Aplicando actualización...');
+          return;
+        }
+
+        if (registration.installing) {
+          registration.installing.addEventListener('statechange', () => {
+            if (registration.waiting) {
+              registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+              toast.dismiss();
+              toast.success('🔄 Aplicando actualización...');
+            }
+          });
+          return;
+        }
+
+        toast.dismiss();
+        toast.success('✅ Ya estás en la versión más reciente');
+      } catch (error) {
+        toast.dismiss();
+        toast.error('❌ No se pudo actualizar la app');
+        console.warn('⚠️ [PWA] Error en actualización manual:', error?.message);
+      }
+    };
+
+    return () => {
+      delete window.__forcePwaUpdate;
+    };
+  }, []);
+
   // ✅ VERIFICAR REGISTRO DEL SERVICE WORKER
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
