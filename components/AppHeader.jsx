@@ -155,6 +155,22 @@ function AppHeader() {
     setOpenSubMenu(openSubMenu === menuName ? null : menuName);
   };
 
+  const handleManualAppUpdate = async () => {
+    try {
+      if (typeof window === 'undefined') return;
+      if (typeof window.__forcePwaUpdate !== 'function') {
+        toast('ℹ️ Actualización manual no disponible', {
+          duration: 2500,
+          icon: 'ℹ️',
+        });
+        return;
+      }
+      await window.__forcePwaUpdate();
+    } catch (error) {
+      toast.error('❌ No se pudo iniciar la actualización');
+    }
+  };
+
   const getUserName = () => {
     if (empleado?.nombre) {
       return `${empleado.nombre} ${empleado.apellido || ''}`.trim();
@@ -544,6 +560,17 @@ function AppHeader() {
 
           {/* ✅ INFORMACIÓN DEL USUARIO */}
           <div className="hidden sm:flex items-center space-x-2">
+            {isPWA && (
+              <motion.button
+                onClick={handleManualAppUpdate}
+                className="text-white focus:outline-none bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded font-bold"
+                variants={menuItemVariants}
+                whileHover="hover"
+                whileTap="tap"
+              >
+                Actualizar app
+              </motion.button>
+            )}
             <div className="text-right text-sm">
               <p className="font-medium">{getUserName()}</p>
               <p className={`text-xs ${isOnlineDisplay ? 'text-blue-200' : 'text-orange-200'}`}>{role}</p>
@@ -852,6 +879,18 @@ function AppHeader() {
                   🔒 Algunas secciones requieren conexión a internet
                 </p>
               </div>
+            )}
+
+            {isPWA && (
+              <motion.button
+                onClick={handleManualAppUpdate}
+                className="w-full text-white py-2 focus:outline-none bg-emerald-600 hover:bg-emerald-700 rounded font-bold mb-2"
+                variants={menuItemVariants}
+                whileHover="hover"
+                whileTap="tap"
+              >
+                Actualizar app
+              </motion.button>
             )}
 
             <motion.button
