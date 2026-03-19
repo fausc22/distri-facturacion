@@ -98,7 +98,15 @@ export function usePedidos() {
         cantidad: p.cantidad,
         precio: parseFloat(p.precio), // Precio unitario
         iva: parseFloat(p.iva_calculado), // IVA en pesos
-        subtotal: parseFloat(p.subtotal) // Subtotal sin IVA
+        subtotal: parseFloat(p.subtotal), // Subtotal sin IVA
+        descuento_porcentaje: parseFloat(p.descuento_porcentaje || 0),
+        // Compatibilidad con modo manual de precio (backend ignora si no lo usa)
+        precio_incluye_iva: Boolean(p.precio_incluye_iva),
+        precio_unitario_final_manual:
+          p.precio_unitario_final_manual !== undefined &&
+          p.precio_unitario_final_manual !== null
+            ? parseFloat(p.precio_unitario_final_manual)
+            : null
       }))
     };
 

@@ -13,6 +13,8 @@ export function ModalEditarProductoVentaDirecta({
   const { user } = useAuth();
   const [localCantidad, setLocalCantidad] = useState(0.5);
   const [localPrecio, setLocalPrecio] = useState(0);
+  const [localPrecioIncluyeIva, setLocalPrecioIncluyeIva] = useState(false);
+  const [localPrecioFinalManual, setLocalPrecioFinalManual] = useState(0);
   const [localDescuento, setLocalDescuento] = useState(0);
   const [localNombre, setLocalNombre] = useState('');
   const [editandoNombre, setEditandoNombre] = useState(false);
@@ -26,6 +28,12 @@ export function ModalEditarProductoVentaDirecta({
     if (producto && !inicializado) {
       setLocalCantidad(Math.max(0.5, parseFloat(producto.cantidad) || 0.5));
       setLocalPrecio(Number(producto.precio) || 0);
+      setLocalPrecioIncluyeIva(Boolean(producto.precio_incluye_iva));
+      setLocalPrecioFinalManual(
+        Number(producto.precio_unitario_final_manual) ||
+          (Number(producto.precio) || 0) *
+            (1 + (Number(producto.porcentaje_iva) || 21) / 100)
+      );
       setLocalDescuento(Number(producto.descuento_porcentaje) || 0);
       setLocalNombre(producto.nombre || '');
       setEditandoNombre(false);
@@ -68,13 +76,17 @@ export function ModalEditarProductoVentaDirecta({
   // Cálculos
   const stockDisponible = Number(producto.stock_actual) || 999999; // Stock alto para venta directa
   const stockSuficiente = true; // Siempre suficiente para venta directa
+  const porcentajeIva = Number(producto.porcentaje_iva) || 21;
+  const multiplicadorIva = 1 + porcentajeIva / 100;
+  const precioUnitarioFinalAuto = localPrecio * multiplicadorIva;
+  const precioUnitarioFinalVigente = localPrecioIncluyeIva
+    ? localPrecioFinalManual
+    : precioUnitarioFinalAuto;
   const subtotalBase = localCantidad * localPrecio;
   const montoDescuento = (subtotalBase * localDescuento) / 100;
   const subtotalFinal = subtotalBase - montoDescuento;
 
-  // Calcular IVA sobre el subtotal con descuento
-  const porcentajeIva = Number(producto.porcentaje_iva) || 21;
-  const ivaCalculado = (subtotalFinal * porcentajeIva) / 100;
+  const ivaCalculado = subtotalFinal * (porcentajeIva / 100);
 
   const botonesDeshabilitados = localPrecio <= 0 || guardando;
 
@@ -106,7 +118,48 @@ export function ModalEditarProductoVentaDirecta({
   const handlePrecioChange = (e) => {
     if (guardando) return;
     const valor = Math.max(0, parseFloat(e.target.value) || 0);
+    const porcentajeIvaActual = Number(producto.porcentaje_iva) || 21;
+    const multiplicadorIvaActual = 1 + porcentajeIvaActual / 100;
+
+    if (localPrecioIncluyeIva) {
+      const netoCalculado = valor / multiplicadorIvaActual;
+      setLocalPrecioFinalManual(valor);
+      setLocalPrecio(parseFloat(netoCalculado.toFixed(6)));
+      return;
+    }
+
     setLocalPrecio(valor);
+    setLocalPrecioFinalManual(valor * multiplicadorIvaActual);
+  };
+
+  const handleTogglePrecioIncluyeIva = (e) => {
+    if (guardando) return;
+
+    const checked = e.target.checked;
+    const porcentajeIvaActual = Number(producto.porcentaje_iva) || 21;
+    const multiplicadorIvaActual = 1 + porcentajeIvaActual / 100;
+
+    if (checked) {
+      const precioFinalDesdeNeto = localPrecio * multiplicadorIvaActual;
+      setLocalPrecioFinalManual(parseFloat(precioFinalDesdeNeto.toFixed(2)));
+    } else {
+      const netoDesdeFinal = localPrecioFinalManual / multiplicadorIvaActual;
+      setLocalPrecio(parseFloat(netoDesdeFinal.toFixed(6)));
+    }
+
+    setLocalPrecioIncluyeIva(checked);
+  };
+
+  const handlePrecioFinalManualChange = (e) => {
+    if (guardando) return;
+
+    const valorFinal = Math.max(0, parseFloat(e.target.value) || 0);
+    const porcentajeIvaActual = Number(producto.porcentaje_iva) || 21;
+    const multiplicadorIvaActual = 1 + porcentajeIvaActual / 100;
+    const netoCalculado = valorFinal / multiplicadorIvaActual;
+
+    setLocalPrecioFinalManual(valorFinal);
+    setLocalPrecio(parseFloat(netoCalculado.toFixed(6)));
   };
 
   const handleDescuentoChange = (e) => {
@@ -152,6 +205,10 @@ export function ModalEditarProductoVentaDirecta({
         nombre: localNombre.trim() || producto.nombre, // ✅ Incluir nombre editado
         cantidad: localCantidad,
         precio: localPrecio,
+        precio_incluye_iva: localPrecioIncluyeIva,
+        precio_unitario_final_manual: localPrecioIncluyeIva
+          ? parseFloat(localPrecioFinalManual.toFixed(2))
+          : null,
         descuento_porcentaje: localDescuento,
         subtotal: parseFloat(subtotalFinal.toFixed(2)),
         iva_calculado: parseFloat(ivaCalculado.toFixed(2))
@@ -285,9 +342,20 @@ export function ModalEditarProductoVentaDirecta({
 
             {/* Precio */}
             {esGerente ? (
-              <div className="bg-yellow-50 border border-yellow-200 p-3 rounded">
+              <div className="bg-yellow-50 border border-yellow-200 p-3 rounded space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-yellow-900">
+                  <input
+                    type="checkbox"
+                    checked={localPrecioIncluyeIva}
+                    onChange={handleTogglePrecioIncluyeIva}
+                    disabled={guardando}
+                    className="h-4 w-4 rounded border-yellow-400 text-yellow-700 focus:ring-yellow-500"
+                  />
+                  El precio incluye IVA
+                </label>
+
                 <label className="block mb-1 font-medium text-sm text-yellow-800">
-                  Precio Unitario ($):
+                  {localPrecioIncluyeIva ? 'Precio Unitario c/IVA ($):' : 'Precio Unitario Neto ($):'}
                 </label>
                 <div className="flex items-center">
                   <span className="mr-1 text-yellow-600">$</span>
@@ -295,12 +363,26 @@ export function ModalEditarProductoVentaDirecta({
                     type="number"
                     disabled={guardando}
                     className="border border-yellow-300 p-2 w-full rounded text-sm focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-100"
-                    value={localPrecio}
+                    value={localPrecioIncluyeIva ? localPrecioFinalManual : localPrecio}
                     onChange={handlePrecioChange}
                     min="0"
                     step="0.01"
                   />
                 </div>
+                {localPrecioIncluyeIva && (
+                  <div className="bg-white border border-yellow-200 rounded p-2 space-y-2">
+                    <div className="flex items-center justify-between text-xs sm:text-sm text-gray-700">
+                      <span>Precio neto calculado:</span>
+                      <span className="font-semibold">${localPrecio.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs sm:text-sm text-gray-700">
+                      <span>IVA unitario ({porcentajeIva}%):</span>
+                      <span className="font-semibold">
+                        ${(Math.max(0, localPrecioFinalManual - localPrecio)).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <p className="text-xs text-yellow-600 mt-1">
                   Precio editable para gerentes
                 </p>
@@ -398,6 +480,28 @@ export function ModalEditarProductoVentaDirecta({
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>IVA ({porcentajeIva}%):</span>
                   <span>${ivaCalculado.toFixed(2)}</span>
+                </div>
+                <div className="flex flex-col gap-1 border-t pt-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Precio unitario final en desglose:
+                  </label>
+                  <div className="flex items-center">
+                    <span className="mr-1 text-gray-600">$</span>
+                    <input
+                      type="number"
+                      disabled={!esGerente || guardando || !localPrecioIncluyeIva}
+                      className="border p-2 w-full rounded text-sm disabled:bg-gray-100"
+                      min="0"
+                      step="0.01"
+                      value={precioUnitarioFinalVigente}
+                      onChange={handlePrecioFinalManualChange}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {localPrecioIncluyeIva
+                      ? 'Editable en modo manual para definir el valor final con IVA incluido.'
+                      : 'Activá "El precio incluye IVA" para editar el valor final manualmente.'}
+                  </p>
                 </div>
                 <div className="flex justify-between font-bold text-blue-600 border-t pt-1">
                   <span>Total con IVA:</span>

@@ -114,7 +114,14 @@ function VentaDirectaContent() {
         precio: parseFloat(p.precio) || 0,
         iva: parseFloat(p.iva_calculado) || 0,
         subtotal: parseFloat(p.subtotal) || 0,
-        descuento_porcentaje: parseFloat(p.descuento_porcentaje || 0)
+        descuento_porcentaje: parseFloat(p.descuento_porcentaje || 0),
+        // Compatibilidad con modo manual de precio (backend ignora si no lo usa)
+        precio_incluye_iva: Boolean(p.precio_incluye_iva),
+        precio_unitario_final_manual:
+          p.precio_unitario_final_manual !== undefined &&
+          p.precio_unitario_final_manual !== null
+            ? parseFloat(p.precio_unitario_final_manual)
+            : null
       })),
       
       // Datos de facturación
