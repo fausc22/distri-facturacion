@@ -77,7 +77,11 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
               const subtotalBase = prod.cantidad * prod.precio;
               const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
               const porcentajeIva = Number(prod.porcentaje_iva) || 21;
-              const precioUnitarioFinal = calcularConIva(prod.precio, porcentajeIva);
+              const precioUnitarioFinalManual = Number(prod.precio_unitario_final_manual) || 0;
+              const usaPrecioManual = Boolean(prod.precio_incluye_iva) && precioUnitarioFinalManual > 0;
+              const precioUnitarioFinal = usaPrecioManual
+                ? precioUnitarioFinalManual
+                : calcularConIva(prod.precio, porcentajeIva);
               const subtotalFinal = Number(prod.subtotal || 0) + Number(prod.iva_calculado || 0);
 
               return (
@@ -109,6 +113,11 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
                     <div className="font-semibold text-green-700">
                       {formatearMoneda(precioUnitarioFinal)}
                     </div>
+                    {usaPrecioManual && (
+                      <div className="mt-1 text-[11px] font-medium text-blue-700">
+                        Manual c/IVA
+                      </div>
+                    )}
                   </td>
                   <td className="p-3 text-center">
                     {/* ✅ INPUT EDITABLE PARA DESCUENTO */}
@@ -195,7 +204,11 @@ function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento,
           const subtotalBase = prod.cantidad * prod.precio;
           const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
           const porcentajeIva = Number(prod.porcentaje_iva) || 21;
-          const precioUnitarioFinal = calcularConIva(prod.precio, porcentajeIva);
+          const precioUnitarioFinalManual = Number(prod.precio_unitario_final_manual) || 0;
+          const usaPrecioManual = Boolean(prod.precio_incluye_iva) && precioUnitarioFinalManual > 0;
+          const precioUnitarioFinal = usaPrecioManual
+            ? precioUnitarioFinalManual
+            : calcularConIva(prod.precio, porcentajeIva);
           const subtotalFinal = Number(prod.subtotal || 0) + Number(prod.iva_calculado || 0);
 
           return (
@@ -248,6 +261,11 @@ function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento,
                     <div className="font-semibold text-green-700">
                       Final c/IVA: {formatearMoneda(precioUnitarioFinal)}
                     </div>
+                    {usaPrecioManual && (
+                      <div className="text-xs font-medium text-blue-700 mt-1">
+                        Valor final manual con IVA incluido
+                      </div>
+                    )}
                   </div>
                   <div>
                     <span className="text-gray-600 text-sm">IVA:</span>

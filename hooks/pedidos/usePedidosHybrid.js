@@ -181,7 +181,14 @@ export function usePedidosHybrid() {
         precio: parseFloat(p.precio),
         iva: parseFloat(p.iva_calculado),
         subtotal: parseFloat(p.subtotal),
-        descuento_porcentaje: parseFloat(p.descuento_porcentaje || 0) // ✅ INCLUIR DESCUENTO
+        descuento_porcentaje: parseFloat(p.descuento_porcentaje || 0), // ✅ INCLUIR DESCUENTO
+        // Compatibilidad con modo manual de precio (backend ignora si no lo usa)
+        precio_incluye_iva: Boolean(p.precio_incluye_iva),
+        precio_unitario_final_manual:
+          p.precio_unitario_final_manual !== undefined &&
+          p.precio_unitario_final_manual !== null
+            ? parseFloat(p.precio_unitario_final_manual)
+            : null
       }))
     };
 

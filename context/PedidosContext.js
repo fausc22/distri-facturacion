@@ -4,6 +4,50 @@ import { roundFacturacion } from '../utils/rounding';
 
 export const PedidosContext = createContext();
 
+const normalizarFlagsPrecioProducto = (producto = {}) => ({
+  ...producto,
+  precio_incluye_iva: Boolean(producto?.precio_incluye_iva),
+  precio_unitario_final_manual:
+    producto?.precio_unitario_final_manual !== undefined &&
+    producto?.precio_unitario_final_manual !== null &&
+    !Number.isNaN(Number(producto?.precio_unitario_final_manual))
+      ? parseFloat(producto.precio_unitario_final_manual)
+      : null
+});
+
+const calcularTotalesProducto = ({
+  producto,
+  cantidad,
+  descuentoPorcentaje = 0,
+  esClienteExento = false
+}) => {
+  const porcentajeIva = Number(producto?.porcentaje_iva ?? producto?.iva ?? 21) || 21;
+  const incluyeIva = Boolean(producto?.precio_incluye_iva);
+
+  const precioManualFinal = Number(producto?.precio_unitario_final_manual);
+  const precioNetoActual = Number(producto?.precio) || 0;
+  const multiplicadorIva = 1 + porcentajeIva / 100;
+
+  const precioNetoUnitario =
+    incluyeIva && Number.isFinite(precioManualFinal) && precioManualFinal >= 0
+      ? precioManualFinal / multiplicadorIva
+      : precioNetoActual;
+
+  const subtotalBase = precioNetoUnitario * cantidad;
+  const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
+  const subtotalConDescuento = parseFloat((subtotalBase - montoDescuento).toFixed(2));
+  const ivaCalculado = esClienteExento
+    ? 0
+    : parseFloat((subtotalConDescuento * (porcentajeIva / 100)).toFixed(2));
+
+  return {
+    porcentajeIva,
+    precioNetoUnitario: parseFloat(precioNetoUnitario.toFixed(6)),
+    subtotalConDescuento,
+    ivaCalculado
+  };
+};
+
 // Reducer para manejar el estado de pedidos
 function pedidosReducer(state, action) {
   switch (action.type) {
@@ -47,22 +91,24 @@ function pedidosReducer(state, action) {
         const productoExistente = productosActualizados[productoExistenteIndex];
         const nuevaCantidadTotal = parseFloat(productoExistente.cantidad) + cantidadNueva;
 
-        // ✅ RECALCULAR SUBTOTAL CONSIDERANDO DESCUENTO
         const descuentoPorcentaje = productoExistente.descuento_porcentaje || 0;
-        const subtotalBase = productoExistente.precio * nuevaCantidadTotal;
-        const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
-        const nuevoSubtotal = parseFloat((subtotalBase - montoDescuento).toFixed(2));
-        
-        // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
-        const nuevoIvaCalculado = esClienteExento
-          ? 0
-          : parseFloat((nuevoSubtotal * (productoExistente.porcentaje_iva / 100)).toFixed(2));
+        const {
+          precioNetoUnitario,
+          subtotalConDescuento,
+          ivaCalculado
+        } = calcularTotalesProducto({
+          producto: productoExistente,
+          cantidad: nuevaCantidadTotal,
+          descuentoPorcentaje,
+          esClienteExento
+        });
 
         productosActualizados[productoExistenteIndex] = {
           ...productoExistente,
           cantidad: nuevaCantidadTotal,
-          subtotal: nuevoSubtotal,
-          iva_calculado: nuevoIvaCalculado
+          precio: precioNetoUnitario,
+          subtotal: subtotalConDescuento,
+          iva_calculado: ivaCalculado
           // descuento_porcentaje se mantiene
         };
 
@@ -72,23 +118,37 @@ function pedidosReducer(state, action) {
         };
       } else {
         // Si no existe, agregarlo como antes
-        const subtotalSinIva = parseFloat((cantidadNueva * action.payload.precio).toFixed(2));
-        const porcentajeIva = action.payload.iva || 21;
-        // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
-        const ivaCalculado = esClienteExento
-          ? 0
-          : parseFloat((subtotalSinIva * (porcentajeIva / 100)).toFixed(2));
+        const productoNormalizado = normalizarFlagsPrecioProducto(action.payload);
+        const {
+          porcentajeIva,
+          precioNetoUnitario,
+          subtotalConDescuento,
+          ivaCalculado
+        } = calcularTotalesProducto({
+          producto: productoNormalizado,
+          cantidad: cantidadNueva,
+          descuentoPorcentaje: parseFloat(action.payload.descuento_porcentaje || 0),
+          esClienteExento
+        });
 
         const nuevoProducto = {
           id: action.payload.id,
           nombre: action.payload.nombre,
           unidad_medida: action.payload.unidad_medida || 'Unidad',
           cantidad: cantidadNueva,
-          precio: parseFloat(action.payload.precio),
+          precio: precioNetoUnitario,
           porcentaje_iva: porcentajeIva,
           iva_calculado: ivaCalculado,
-          subtotal: subtotalSinIva,
-          descuento_porcentaje: parseFloat(action.payload.descuento_porcentaje || 0) // ✅ INICIALIZAR DESCUENTO
+          subtotal: subtotalConDescuento,
+          descuento_porcentaje: parseFloat(action.payload.descuento_porcentaje || 0), // ✅ INICIALIZAR DESCUENTO
+          // Flags de compatibilidad para modo precio manual
+          precio_incluye_iva: Boolean(action.payload.precio_incluye_iva),
+          precio_unitario_final_manual:
+            action.payload.precio_unitario_final_manual !== undefined &&
+            action.payload.precio_unitario_final_manual !== null &&
+            !Number.isNaN(Number(action.payload.precio_unitario_final_manual))
+              ? parseFloat(action.payload.precio_unitario_final_manual)
+              : null
         };
 
         return {
@@ -103,24 +163,30 @@ function pedidosReducer(state, action) {
       const esClienteExentoMultiple = state.cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
 
       const nuevosProductos = action.payload.map(producto => {
-        const subtotalSinIva = parseFloat((producto.cantidad * producto.precio).toFixed(2));
-        const porcentajeIva = producto.iva || producto.porcentaje_iva || 21;
-        // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
-        const ivaCalculado = esClienteExentoMultiple
-          ? 0
-          : parseFloat((subtotalSinIva * (porcentajeIva / 100)).toFixed(2));
+        const productoNormalizado = normalizarFlagsPrecioProducto(producto);
+        const {
+          porcentajeIva,
+          precioNetoUnitario,
+          subtotalConDescuento,
+          ivaCalculado
+        } = calcularTotalesProducto({
+          producto: productoNormalizado,
+          cantidad: producto.cantidad,
+          descuentoPorcentaje: parseFloat(producto.descuento_porcentaje || 0),
+          esClienteExento: esClienteExentoMultiple
+        });
 
-        return {
+        return normalizarFlagsPrecioProducto({
           id: producto.id,
           nombre: producto.nombre,
           unidad_medida: producto.unidad_medida || 'Unidad',
           cantidad: producto.cantidad,
-          precio: parseFloat(producto.precio),
+          precio: precioNetoUnitario,
           porcentaje_iva: porcentajeIva,
           iva_calculado: ivaCalculado,
-          subtotal: subtotalSinIva,
+          subtotal: subtotalConDescuento,
           descuento_porcentaje: producto.descuento_porcentaje || 0 // ✅ INICIALIZAR DESCUENTO
-        };
+        });
       });
 
       return {
@@ -144,22 +210,24 @@ function pedidosReducer(state, action) {
       // ✅ ASEGURAR QUE CANTIDAD SEA PARSEADA COMO FLOAT
       const nuevaCantidad = parseFloat(action.payload.cantidad);
 
-      // ✅ RECALCULAR SUBTOTAL CONSIDERANDO DESCUENTO
       const descuentoPorcentaje = producto.descuento_porcentaje || 0;
-      const subtotalBase = producto.precio * nuevaCantidad;
-      const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
-      const nuevoSubtotal = parseFloat((subtotalBase - montoDescuento).toFixed(2));
-      
-      // ✅ SI EL CLIENTE ES EXENTO, IVA = 0
-      const nuevoIvaCalculado = esClienteExentoCantidad
-        ? 0
-        : parseFloat((nuevoSubtotal * (producto.porcentaje_iva / 100)).toFixed(2));
+      const {
+        precioNetoUnitario: precioNetoUnitarioCantidad,
+        subtotalConDescuento: subtotalConDescuentoCantidad,
+        ivaCalculado: ivaCalculadoCantidad
+      } = calcularTotalesProducto({
+        producto,
+        cantidad: nuevaCantidad,
+        descuentoPorcentaje,
+        esClienteExento: esClienteExentoCantidad
+      });
 
       productosActualizados[action.payload.index] = {
         ...producto,
         cantidad: nuevaCantidad, // ✅ USAR LA CANTIDAD PARSEADA
-        subtotal: nuevoSubtotal,
-        iva_calculado: nuevoIvaCalculado
+        precio: precioNetoUnitarioCantidad,
+        subtotal: subtotalConDescuentoCantidad,
+        iva_calculado: ivaCalculadoCantidad
         // descuento_porcentaje se mantiene del producto original
       };
 
@@ -173,7 +241,7 @@ function pedidosReducer(state, action) {
       const productosActualizadosCompleto = [...state.productos];
       productosActualizadosCompleto[action.payload.index] = {
         ...productosActualizadosCompleto[action.payload.index],
-        ...action.payload.producto
+        ...normalizarFlagsPrecioProducto(action.payload.producto)
       };
 
       return {
@@ -189,21 +257,23 @@ function pedidosReducer(state, action) {
 
       const nuevoDescuento = Math.max(0, Math.min(100, parseFloat(action.payload.descuento) || 0));
 
-      // Recalcular subtotal con el nuevo descuento
-      const subtotalBaseDesc = productoDesc.precio * productoDesc.cantidad;
-      const montoDescuentoNuevo = (subtotalBaseDesc * nuevoDescuento) / 100;
-      const subtotalConDescuento = parseFloat((subtotalBaseDesc - montoDescuentoNuevo).toFixed(2));
-
-      // Recalcular IVA
-      const ivaCalculadoDesc = esClienteExentoDescuento
-        ? 0
-        : parseFloat((subtotalConDescuento * (productoDesc.porcentaje_iva / 100)).toFixed(2));
+      const {
+        precioNetoUnitario: precioNetoUnitarioDescuento,
+        subtotalConDescuento: subtotalConDescuentoDescuento,
+        ivaCalculado: ivaCalculadoDescuento
+      } = calcularTotalesProducto({
+        producto: productoDesc,
+        cantidad: productoDesc.cantidad,
+        descuentoPorcentaje: nuevoDescuento,
+        esClienteExento: esClienteExentoDescuento
+      });
 
       productosConDescuento[action.payload.index] = {
         ...productoDesc,
+        precio: precioNetoUnitarioDescuento,
         descuento_porcentaje: nuevoDescuento,
-        subtotal: subtotalConDescuento,
-        iva_calculado: ivaCalculadoDesc
+        subtotal: subtotalConDescuentoDescuento,
+        iva_calculado: ivaCalculadoDescuento
       };
 
       return {

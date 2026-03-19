@@ -807,6 +807,8 @@ export function ModalEditarProductoPedido({
   const { user } = useAuth();
   const [localCantidad, setLocalCantidad] = useState(1);
   const [localPrecio, setLocalPrecio] = useState(0);
+  const [localPrecioIncluyeIva, setLocalPrecioIncluyeIva] = useState(false);
+  const [localPrecioFinalManual, setLocalPrecioFinalManual] = useState(0);
   const [localDescuento, setLocalDescuento] = useState(0);
   const [localNombre, setLocalNombre] = useState('');
   const [editandoNombre, setEditandoNombre] = useState(false);
@@ -826,6 +828,11 @@ export function ModalEditarProductoPedido({
         console.log('📝 Inicializando valores del modal');
         setLocalCantidad(Math.max(0.5, parseFloat(producto.cantidad) || 0.5));
         setLocalPrecio(Number(producto.precio) || 0);
+        setLocalPrecioIncluyeIva(Boolean(producto.precio_incluye_iva));
+        setLocalPrecioFinalManual(
+          Number(producto.precio_unitario_final_manual) ||
+            (Number(producto.precio) || 0) * (1 + (Number(producto.porcentaje_iva) || 21) / 100)
+        );
         setLocalDescuento(Number(producto.descuento_porcentaje) || 0);
         setLocalNombre(producto.producto_nombre || '');
         setEditandoNombre(false); // ✅ Asegurar que siempre empiece en false
@@ -869,9 +876,16 @@ export function ModalEditarProductoPedido({
   // ✅ CÁLCULOS Y VALORES
   const stockDisponible = Number(producto.stock_actual) || 0;
   const stockSuficiente = localCantidad <= stockDisponible;
+  const porcentajeIva = Number(producto.porcentaje_iva) || 21;
+  const multiplicadorIva = 1 + porcentajeIva / 100;
+  const precioUnitarioFinalAuto = localPrecio * multiplicadorIva;
+  const precioUnitarioFinalVigente = localPrecioIncluyeIva
+    ? localPrecioFinalManual
+    : precioUnitarioFinalAuto;
   const subtotalBase = localCantidad * localPrecio;
   const montoDescuento = (subtotalBase * localDescuento) / 100;
   const subtotalFinal = subtotalBase - montoDescuento;
+  const ivaCalculado = subtotalFinal * (porcentajeIva / 100);
   const botonesDeshabilitados = !stockSuficiente || localPrecio <= 0 || guardando;
 
   // ✅ HANDLERS (NO SON HOOKS)
@@ -908,7 +922,37 @@ export function ModalEditarProductoPedido({
   const handlePrecioChange = (e) => {
     if (guardando) return;
     const valor = Math.max(0, parseFloat(e.target.value) || 0);
+    if (localPrecioIncluyeIva) {
+      const netoCalculado = valor / multiplicadorIva;
+      setLocalPrecioFinalManual(valor);
+      setLocalPrecio(parseFloat(netoCalculado.toFixed(6)));
+      return;
+    }
+
     setLocalPrecio(valor);
+    setLocalPrecioFinalManual(valor * multiplicadorIva);
+  };
+
+  const handleTogglePrecioIncluyeIva = (e) => {
+    if (guardando) return;
+
+    const checked = e.target.checked;
+    if (checked) {
+      const precioFinalDesdeNeto = localPrecio * multiplicadorIva;
+      setLocalPrecioFinalManual(parseFloat(precioFinalDesdeNeto.toFixed(2)));
+    } else {
+      const netoDesdeFinal = localPrecioFinalManual / multiplicadorIva;
+      setLocalPrecio(parseFloat(netoDesdeFinal.toFixed(6)));
+    }
+    setLocalPrecioIncluyeIva(checked);
+  };
+
+  const handlePrecioFinalManualChange = (e) => {
+    if (guardando) return;
+    const valorFinal = Math.max(0, parseFloat(e.target.value) || 0);
+    const netoCalculado = valorFinal / multiplicadorIva;
+    setLocalPrecioFinalManual(valorFinal);
+    setLocalPrecio(parseFloat(netoCalculado.toFixed(6)));
   };
 
   const handleDescuentoChange = (e) => {
@@ -961,6 +1005,11 @@ export function ModalEditarProductoPedido({
         ...producto,
         cantidad: localCantidad,
         precio: localPrecio,
+        precio_incluye_iva: localPrecioIncluyeIva,
+        precio_unitario_final_manual: localPrecioIncluyeIva
+          ? parseFloat(localPrecioFinalManual.toFixed(2))
+          : null,
+        iva: parseFloat(ivaCalculado.toFixed(2)),
         descuento_porcentaje: localDescuento,
         subtotal: parseFloat(subtotalFinal.toFixed(2)),
         producto_nombre: localNombre.trim() || producto.producto_nombre // ✅ Incluir nombre editado
@@ -1123,9 +1172,19 @@ export function ModalEditarProductoPedido({
             
             {/* Precio */}
             {esGerente ? (
-              <div className="bg-yellow-50 border border-yellow-200 p-3 rounded">
+              <div className="bg-yellow-50 border border-yellow-200 p-3 rounded space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-yellow-900">
+                  <input
+                    type="checkbox"
+                    checked={localPrecioIncluyeIva}
+                    onChange={handleTogglePrecioIncluyeIva}
+                    disabled={guardando}
+                    className="h-4 w-4 rounded border-yellow-400 text-yellow-700 focus:ring-yellow-500"
+                  />
+                  El precio incluye IVA
+                </label>
                 <label className="block mb-1 font-medium text-sm text-yellow-800">
-                  💰 Precio Unitario ($):
+                  {localPrecioIncluyeIva ? '💰 Precio Unitario c/IVA ($):' : '💰 Precio Unitario Neto ($):'}
                 </label>
                 <div className="flex items-center">
                   <span className="mr-1 text-yellow-600">$</span>
@@ -1133,12 +1192,26 @@ export function ModalEditarProductoPedido({
                     type="number"
                     disabled={guardando}
                     className="border border-yellow-300 p-2 w-full rounded text-sm focus:ring-2 focus:ring-yellow-500 disabled:bg-gray-100"
-                    value={localPrecio}
+                    value={localPrecioIncluyeIva ? localPrecioFinalManual : localPrecio}
                     onChange={handlePrecioChange}
                     min="0"
                     step="0.01"
                   />
                 </div>
+                {localPrecioIncluyeIva && (
+                  <div className="bg-white border border-yellow-200 rounded p-2 space-y-2">
+                    <div className="flex items-center justify-between text-xs sm:text-sm text-gray-700">
+                      <span>Precio neto calculado:</span>
+                      <span className="font-semibold">${localPrecio.toFixed(2)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs sm:text-sm text-gray-700">
+                      <span>IVA unitario ({porcentajeIva}%):</span>
+                      <span className="font-semibold">
+                        ${(Math.max(0, localPrecioFinalManual - localPrecio)).toFixed(2)}
+                      </span>
+                    </div>
+                  </div>
+                )}
                 <p className="text-xs text-yellow-600 mt-1">
                   ⚠️ Precio editable para gerentes
                 </p>
@@ -1241,6 +1314,36 @@ export function ModalEditarProductoPedido({
                 <div className="flex justify-between font-bold text-green-600 border-t pt-1">
                   <span>Subtotal final:</span>
                   <span>${subtotalFinal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>IVA ({porcentajeIva}%):</span>
+                  <span>${ivaCalculado.toFixed(2)}</span>
+                </div>
+                <div className="flex flex-col gap-1 border-t pt-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Precio unitario final en desglose:
+                  </label>
+                  <div className="flex items-center">
+                    <span className="mr-1 text-gray-600">$</span>
+                    <input
+                      type="number"
+                      disabled={!esGerente || guardando || !localPrecioIncluyeIva}
+                      className="border p-2 w-full rounded text-sm disabled:bg-gray-100"
+                      min="0"
+                      step="0.01"
+                      value={precioUnitarioFinalVigente}
+                      onChange={handlePrecioFinalManualChange}
+                    />
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {localPrecioIncluyeIva
+                      ? 'Editable en modo manual para definir el valor final con IVA incluido.'
+                      : 'Activá "El precio incluye IVA" para editar el valor final manualmente.'}
+                  </p>
+                </div>
+                <div className="flex justify-between font-bold text-blue-600 border-t pt-1">
+                  <span>Total con IVA:</span>
+                  <span>${(subtotalFinal + ivaCalculado).toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -1400,6 +1503,12 @@ export function TablaProductosEscritorio({ productos, onEditarProducto, onElimin
             const ivaValue = Number(producto.iva) || 0;
             const subtotalSinIva = Number(producto.subtotal) || (cantidad * precio);
             const descuentoPorcentaje = Number(producto.descuento_porcentaje) || 0; // ✅ DESCUENTO
+            const precioUnitarioFinalManual = Number(producto.precio_unitario_final_manual) || 0;
+            const usaPrecioManual = Boolean(producto.precio_incluye_iva) && precioUnitarioFinalManual > 0;
+            const porcentajeIva = Number(producto.porcentaje_iva) || 21;
+            const precioFinalUnitario = usaPrecioManual
+              ? precioUnitarioFinalManual
+              : precio * (1 + porcentajeIva / 100);
             
             // 🆕 CALCULAR SUBTOTAL BASE PARA MOSTRAR DESCUENTO
             const subtotalBase = cantidad * precio;
@@ -1415,6 +1524,10 @@ export function TablaProductosEscritorio({ productos, onEditarProducto, onElimin
                 <td className="p-2 text-center font-semibold">{cantidad}</td>
                 <td className="p-2 text-right">
                   <div>${precio.toFixed(2)}</div>
+                  <div className="text-xs text-green-700">Final: ${precioFinalUnitario.toFixed(2)}</div>
+                  {usaPrecioManual && (
+                    <div className="text-[10px] font-medium text-blue-700">Manual c/IVA</div>
+                  )}
                 </td>
                 <td className="p-2 text-center"> {/* ✅ COLUMNA DESCUENTO CORREGIDA */}
                   {descuentoPorcentaje > 0 ? (
@@ -1466,6 +1579,12 @@ export function TarjetasProductosMovil({ productos, onEditarProducto, onEliminar
         const ivaValue = Number(producto.iva) || 0;
         const subtotalSinIva = Number(producto.subtotal) || (cantidad * precio);
         const descuentoPorcentaje = Number(producto.descuento_porcentaje) || 0; // ✅ DESCUENTO
+        const precioUnitarioFinalManual = Number(producto.precio_unitario_final_manual) || 0;
+        const usaPrecioManual = Boolean(producto.precio_incluye_iva) && precioUnitarioFinalManual > 0;
+        const porcentajeIva = Number(producto.porcentaje_iva) || 21;
+        const precioFinalUnitario = usaPrecioManual
+          ? precioUnitarioFinalManual
+          : precio * (1 + porcentajeIva / 100);
         
         // 🆕 CALCULAR INFORMACIÓN DEL DESCUENTO
         const subtotalBase = cantidad * precio;
@@ -1509,6 +1628,10 @@ export function TarjetasProductosMovil({ productos, onEditarProducto, onEliminar
                 <span className="text-gray-600 block">Precio:</span>
                 <div>
                   <span className="font-medium">${precio.toFixed(2)}</span>
+                  <div className="text-xs text-green-700">Final: ${precioFinalUnitario.toFixed(2)}</div>
+                  {usaPrecioManual && (
+                    <div className="text-[10px] font-medium text-blue-700">Manual c/IVA</div>
+                  )}
                   {/* 🆕 MOSTRAR PRECIO BASE SI HAY DESCUENTO */}
                   {descuentoPorcentaje > 0 && (
                     <div className="text-xs text-gray-500">

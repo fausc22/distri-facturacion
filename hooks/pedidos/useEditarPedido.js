@@ -242,6 +242,8 @@ export function useEditarPedido() {
     const precio = parseFloat(producto.precio) || 0;
     const cantidad = parseFloat(producto.cantidad) || 0.5;
     const descuentoPorcentaje = parseFloat(producto.descuento_porcentaje) || 0;
+    const precioIncluyeIva = Boolean(producto.precio_incluye_iva);
+    const precioFinalManual = parseFloat(producto.precio_unitario_final_manual);
 
     // Verificar stock antes de actualizar
     const stockDisponible = await verificarStock(producto.producto_id);
@@ -250,22 +252,33 @@ export function useEditarPedido() {
       return false;
     }
 
-    // ✅ CALCULAR SUBTOTAL CON DESCUENTO
-    const subtotalBase = precio * cantidad;
+    // ✅ CALCULAR SUBTOTAL CON DESCUENTO (compatible con modo manual)
+    const porcentajeIva = parseFloat(producto.porcentaje_iva) || 21;
+    const multiplicadorIva = 1 + (porcentajeIva / 100);
+    const precioNetoUnitario =
+      precioIncluyeIva && Number.isFinite(precioFinalManual) && precioFinalManual >= 0
+        ? precioFinalManual / multiplicadorIva
+        : precio;
+
+    const subtotalBase = precioNetoUnitario * cantidad;
     const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
     const subtotalConDescuento = subtotalBase - montoDescuento;
     
     // Calcular IVA basado en el subtotal con descuento
-    const porcentajeIva = 21; // Por defecto, pero idealmente debería venir del producto
     const ivaCalculado = parseFloat((subtotalConDescuento * (porcentajeIva / 100)).toFixed(2));
 
     const updatedProduct = {
       cantidad,
-      precio,
+      precio: parseFloat(precioNetoUnitario.toFixed(6)),
       iva: ivaCalculado,
       subtotal: parseFloat(subtotalConDescuento.toFixed(2)),
       descuento_porcentaje: descuentoPorcentaje, // ✅ Enviar descuento al backend
-      producto_nombre: producto.producto_nombre || producto.nombre // ✅ Incluir nombre editado
+      producto_nombre: producto.producto_nombre || producto.nombre, // ✅ Incluir nombre editado
+      precio_incluye_iva: precioIncluyeIva,
+      precio_unitario_final_manual:
+        precioIncluyeIva && Number.isFinite(precioFinalManual)
+          ? parseFloat(precioFinalManual.toFixed(2))
+          : null
     };
 
     try {
@@ -273,11 +286,16 @@ export function useEditarPedido() {
         const productoActualizado = {
           ...producto,
           cantidad,
-          precio,
+          precio: parseFloat(precioNetoUnitario.toFixed(6)),
           iva: ivaCalculado,
           subtotal: parseFloat(subtotalConDescuento.toFixed(2)),
           descuento_porcentaje: descuentoPorcentaje,
-          producto_nombre: producto.producto_nombre || producto.nombre
+          producto_nombre: producto.producto_nombre || producto.nombre,
+          precio_incluye_iva: precioIncluyeIva,
+          precio_unitario_final_manual:
+            precioIncluyeIva && Number.isFinite(precioFinalManual)
+              ? parseFloat(precioFinalManual.toFixed(2))
+              : null
         };
 
         const productosActualizados = offlineManager.updateProductoInPedidoCache(
@@ -289,11 +307,16 @@ export function useEditarPedido() {
 
         const changes = {
           cantidad,
-          precio,
+          precio: parseFloat(precioNetoUnitario.toFixed(6)),
           iva: ivaCalculado,
           subtotal: parseFloat(subtotalConDescuento.toFixed(2)),
           descuento_porcentaje: descuentoPorcentaje,
-          producto_nombre: producto.producto_nombre || producto.nombre
+          producto_nombre: producto.producto_nombre || producto.nombre,
+          precio_incluye_iva: precioIncluyeIva,
+          precio_unitario_final_manual:
+            precioIncluyeIva && Number.isFinite(precioFinalManual)
+              ? parseFloat(precioFinalManual.toFixed(2))
+              : null
         };
 
         if (String(producto.id).startsWith('off_')) {
