@@ -15,18 +15,25 @@ export default function SearchBar({
   onClear, 
   placeholder = "Buscar...", 
   loading = false,
-  extraButtons = null 
+  extraButtons = null,
+  inputRef = null,
+  onInputFocus = undefined,
+  onInputBlur = undefined,
+  disableInputWhileLoading = false
 }) {
   return (
     <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
       <div className="flex-1 w-full relative">
         <input
+          ref={inputRef}
           type="text"
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full min-h-[44px] py-2.5 pl-10 pr-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
-          disabled={loading}
+          onFocus={onInputFocus}
+          onBlur={onInputBlur}
+          className="w-full min-h-[44px] py-2.5 pl-10 pr-10 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
+          disabled={disableInputWhileLoading && loading}
         />
         <svg
           className="absolute left-3 top-3 h-5 w-5 text-gray-400"
@@ -41,6 +48,11 @@ export default function SearchBar({
             d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
           />
         </svg>
+        {loading && (
+          <div className="absolute right-3 top-1/2 -translate-y-1/2">
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent" />
+          </div>
+        )}
       </div>
       
       <div className="flex items-center gap-2">
@@ -49,7 +61,7 @@ export default function SearchBar({
             type="button"
             onClick={onClear}
             className="min-h-[44px] min-w-[44px] px-3 py-2 text-sm bg-gray-500 text-white rounded-md hover:bg-gray-600 active:bg-gray-700 transition-colors touch-manipulation flex items-center justify-center"
-            disabled={loading}
+            disabled={disableInputWhileLoading && loading}
           >
             Limpiar
           </button>

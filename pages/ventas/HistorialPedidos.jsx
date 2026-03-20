@@ -445,8 +445,17 @@ function HistorialPedidosContent() {
       if (response.data.success) {
         toast.success(`Cliente actualizado a: ${nuevoCliente.nombre}`);
         await cargarPedidos();
-        // Recargar productos del pedido para actualizar la vista
-        await cargarProductosPedido(selectedPedido);
+
+        // Refrescar detalle completo para reflejar snapshot cliente actualizado en el pedido abierto
+        const detalleResponse = await axiosAuth.get(`/pedidos/detalle-pedido/${selectedPedido.id}`);
+        const pedidoActualizado = detalleResponse?.data?.data?.pedido;
+        if (pedidoActualizado) {
+          actualizarPedidoEnLista(selectedPedido.id, pedidoActualizado);
+          await cargarProductosPedido(pedidoActualizado);
+        } else {
+          // Fallback defensivo: mantener comportamiento previo si falla el detalle
+          await cargarProductosPedido(selectedPedido);
+        }
         return true;
       } else {
         toast.error(response.data.message || 'Error al actualizar cliente');

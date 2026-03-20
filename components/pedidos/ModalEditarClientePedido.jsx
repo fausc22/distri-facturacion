@@ -86,12 +86,6 @@ export default function ModalEditarClientePedido({
       return;
     }
 
-    if (clienteSeleccionado.id === clienteActual?.id) {
-      toast.info('No se detectaron cambios en el cliente');
-      onClose();
-      return;
-    }
-
     setGuardando(true);
     try {
       await onActualizarPedido(clienteSeleccionado);

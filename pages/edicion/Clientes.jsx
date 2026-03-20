@@ -1,9 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { toast } from 'react-hot-toast';
 import Head from 'next/head';
 import useAuth from '../../hooks/useAuth';
 import { useClientes } from '../../hooks/useClientes';
-import SearchBar from '../../components/common/SearchBar';
 import TableHeader from '../../components/common/TableHeader';
 import Pagination from '../../components/common/Pagination';
 import ModalCliente from '../../components/clientes/ModalCliente';
@@ -12,10 +10,13 @@ import ModalBase from '../../components/common/ModalBase';
 export default function GestionClientes() {
   useAuth();
 
-  const { buscarClientes, eliminarCliente, loading } = useClientes();
+  const { buscarClientes, eliminarCliente, loading, loadingBusqueda } = useClientes();
   
   const [clientes, setClientes] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  /** Texto en el input (borrador; no dispara API hasta Buscar / Enter). */
+  const [searchInput, setSearchInput] = useState('');
+  /** Término enviado al backend (alineado a Productos: búsqueda explícita). */
+  const [searchQuery, setSearchQuery] = useState('');
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
   const [modalAbierto, setModalAbierto] = useState(false);
   const [modoModal, setModoModal] = useState('crear');
@@ -25,32 +26,67 @@ export default function GestionClientes() {
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 50;
+  const [totalClientes, setTotalClientes] = useState(0);
   
   // Ordenamiento
   const [sortBy, setSortBy] = useState('nombre');
   const [sortOrder, setSortOrder] = useState('asc');
+  const searchInputRef = useRef(null);
+  const searchHadFocusRef = useRef(false);
 
-  // Cargar clientes (Fase 5: estable para efectos y callbacks)
-  const cargarClientes = useCallback(async () => {
-    const resultado = await buscarClientes(searchTerm);
-    if (resultado.success) {
+  const cargarClientes = useCallback(async ({
+    pagina = currentPage,
+    termino = searchQuery,
+    ordenCampo = sortBy,
+    ordenDireccion = sortOrder
+  } = {}) => {
+    const resultado = await buscarClientes(termino, {
+      pagina,
+      porPagina: itemsPerPage,
+      sortBy: ordenCampo,
+      sortOrder: ordenDireccion
+    });
+    if (resultado.success && !resultado.stale) {
       setClientes(resultado.data);
+      setTotalClientes(Number(resultado.total || 0));
     }
-  }, [buscarClientes, searchTerm]);
+  }, [buscarClientes, currentPage, searchQuery, sortBy, sortOrder]);
 
-  const isFirstMount = useRef(true);
+  /**
+   * Una sola fuente de recarga: página actual, orden y término aplicado (searchQuery).
+   * El texto del input (searchInput) no está en las dependencias: no se busca al escribir.
+   */
   useEffect(() => {
-    if (isFirstMount.current) {
-      isFirstMount.current = false;
-      cargarClientes();
-      return;
+    cargarClientes();
+  }, [cargarClientes]);
+
+  useEffect(() => {
+    if (!loadingBusqueda && searchHadFocusRef.current && searchInputRef.current) {
+      searchInputRef.current.focus({ preventScroll: true });
     }
-    const timeoutId = setTimeout(() => {
-      cargarClientes();
-      setCurrentPage(1);
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, cargarClientes]);
+  }, [loadingBusqueda]);
+
+  const handleBuscar = useCallback(() => {
+    const q = searchInput.trim();
+    setSearchQuery(q);
+    setCurrentPage(1);
+  }, [searchInput]);
+
+  const handleLimpiarBusqueda = useCallback(() => {
+    setSearchInput('');
+    setSearchQuery('');
+    setCurrentPage(1);
+  }, []);
+
+  const handleSearchKeyDown = useCallback(
+    (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleBuscar();
+      }
+    },
+    [handleBuscar]
+  );
 
   // Fase 5: callbacks estables para evitar re-renders en hijos
   const handleSort = useCallback((key) => {
@@ -62,6 +98,7 @@ export default function GestionClientes() {
       setSortOrder('asc');
       return key;
     });
+    setCurrentPage(1);
   }, []);
 
   const handleNuevoCliente = useCallback(() => {
@@ -77,15 +114,13 @@ export default function GestionClientes() {
   }, []);
 
   const handleClienteGuardado = useCallback(() => {
-    cargarClientes();
-  }, [cargarClientes]);
+    cargarClientes({ pagina: currentPage, termino: searchQuery });
+  }, [cargarClientes, currentPage, searchQuery]);
 
   const handleCloseModal = useCallback(() => {
     setModalAbierto(false);
     setClienteSeleccionado(null);
   }, []);
-
-  const handleClearSearch = useCallback(() => setSearchTerm(''), []);
 
   const handleSolicitarEliminar = useCallback((cliente) => {
     setClienteAEliminar(cliente);
@@ -104,37 +139,25 @@ export default function GestionClientes() {
       const resultado = await eliminarCliente(clienteAEliminar.id);
       if (resultado.success) {
         setClienteAEliminar(null);
-        cargarClientes();
+        cargarClientes({ pagina: currentPage, termino: searchQuery });
       }
     } finally {
       setEliminando(false);
     }
-  }, [clienteAEliminar, eliminando, eliminarCliente, cargarClientes]);
-
-  const clientesOrdenados = [...clientes].sort((a, b) => {
-    let aVal = a[sortBy] || '';
-    let bVal = b[sortBy] || '';
-    
-    if (typeof aVal === 'string') aVal = aVal.toLowerCase();
-    if (typeof bVal === 'string') bVal = bVal.toLowerCase();
-    
-    if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
-    if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
-    return 0;
-  });
+  }, [clienteAEliminar, eliminando, eliminarCliente, cargarClientes, currentPage, searchQuery]);
 
   // Paginación
-  const totalPages = Math.ceil(clientesOrdenados.length / itemsPerPage);
+  const totalPages = Math.max(1, Math.ceil(totalClientes / itemsPerPage));
   const startIndex = (currentPage - 1) * itemsPerPage;
-  const clientesPaginados = clientesOrdenados.slice(startIndex, startIndex + itemsPerPage);
+  const clientesPaginados = clientes;
 
   const columnas = [
-    { key: 'nombre', label: 'Nombre', sortable: true },
-    { key: 'condicion_iva', label: 'Condición', sortable: true },
-    { key: 'cuit', label: 'CUIT', sortable: true },
-    { key: 'direccion', label: 'Dirección', sortable: true },
-    { key: 'ciudad', label: 'Ciudad', sortable: true },
-    { key: 'acciones', label: 'Acciones', sortable: false }
+    { key: 'nombre', label: 'Nombre', sortable: true, className: '!px-2 sm:!px-2.5 !py-2' },
+    { key: 'condicion_iva', label: 'Condición', sortable: true, className: '!px-2 sm:!px-2.5 !py-2' },
+    { key: 'cuit', label: 'CUIT', sortable: true, className: '!px-2 sm:!px-2.5 !py-2' },
+    { key: 'direccion', label: 'Dirección', sortable: true, className: '!px-2 sm:!px-2.5 !py-2' },
+    { key: 'ciudad', label: 'Ciudad', sortable: true, className: '!px-2 sm:!px-2.5 !py-2' },
+    { key: 'acciones', label: 'Acciones', sortable: false, className: '!px-2 sm:!px-2.5 !py-2 text-right' }
   ];
 
   if (loading && clientes.length === 0) {
@@ -164,37 +187,105 @@ export default function GestionClientes() {
               Gestión de Clientes
             </h1>
 
-            <SearchBar
-              value={searchTerm}
-              onChange={setSearchTerm}
-              onClear={handleClearSearch}
-              placeholder="Buscar por nombre, CUIT, ciudad..."
-              loading={loading}
-              extraButtons={
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              <div className="flex-1 flex flex-col sm:flex-row gap-2">
+                <div className="flex-1 relative min-w-0">
+                  <input
+                    ref={searchInputRef}
+                    type="text"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    onFocus={() => {
+                      searchHadFocusRef.current = true;
+                    }}
+                    onBlur={() => {
+                      searchHadFocusRef.current = false;
+                    }}
+                    placeholder="Buscar por nombre, CUIT, ciudad..."
+                    disabled={loadingBusqueda}
+                    className="w-full min-h-[44px] py-2.5 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base touch-manipulation disabled:opacity-60"
+                  />
+                  <svg
+                    className="absolute left-3 top-3 h-5 w-5 text-gray-400 pointer-events-none"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                    />
+                  </svg>
+                </div>
                 <button
                   type="button"
-                  onClick={handleNuevoCliente}
-                  className="min-h-[44px] min-w-[44px] px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 active:bg-green-800 transition-colors flex items-center justify-center gap-2 touch-manipulation"
+                  onClick={handleBuscar}
+                  disabled={loadingBusqueda}
+                  className="min-h-[44px] min-w-[44px] px-4 sm:px-6 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 active:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-sm sm:text-base font-medium whitespace-nowrap touch-manipulation"
                 >
-                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span className="hidden sm:inline">Nuevo Cliente</span>
+                  {loadingBusqueda ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                      <span className="hidden sm:inline">Buscando...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                      </svg>
+                      <span>Buscar</span>
+                    </>
+                  )}
                 </button>
-              }
-            />
+                {(searchInput.trim() || searchQuery) && (
+                  <button
+                    type="button"
+                    onClick={handleLimpiarBusqueda}
+                    disabled={loadingBusqueda}
+                    className="min-h-[44px] min-w-[44px] px-3 sm:px-4 py-2.5 bg-gray-500 text-white rounded-md hover:bg-gray-600 active:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-1 text-sm sm:text-base whitespace-nowrap touch-manipulation"
+                  >
+                    <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                    <span>Limpiar</span>
+                  </button>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleNuevoCliente}
+                className="min-h-[44px] min-w-[44px] px-4 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 active:bg-green-800 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base font-medium whitespace-nowrap touch-manipulation shrink-0"
+              >
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span className="hidden sm:inline">Nuevo Cliente</span>
+                <span className="sm:hidden">Nuevo</span>
+              </button>
+            </div>
 
             {/* Contador */}
             <div className="mt-4 text-sm text-gray-600">
-              Total de clientes: <span className="font-semibold">{clientes.length}</span>
+              Total de clientes: <span className="font-semibold">{totalClientes}</span>
+              {loadingBusqueda && <span className="ml-2 text-blue-600">Buscando...</span>}
             </div>
           </div>
 
-          {/* Tabla */}
-          <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {/* Vista desktop */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+          {/* Tabla — desktop: table-fixed + anchos % para evitar scroll horizontal */}
+          <div className="bg-white rounded-lg shadow-md overflow-hidden w-full">
+          <div className="hidden lg:block w-full">
+            <table className="w-full table-fixed divide-y divide-gray-200 text-sm">
+              <colgroup>
+                <col style={{ width: '20%' }} />
+                <col style={{ width: '14%' }} />
+                <col style={{ width: '12%' }} />
+                <col style={{ width: '22%' }} />
+                <col style={{ width: '14%' }} />
+                <col style={{ width: '18%' }} />
+              </colgroup>
               <TableHeader
                 columns={columnas}
                 sortBy={sortBy}
@@ -204,51 +295,59 @@ export default function GestionClientes() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {clientesPaginados.map((cliente) => (
                   <tr key={cliente.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium text-gray-900">
+                    <td className="px-2 py-2.5 sm:px-2.5 align-top min-w-0">
+                      <div className="flex items-start gap-1 min-w-0">
+                        <div
+                          className="text-sm font-medium text-gray-900 truncate min-w-0 flex-1"
+                          title={cliente.nombre || ''}
+                        >
                           {cliente.nombre || '-'}
                         </div>
                         {cliente.validado_afip_at && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800" title="Validado en AFIP">
+                          <span className="inline-flex flex-shrink-0 items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-green-100 text-green-800" title="Validado en AFIP">
                             AFIP
                           </span>
                         )}
                       </div>
                       {cliente.nombre_alternativo && (
-                        <div className="text-xs text-gray-500">
+                        <div className="text-xs text-gray-500 truncate mt-0.5" title={cliente.nombre_alternativo}>
                           {cliente.nombre_alternativo}
                         </div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {cliente.condicion_iva || '-'}
+                    <td
+                      className="px-2 py-2.5 sm:px-2.5 align-top text-gray-900"
+                      title={cliente.condicion_iva || ''}
+                    >
+                      <span className="line-clamp-2 text-xs leading-snug">{cliente.condicion_iva || '-'}</span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-2 py-2.5 sm:px-2.5 align-top text-xs text-gray-900 tabular-nums whitespace-nowrap">
                       {cliente.cuit || '-'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-900">
-                      {cliente.direccion || '-'}
+                    <td className="px-2 py-2.5 sm:px-2.5 align-top text-gray-900 min-w-0">
+                      <span className="line-clamp-2 text-xs leading-snug" title={cliente.direccion || ''}>
+                        {cliente.direccion || '-'}
+                      </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      <div>{cliente.ciudad || '-'}</div>
+                    <td className="px-2 py-2.5 sm:px-2.5 align-top text-gray-900 min-w-0">
+                      <div className="truncate text-xs" title={cliente.ciudad || ''}>{cliente.ciudad || '-'}</div>
                       {cliente.provincia && (
-                        <div className="text-xs text-gray-500">{cliente.provincia}</div>
+                        <div className="text-[11px] text-gray-500 truncate" title={cliente.provincia}>{cliente.provincia}</div>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center gap-2">
+                    <td className="px-2 py-2.5 sm:px-2.5 align-middle text-right">
+                      <div className="flex flex-row flex-wrap justify-end gap-1">
                         <button
                           type="button"
                           onClick={() => handleEditarCliente(cliente)}
-                          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 px-3 py-2 rounded-md transition-colors touch-manipulation"
+                          className="min-h-[36px] px-2 py-1.5 inline-flex items-center justify-center text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 active:bg-blue-200 rounded border border-blue-200/80 touch-manipulation"
                         >
                           Editar
                         </button>
                         <button
                           type="button"
                           onClick={() => handleSolicitarEliminar(cliente)}
-                          className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 active:bg-red-200 px-3 py-2 rounded-md transition-colors touch-manipulation"
+                          className="min-h-[36px] px-2 py-1.5 inline-flex items-center justify-center text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 active:bg-red-200 rounded border border-red-200/80 touch-manipulation"
                           title="Eliminar cliente"
                         >
                           Eliminar
@@ -325,8 +424,8 @@ export default function GestionClientes() {
             totalPages={totalPages}
             startIndex={startIndex}
             itemsPerPage={itemsPerPage}
-            totalItems={clientesOrdenados.length}
-            onPageChange={setCurrentPage}
+            totalItems={totalClientes}
+            onPageChange={(page) => setCurrentPage(page)}
           />
         </div>
         </div>
