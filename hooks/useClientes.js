@@ -1,15 +1,32 @@
 // hooks/useClientes.js
-import { useState } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../utils/apiClient';
 
 export const useClientes = () => {
-  const [loading, setLoading] = useState(false);
+  const [loadingBusqueda, setLoadingBusqueda] = useState(false);
+  const [loadingMutacion, setLoadingMutacion] = useState(false);
   const [consultandoAfip, setConsultandoAfip] = useState(false);
+  const loading = loadingBusqueda || loadingMutacion;
+  const searchAbortControllerRef = useRef(null);
+  const lastSearchRequestIdRef = useRef(0);
+
+  const isCanceledSearchError = (error) =>
+    error?.code === 'ERR_CANCELED' ||
+    error?.name === 'CanceledError' ||
+    error?.message === 'canceled';
+
+  useEffect(() => {
+    return () => {
+      if (searchAbortControllerRef.current) {
+        searchAbortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Crear cliente (Fase 2: garantizar que data siempre tenga id; usar insertId como respaldo)
-  const crearCliente = async (clienteData) => {
-    setLoading(true);
+  const crearCliente = useCallback(async (clienteData) => {
+    setLoadingMutacion(true);
     try {
       const response = await axiosAuth.post('/personas/crear-cliente', clienteData);
 
@@ -32,32 +49,70 @@ export const useClientes = () => {
       toast.error(message);
       return { success: false, error: message, errors: Array.isArray(errors) ? errors : undefined };
     } finally {
-      setLoading(false);
+      setLoadingMutacion(false);
     }
-  };
+  }, []);
 
   // Buscar clientes
-  const buscarClientes = async (searchTerm) => {
-    setLoading(true);
+  const buscarClientes = useCallback(async (searchTerm, opciones = {}) => {
+    if (searchAbortControllerRef.current) {
+      searchAbortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    searchAbortControllerRef.current = controller;
+    const requestId = lastSearchRequestIdRef.current + 1;
+    lastSearchRequestIdRef.current = requestId;
+
+    setLoadingBusqueda(true);
     try {
-      const response = await axiosAuth.get(`/personas/buscar-cliente?search=${encodeURIComponent(searchTerm || '')}`);
+      const params = new URLSearchParams();
+      params.set('search', searchTerm || '');
+      if (opciones.pagina) params.set('pagina', String(opciones.pagina));
+      if (opciones.porPagina) params.set('porPagina', String(opciones.porPagina));
+      if (opciones.sortBy) params.set('sortBy', String(opciones.sortBy));
+      if (opciones.sortOrder) params.set('sortOrder', String(opciones.sortOrder));
+
+      const response = await axiosAuth.get(`/personas/buscar-cliente?${params.toString()}`, {
+        signal: controller.signal
+      });
+
+      // Ignorar respuestas viejas si llegó otra búsqueda más nueva.
+      if (requestId !== lastSearchRequestIdRef.current) {
+        return { success: false, stale: true, data: [] };
+      }
       
       if (response.data.success) {
-        return { success: true, data: response.data.data };
+        return {
+          success: true,
+          data: response.data.data,
+          total: response.data.total ?? response.data.data?.length ?? 0,
+          pagina: response.data.pagina ?? opciones.pagina ?? 1,
+          porPagina: response.data.porPagina ?? opciones.porPagina ?? response.data.data?.length ?? 0
+        };
       }
       return { success: false, data: [] };
     } catch (error) {
+      if (isCanceledSearchError(error)) {
+        return { success: false, cancelled: true, data: [] };
+      }
       console.error('Error al buscar clientes:', error);
       toast.error('Error al buscar clientes');
       return { success: false, data: [] };
     } finally {
-      setLoading(false);
+      // Solo la búsqueda más nueva puede cerrar el estado de carga.
+      if (requestId === lastSearchRequestIdRef.current) {
+        if (searchAbortControllerRef.current === controller) {
+          searchAbortControllerRef.current = null;
+        }
+        setLoadingBusqueda(false);
+      }
     }
-  };
+  }, []);
 
   // Actualizar cliente
-  const actualizarCliente = async (id, clienteData) => {
-    setLoading(true);
+  const actualizarCliente = useCallback(async (id, clienteData) => {
+    setLoadingMutacion(true);
     try {
       const response = await axiosAuth.put(`/personas/actualizar-cliente/${id}`, clienteData);
       
@@ -76,16 +131,16 @@ export const useClientes = () => {
       toast.error(message);
       return { success: false, error: message, errors: Array.isArray(errors) ? errors : undefined };
     } finally {
-      setLoading(false);
+      setLoadingMutacion(false);
     }
-  };
+  }, []);
 
   /**
    * Consulta contribuyente en AFIP por CUIT o DNI (Fase 3).
    * Si hay 11 dígitos en cuit → consulta por CUIT; si no, si hay 7-8 dígitos en dni → consulta por DNI.
    * @returns {Promise<{ success: boolean, data?: object, message?: string, error?: string }>}
    */
-  const consultarContribuyenteAfip = async (cuit = '', dni = '') => {
+  const consultarContribuyenteAfip = useCallback(async (cuit = '', dni = '') => {
     const cuitLimpio = (cuit || '').replace(/\D/g, '');
     const dniLimpio = (dni || '').replace(/\D/g, '');
 
@@ -133,11 +188,11 @@ export const useClientes = () => {
 
     toast.error('Ingresá CUIT (11 dígitos) o DNI (7 u 8 dígitos) para validar con AFIP');
     return { success: false, error: 'CUIT o DNI inválido para consulta' };
-  };
+  }, []);
 
   // Eliminar cliente (Fase 6)
-  const eliminarCliente = async (id) => {
-    setLoading(true);
+  const eliminarCliente = useCallback(async (id) => {
+    setLoadingMutacion(true);
     try {
       const response = await axiosAuth.delete(`/personas/eliminar-cliente/${id}`);
       if (response.data.success) {
@@ -152,9 +207,9 @@ export const useClientes = () => {
       toast.error(message);
       return { success: false, error: message };
     } finally {
-      setLoading(false);
+      setLoadingMutacion(false);
     }
-  };
+  }, []);
 
   // Validar datos de cliente (alineado con backend). CUIT acepta formato con guiones/espacios (ej. 20-42234462-5).
   const validarDatosCliente = (datos) => {
@@ -209,6 +264,8 @@ export const useClientes = () => {
 
   return {
     loading,
+    loadingBusqueda,
+    loadingMutacion,
     consultandoAfip,
     crearCliente,
     buscarClientes,

@@ -18,6 +18,13 @@ export default function CiudadAutocomplete({
   const [valorInicial, setValorInicial] = useState('');
   const [hasInteracted, setHasInteracted] = useState(false);
   const wrapperRef = useRef(null);
+  const abortControllerRef = useRef(null);
+  const requestIdRef = useRef(0);
+
+  const isCanceledError = (error) =>
+    error?.code === 'ERR_CANCELED' ||
+    error?.name === 'CanceledError' ||
+    error?.message === 'canceled';
 
   // Sincronizar busqueda con value externo
   useEffect(() => {
@@ -29,6 +36,14 @@ export default function CiudadAutocomplete({
       }
     }
   }, [value]);
+
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Buscar ciudades cuando el usuario escriba (mínimo 2 caracteres) y solo si ha interactuado
   useEffect(() => {
@@ -48,18 +63,40 @@ export default function CiudadAutocomplete({
     }
 
     const buscarCiudades = async () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
+      const requestId = requestIdRef.current + 1;
+      requestIdRef.current = requestId;
+
       setLoading(true);
       try {
-        const response = await axiosAuth.get(`/ciudades/buscar?q=${busqueda}`);
+        const response = await axiosAuth.get(`/ciudades/buscar?q=${busqueda}`, {
+          signal: controller.signal
+        });
+        if (requestId !== requestIdRef.current) {
+          return;
+        }
         if (response.data.success) {
           setCiudades(response.data.data);
           setMostrarResultados(true);
         }
       } catch (error) {
+        if (isCanceledError(error)) {
+          return;
+        }
         console.error('Error buscando ciudades:', error);
         setCiudades([]);
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) {
+          if (abortControllerRef.current === controller) {
+            abortControllerRef.current = null;
+          }
+          setLoading(false);
+        }
       }
     };
 
@@ -75,8 +112,8 @@ export default function CiudadAutocomplete({
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('pointerdown', handleClickOutside);
+    return () => document.removeEventListener('pointerdown', handleClickOutside);
   }, []);
 
   const handleInputChange = (e) => {
@@ -131,16 +168,17 @@ export default function CiudadAutocomplete({
       {mostrarResultados && ciudades.length > 0 && !loading && (
         <div className="absolute z-[100] w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
           {ciudades.map((ciudad) => (
-            <div
+            <button
               key={ciudad.id}
+              type="button"
               onClick={() => handleCiudadClick(ciudad)}
-              className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-900 border-b last:border-b-0"
+              className="w-full text-left px-3 py-2 hover:bg-gray-100 active:bg-gray-200 cursor-pointer text-sm text-gray-900 border-b last:border-b-0 min-h-[44px]"
             >
               <div className="font-medium">{ciudad.nombre}</div>
               {ciudad.zona_nombre && (
                 <div className="text-xs text-gray-500">Zona: {ciudad.zona_nombre}</div>
               )}
-            </div>
+            </button>
           ))}
         </div>
       )}
