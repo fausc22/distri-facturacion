@@ -248,7 +248,13 @@ export function useOfflineCatalog() {
       
       if (resultadosOffline.length > 0) {
         console.log(`📱 Búsqueda offline de clientes: ${resultadosOffline.length} resultados`);
-        return resultadosOffline;
+        return {
+          data: resultadosOffline,
+          hasMore: resultadosOffline.length === limit,
+          total: resultadosOffline.length + offset,
+          limit,
+          offset
+        };
       }
       
       if (navigator.onLine) {
