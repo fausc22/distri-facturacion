@@ -18,8 +18,7 @@ const normalizarFlagsPrecioProducto = (producto = {}) => ({
 const calcularTotalesProducto = ({
   producto,
   cantidad,
-  descuentoPorcentaje = 0,
-  esClienteExento = false
+  descuentoPorcentaje = 0
 }) => {
   const porcentajeIva = Number(producto?.porcentaje_iva ?? producto?.iva ?? 21) || 21;
   const incluyeIva = Boolean(producto?.precio_incluye_iva);
@@ -36,9 +35,7 @@ const calcularTotalesProducto = ({
   const subtotalBase = precioNetoUnitario * cantidad;
   const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
   const subtotalConDescuento = parseFloat((subtotalBase - montoDescuento).toFixed(2));
-  const ivaCalculado = esClienteExento
-    ? 0
-    : parseFloat((subtotalConDescuento * (porcentajeIva / 100)).toFixed(2));
+  const ivaCalculado = parseFloat((subtotalConDescuento * (porcentajeIva / 100)).toFixed(2));
 
   return {
     porcentajeIva,
@@ -52,14 +49,9 @@ const calcularTotalesProducto = ({
 function notasReducer(state, action) {
   switch (action.type) {
     case 'SET_CLIENTE':
-      // ✅ VERIFICAR SI EL NUEVO CLIENTE ES EXENTO
-      const esNuevoClienteExento = action.payload?.condicion_iva?.toUpperCase() === 'EXENTO';
-
       // ✅ RECALCULAR IVA DE TODOS LOS PRODUCTOS EN EL CARRITO
       const productosRecalculados = state.productos.map(producto => {
-        const nuevoIvaCalculado = esNuevoClienteExento
-          ? 0
-          : parseFloat((producto.subtotal * (producto.porcentaje_iva / 100)).toFixed(2));
+        const nuevoIvaCalculado = parseFloat((producto.subtotal * (producto.porcentaje_iva / 100)).toFixed(2));
 
         return {
           ...producto,
@@ -85,9 +77,6 @@ function notasReducer(state, action) {
     case 'ADD_PRODUCTO':
       const cantidadNueva = parseFloat(action.payload.cantidad) || 1;
 
-      // ✅ VERIFICAR SI EL CLIENTE ES EXENTO DE IVA
-      const esClienteExento = state.cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
-
       // ✅ VERIFICAR SI EL PRODUCTO YA EXISTE (solo para productos no manuales)
       if (!action.payload.esManual) {
         const productoExistenteIndex = state.productos.findIndex(
@@ -108,8 +97,7 @@ function notasReducer(state, action) {
           } = calcularTotalesProducto({
             producto: productoExistente,
             cantidad: nuevaCantidadTotal,
-            descuentoPorcentaje,
-            esClienteExento
+            descuentoPorcentaje
           });
 
           productosActualizados[productoExistenteIndex] = {
@@ -137,8 +125,7 @@ function notasReducer(state, action) {
       } = calcularTotalesProducto({
         producto: productoNormalizado,
         cantidad: cantidadNueva,
-        descuentoPorcentaje: parseFloat(action.payload.descuento_porcentaje || 0),
-        esClienteExento
+        descuentoPorcentaje: parseFloat(action.payload.descuento_porcentaje || 0)
       });
 
       const nuevoProducto = {
@@ -174,7 +161,6 @@ function notasReducer(state, action) {
       };
     
     case 'UPDATE_CANTIDAD':
-      const esClienteExentoCantidad = state.cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
       const productosActualizados = [...state.productos];
       const producto = productosActualizados[action.payload.index];
       const nuevaCantidad = parseFloat(action.payload.cantidad);
@@ -187,8 +173,7 @@ function notasReducer(state, action) {
       } = calcularTotalesProducto({
         producto,
         cantidad: nuevaCantidad,
-        descuentoPorcentaje,
-        esClienteExento: esClienteExentoCantidad
+        descuentoPorcentaje
       });
 
       productosActualizados[action.payload.index] = {
@@ -217,7 +202,6 @@ function notasReducer(state, action) {
       };
 
     case 'UPDATE_DESCUENTO':
-      const esClienteExentoDescuento = state.cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
       const productosConDescuento = [...state.productos];
       const productoDesc = productosConDescuento[action.payload.index];
 
@@ -229,8 +213,7 @@ function notasReducer(state, action) {
       } = calcularTotalesProducto({
         producto: productoDesc,
         cantidad: productoDesc.cantidad,
-        descuentoPorcentaje: nuevoDescuento,
-        esClienteExento: esClienteExentoDescuento
+        descuentoPorcentaje: nuevoDescuento
       });
 
       productosConDescuento[action.payload.index] = {
