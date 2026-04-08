@@ -63,8 +63,6 @@ export function useReportes() {
       limite: 20
       
     });
-
-    toast.success('Filtros restablecidos');
   };
 
   // ✅ Función mejorada para establecer período predefinido

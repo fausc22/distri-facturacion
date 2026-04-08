@@ -73,11 +73,6 @@ function RegistrarGastoContent() {
         // Limpiar formulario Y archivo después del registro exitoso
         resetForm(); // Esto ahora limpia todo incluyendo el archivo
         setMostrarConfirmacion(false);
-        
-        // Mostrar mensaje adicional sobre el flujo
-        setTimeout(() => {
-          toast.success('Puede registrar otro gasto o volver al menú principal');
-        }, 2000);
       }
     } catch (error) {
       console.error('💥 Error en handleRegistrarGasto:', error);
@@ -92,10 +87,7 @@ function RegistrarGastoContent() {
     if (tieneDatos) {
       if (confirm('¿Está seguro de que desea limpiar el formulario? Se perderán todos los datos ingresados y el archivo seleccionado.')) {
         resetForm(); // Esto limpia todo: datos + archivo
-        toast.success('Formulario limpiado');
       }
-    } else {
-      toast.info('El formulario ya está vacío');
     }
   };
 

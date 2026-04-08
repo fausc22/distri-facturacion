@@ -110,15 +110,16 @@ class OfflineManager {
   }
 
   // ✅ BÚSQUEDA OFFLINE DE CLIENTES
-  buscarClientesOffline(query) {
+  buscarClientesOffline(query, options = {}) {
     const clientes = this.getClientes();
     if (!query || query.trim().length < 2) return [];
-    
+    const limit = Math.max(1, parseInt(options.limit, 10) || 10);
+    const offset = Math.max(0, parseInt(options.offset, 10) || 0);
     const searchTerm = query.toLowerCase().trim();
-    return clientes.filter(cliente => 
-      cliente.nombre?.toLowerCase().includes(searchTerm) ||
-      cliente.ciudad?.toLowerCase().includes(searchTerm)
-    ).slice(0, 10);
+    const resultados = clientes.filter(cliente =>
+      cliente.nombre?.toLowerCase().includes(searchTerm)
+    );
+    return resultados.slice(offset, offset + limit);
   }
 
   // ✅ BÚSQUEDA OFFLINE DE PRODUCTOS

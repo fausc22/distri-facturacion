@@ -97,7 +97,6 @@ export function ModalAgregarFlete({ isOpen, onClose }) {
         descuento_porcentaje: 0,
       };
       addProducto(producto, 1);
-      toast.success('Flete agregado al carrito.');
       onClose();
     } catch (err) {
       console.error('Error al agregar flete:', err);

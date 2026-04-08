@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { offlineManager, getAppMode } from '../utils/offlineManager';
 import { axiosAuth } from '../utils/apiClient';
+import { shouldEmitSyncProgress } from '../utils/syncProgressThrottle';
 
 export function useOfflineCatalog() {
   const [loading, setLoading] = useState(false);
@@ -237,11 +238,13 @@ export function useOfflineCatalog() {
   };
 
   // ✅ BÚSQUEDA HÍBRIDA MEJORADA
-  const buscarClientes = async (query) => {
+  const buscarClientes = async (query, options = {}) => {
     if (!query || query.trim().length < 2) return [];
+    const limit = Math.max(1, parseInt(options.limit, 10) || 10);
+    const offset = Math.max(0, parseInt(options.offset, 10) || 0);
 
     if (isPWA) {
-      const resultadosOffline = offlineManager.buscarClientesOffline(query);
+      const resultadosOffline = offlineManager.buscarClientesOffline(query, { limit, offset });
       
       if (resultadosOffline.length > 0) {
         console.log(`📱 Búsqueda offline de clientes: ${resultadosOffline.length} resultados`);
@@ -250,28 +253,32 @@ export function useOfflineCatalog() {
       
       if (navigator.onLine) {
         try {
-          const response = await axiosAuth.get(`/pedidos/filtrar-cliente?q=${encodeURIComponent(query)}`);
-          return response.data?.data || [];
+          const response = await axiosAuth.get(
+            `/pedidos/filtrar-cliente?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`
+          );
+          return response.data || { data: [], hasMore: false, total: 0, limit, offset };
         } catch (error) {
           console.error('❌ Error en búsqueda online de clientes:', error);
-          return resultadosOffline;
+          return { data: resultadosOffline, hasMore: false, total: resultadosOffline.length, limit, offset };
         }
       }
       
-      return resultadosOffline;
+      return { data: resultadosOffline, hasMore: false, total: resultadosOffline.length, limit, offset };
     }
 
     if (navigator.onLine) {
       try {
-        const response = await axiosAuth.get(`/pedidos/filtrar-cliente?q=${encodeURIComponent(query)}`);
-        return response.data?.data || [];
+        const response = await axiosAuth.get(
+          `/pedidos/filtrar-cliente?q=${encodeURIComponent(query)}&limit=${limit}&offset=${offset}`
+        );
+        return response.data || { data: [], hasMore: false, total: 0, limit, offset };
       } catch (error) {
         console.error('❌ Error en búsqueda online de clientes:', error);
-        return [];
+        return { data: [], hasMore: false, total: 0, limit, offset };
       }
     }
 
-    return [];
+    return { data: [], hasMore: false, total: 0, limit, offset };
   };
 
   const buscarProductos = async (query) => {
@@ -542,7 +549,11 @@ export function useOfflinePedidos() {
       // Procesar pedidos nuevos UNO POR UNO (no en paralelo para evitar race conditions)
       for (let i = 0; i < pedidosActuales.length; i++) {
         const pedido = pedidosActuales[i];
-        setSyncProgress({ actual: i + 1, total: pedidosActuales.length });
+        const step = i + 1;
+        const totalPedidos = pedidosActuales.length;
+        if (shouldEmitSyncProgress(step, totalPedidos)) {
+          setSyncProgress({ actual: step, total: totalPedidos });
+        }
         
         try {
           // Verificar si el pedido tiene hash
@@ -642,20 +653,13 @@ export function useOfflinePedidos() {
       loadPedidosPendientes();
       setSyncProgress({ actual: 0, total: 0 });
 
-      // Auto-actualización de catálogo después de sincronizar
+      // Auto-actualización de catálogo cuando hubo al menos un éxito
       if (exitosos > 0) {
-        const mensaje = duplicados > 0 
-          ? `${exitosos} pedidos procesados (${duplicados} ya existían)`
-          : `${exitosos} pedidos sincronizados correctamente`;
-        toast.success(mensaje);
-        
-        // Actualizar catálogo después de sincronizar (no bloqueante)
         console.log('🔄 [useOfflinePedidos] Actualizando catálogo después de sincronización...');
         updateCatalogAfterSync().catch(() => {
           console.log('⚠️ [useOfflinePedidos] No se pudo actualizar catálogo después de sincronización');
         });
 
-        // Refrescar cache del historial de pedidos (últimos 7 días) en segundo plano
         axiosAuth.get('/pedidos/obtener-pedidos?dias=7')
           .then((response) => {
             if (response.data?.success) {
@@ -667,15 +671,27 @@ export function useOfflinePedidos() {
           });
       }
 
-      if (fallidos > 0) {
-        // ⚠️ MEJORADO: Mensaje más informativo
-        if (fallidos === pedidosActuales.length && pedidosActuales.length > 0) {
-          // Todos fallaron - probablemente no hay conexión
-          toast.error(`No se pudo sincronizar ningún pedido. Verifique su conexión a internet.`, { duration: 5000 });
-        } else {
-          // Algunos fallaron
-          toast.error(`${fallidos} pedidos no se pudieron sincronizar. Los demás se procesaron correctamente.`, { duration: 5000 });
-        }
+      // Un solo toast de resultado (evita doble notificación éxito + error)
+      if (exitosos > 0 && fallidos > 0) {
+        toast(
+          `Sincronización: ${exitosos} correctos, ${fallidos} con error`,
+          {
+            duration: 6000,
+            icon: '⚠️',
+            style: { background: '#ca8a04', color: '#fff' }
+          }
+        );
+      } else if (exitosos > 0) {
+        const mensaje =
+          duplicados > 0
+            ? `${exitosos} pedidos procesados (${duplicados} ya existían)`
+            : `${exitosos} pedidos sincronizados correctamente`;
+        toast.success(mensaje);
+      } else if (fallidos > 0 && exitosos === 0 && pedidosActuales.length > 0) {
+        toast.error(
+          `No se pudo sincronizar ningún pedido. Verifique su conexión a internet.`,
+          { duration: 5000 }
+        );
       }
 
       const summary = { 

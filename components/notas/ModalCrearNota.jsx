@@ -170,7 +170,6 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
     setVentaReferencia(venta);
     setMostrarModalVenta(false);
     setModoCreacion('con_referencia');
-    toast.success(`Venta ${venta.numero_factura} seleccionada como referencia`);
   };
 
   const handleCrearSinReferencia = () => {
@@ -287,7 +286,6 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
     addProducto(productoManual, productoManual.cantidad);
     
     setMostrarModalProductoManual(false);
-    toast.success('Producto manual agregado');
   };
 
   if (!mostrar) return null;

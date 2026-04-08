@@ -21,7 +21,6 @@ export function useGenerarPDFUniversal() {
       nombreArchivo: nombre = 'documento.pdf',
       titulo = 'PDF Generado Exitosamente',
       subtitulo = '',
-      mensajeExito = 'PDF generado con éxito',
       mensajeError = 'Error al generar el PDF',
       abrirEnNuevaPestaña = false
     } = configuracion;
@@ -106,8 +105,7 @@ export function useGenerarPDFUniversal() {
         }, 300); // Pequeño delay para que el modal se muestre primero
       }
       
-      toast.success(mensajeExito);
-      
+      // Sin toast de éxito: el modal de previsualización ya confirma el resultado (Fase 2)
       return true;
     } catch (error) {
       console.error('Error al generar el PDF:', error);
@@ -143,8 +141,6 @@ export function useGenerarPDFUniversal() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      toast.success('PDF descargado exitosamente');
     } catch (error) {
       console.error('Error al descargar PDF:', error);
       toast.error('Error al descargar el PDF');

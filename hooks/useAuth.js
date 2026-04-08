@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useRouter } from 'next/router';
-import { apiClient } from '../utils/apiClient';
+import { apiClient, axiosAuth } from '../utils/apiClient';
 import { toast } from 'react-hot-toast';
 
 // ✅ HELPER PARA SSR
@@ -93,7 +93,7 @@ export default function useAuth() {
       }
 
       // Si no hay datos locales, obtener del backend
-      const profileResponse = await apiClient.axiosAuth.get('/auth/profile');
+      const profileResponse = await axiosAuth.get('/auth/profile');
       const empleado = profileResponse.data.empleado;
       
       // Actualizar localStorage

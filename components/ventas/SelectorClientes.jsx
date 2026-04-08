@@ -3,7 +3,7 @@ import { MdSearch, MdDeleteForever, MdKeyboardArrowDown, MdKeyboardArrowUp} from
 import { useVenta } from '../../context/VentasContext';
 import { useClienteSearch } from '../../hooks/useBusquedaClientes';
 
-function ModalClientes({ resultados, onSeleccionar, onCerrar, loading }) {
+function ModalClientes({ resultados, onSeleccionar, onCerrar, loading, onVerMas, hasMore }) {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
       <div className="bg-white rounded-lg p-4 max-w-md w-full">
@@ -25,6 +25,15 @@ function ModalClientes({ resultados, onSeleccionar, onCerrar, loading }) {
             <li className="text-gray-500">No se encontraron resultados.</li>
           )}
         </ul>
+        {hasMore && (
+          <button
+            onClick={onVerMas}
+            disabled={loading}
+            className="mt-3 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded"
+          >
+            {loading ? 'Cargando...' : 'Ver más'}
+          </button>
+        )}
         <button
           onClick={onCerrar}
           className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
@@ -80,7 +89,9 @@ export default function ClienteSelectorListaPrecios() {
     mostrarModal,
     setMostrarModal,
     buscarCliente,
-    limpiarBusqueda
+    limpiarBusqueda,
+    cargarMasResultados,
+    hasMore
   } = useClienteSearch();
 
   const handleSeleccionarCliente = (clienteSeleccionado) => {
@@ -136,6 +147,8 @@ export default function ClienteSelectorListaPrecios() {
           onSeleccionar={handleSeleccionarCliente}
           onCerrar={() => setMostrarModal(false)}
           loading={loading}
+          onVerMas={cargarMasResultados}
+          hasMore={hasMore}
         />
       )}
     </div>

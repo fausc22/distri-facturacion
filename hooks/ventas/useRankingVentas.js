@@ -59,7 +59,6 @@ export function useRankingVentas() {
       nombreArchivo: `Ranking_Ventas_${fechaHoy}.pdf`,
       titulo: 'Ranking de Ventas Generado',
       subtitulo: `${ventasSeleccionadas.length} ventas incluidas - ${fechaHoy}`,
-      mensajeExito: `Ranking de ventas generado con éxito (${ventasSeleccionadas.length} ventas)`,
       mensajeError: 'Error al generar el ranking de ventas'
     };
 

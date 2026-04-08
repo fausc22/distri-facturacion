@@ -342,13 +342,6 @@ export default function ProductoSelectorHybrid({ mostrarPreciosConIva = true }) 
     
     addProducto(productoSeleccionado, cantidad, subtotal);
     limpiarSeleccion();
-    
-    // ✅ MENSAJE DIFERENCIADO POR MODO
-    if (isPWA && !isOnline) {
-      toast.success(`📱 ${productoSeleccionado.nombre} agregado (offline)`);
-    } else {
-      toast.success(`${productoSeleccionado.nombre} agregado al pedido`);
-    }
   };
 
   // ✅ FUNCIÓN PARA OBTENER PLACEHOLDER DINÁMICO

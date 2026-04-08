@@ -112,16 +112,26 @@ class ApiClient {
   async checkAuthOnPWAResume() {
     const token = getFromStorage('token');
     const refreshToken = getFromStorage('refreshToken');
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
     
     if (!token && refreshToken) {
+      if (!isOnline) {
+        console.log('📴 PWA: Reanudada sin conexión. Se conserva sesión local hasta recuperar red.');
+        return;
+      }
+
       console.log('🔄 PWA: No hay access token pero sí refresh token, renovando...');
       try {
         await this.refreshToken();
       } catch (error) {
-        console.log('❌ PWA: Error renovando al reactivar, redirigiendo a login');
-        this.clearSessionAndRedirect();
+        console.log('❌ PWA: Error renovando al reactivar');
       }
     } else if (this.isTokenExpired() && refreshToken && !this.isRefreshTokenExpired()) {
+      if (!isOnline) {
+        console.log('📴 PWA: Token próximo a expirar pero sin conexión. Se reintentará al volver online.');
+        return;
+      }
+
       console.log('🔄 PWA: Access token expirado, renovando automáticamente...');
       try {
         await this.refreshToken();
@@ -196,16 +206,31 @@ class ApiClient {
         refreshToken: refreshToken
       });
       
-      const { accessToken, empleado, expiresIn, refreshTokenExpiresIn } = response.data;
+      const {
+        accessToken,
+        refreshToken: rotatedRefreshToken,
+        empleado,
+        expiresIn,
+        refreshTokenExpiresIn,
+        refreshExpiresIn
+      } = response.data;
       
       // ✅ ACTUALIZAR localStorage
       setToStorage('token', accessToken);
       setToStorage('empleado', JSON.stringify(empleado));
       setToStorage('tokenExpiry', (Date.now() + this.parseExpiration(expiresIn)).toString());
+
+      // ✅ FASE 5: guardar refresh token rotado cuando backend lo devuelve
+      if (rotatedRefreshToken) {
+        setToStorage('refreshToken', rotatedRefreshToken);
+        setToStorage('hasRefreshToken', 'true');
+      }
       
       // ✅ Actualizar información del refresh token si está disponible
       if (refreshTokenExpiresIn) {
         setToStorage('refreshTokenExpiry', (Date.now() + (refreshTokenExpiresIn * 1000)).toString());
+      } else if (refreshExpiresIn) {
+        setToStorage('refreshTokenExpiry', (Date.now() + this.parseExpiration(refreshExpiresIn)).toString());
       }
       
       console.log('✅ PWA: Token renovado exitosamente via localStorage');
@@ -218,14 +243,35 @@ class ApiClient {
       return axiosAuth(originalRequest);
       
     } catch (refreshError) {
-      console.log('❌ PWA Error renovando token:', refreshError.response?.data?.message || refreshError.message);
+      const status = refreshError?.response?.status;
+      const errorCode = refreshError?.response?.data?.code;
+      const backendMessage = refreshError?.response?.data?.message;
+      const isAuthFailure = status === 401 || status === 403 || [
+        'NO_REFRESH_TOKEN',
+        'REFRESH_TOKEN_EXPIRED',
+        'REFRESH_TOKEN_INVALID',
+        'INVALID_TOKEN_TYPE'
+      ].includes(errorCode);
+
+      console.log('❌ PWA Error renovando token:', backendMessage || refreshError.message);
       
       // ✅ Procesar cola con error
       this.processQueue(refreshError, null);
-      
-      // ✅ Limpiar sesión y redirigir
-      this.clearSessionAndRedirect();
-      
+
+      if (isAuthFailure) {
+        console.log('🔒 PWA: Refresh inválido/expirado. Cerrando sesión por seguridad.');
+        this.clearSessionAndRedirect();
+      } else {
+        // ✅ FASE 2: no expulsar usuarios por errores temporales de red/backend
+        console.warn('🌐 PWA: Error temporal de conectividad al renovar token. Se mantiene la sesión local.');
+        if (typeof toast !== 'undefined') {
+          toast('Conexión inestable. Reintentaremos renovar la sesión cuando vuelva la red.', {
+            duration: 3500,
+            icon: '🌐'
+          });
+        }
+      }
+
       return Promise.reject(refreshError);
     } finally {
       this.isRefreshing = false;
@@ -304,8 +350,9 @@ class ApiClient {
     try {
       console.log('👋 PWA: Cerrando sesión...');
       
-      // ✅ Intentar logout en backend
-      await axiosLogin.post('/auth/logout');
+      // ✅ Intentar logout en backend (incluye refresh token para revocación servidor)
+      const refreshToken = getFromStorage('refreshToken');
+      await axiosLogin.post('/auth/logout', { refreshToken });
       console.log('✅ PWA: Logout exitoso en backend');
       
     } catch (error) {
@@ -354,9 +401,9 @@ class ApiClient {
     
     const expiryTime = parseInt(expiry);
     const now = Date.now();
-    const fiveMinutes = 5 * 60 * 1000; // 5 minutos de buffer
+    const twoMinutes = 2 * 60 * 1000; // FASE 4: buffer más conservador para evitar renovaciones agresivas
     
-    return (expiryTime - now) < fiveMinutes;
+    return (expiryTime - now) < twoMinutes;
   }
 
   // ✅ VERIFICAR SI EL REFRESH TOKEN HA EXPIRADO
@@ -418,6 +465,11 @@ class ApiClient {
 
       // ✅ PWA: Verificar primero si el refresh token ha expirado
       if (hasRefresh && this.isRefreshTokenExpired()) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          console.log('📴 PWA: Refresh token expirado detectado offline. Se pospone cierre hasta recuperar conexión.');
+          return;
+        }
+
         console.log('⏰ PWA: Refresh token expirado, cerrando sesión...');
         this.clearSessionAndRedirect();
         clearInterval(interval);
@@ -426,11 +478,23 @@ class ApiClient {
 
       // ✅ Si el access token está próximo a expirar y tenemos refresh token válido
       if (this.isTokenExpired() && hasRefresh && !this.isRefreshTokenExpired() && !this.isRefreshing) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          console.log('📴 PWA: Token próximo a expirar y sin conexión. Se reintentará al reconectar.');
+          return;
+        }
+
         console.log('⏰ PWA: Access token próximo a expirar, renovando...');
         this.handleTokenRefresh({ url: '/health', headers: {} }).catch(() => {
+          // FASE 3: no detener chequeo por fallos temporales de red
+          if (typeof navigator !== 'undefined' && !navigator.onLine) return;
           clearInterval(interval);
         });
       } else if (this.isTokenExpired() && !hasRefresh) {
+        if (typeof navigator !== 'undefined' && !navigator.onLine) {
+          console.log('📴 PWA: Access token expirado sin refresh token, pero offline. Se pospone logout.');
+          return;
+        }
+
         console.log('⏰ PWA: Access token expirado sin refresh token, cerrando sesión...');
         this.clearSessionAndRedirect();
         clearInterval(interval);
@@ -475,15 +539,29 @@ class ApiClient {
       refreshToken: refreshToken
     });
     
-    const { accessToken, empleado, expiresIn, refreshTokenExpiresIn } = response.data;
+    const {
+      accessToken,
+      refreshToken: rotatedRefreshToken,
+      empleado,
+      expiresIn,
+      refreshTokenExpiresIn,
+      refreshExpiresIn
+    } = response.data;
     
     setToStorage('token', accessToken);
     setToStorage('empleado', JSON.stringify(empleado));
     setToStorage('tokenExpiry', (Date.now() + this.parseExpiration(expiresIn)).toString());
+
+    if (rotatedRefreshToken) {
+      setToStorage('refreshToken', rotatedRefreshToken);
+      setToStorage('hasRefreshToken', 'true');
+    }
     
     // ✅ Actualizar información del refresh token si está disponible
     if (refreshTokenExpiresIn) {
       setToStorage('refreshTokenExpiry', (Date.now() + (refreshTokenExpiresIn * 1000)).toString());
+    } else if (refreshExpiresIn) {
+      setToStorage('refreshTokenExpiry', (Date.now() + this.parseExpiration(refreshExpiresIn)).toString());
     }
     
     return accessToken;

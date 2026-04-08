@@ -215,7 +215,6 @@ export function ModalEditarProductoVentaDirecta({
       };
 
       await onGuardar(index, productoActualizado);
-      toast.success('Producto actualizado correctamente');
       onClose();
     } catch (error) {
       console.error('Error guardando:', error);

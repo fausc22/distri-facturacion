@@ -4,8 +4,36 @@ import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 
 /**
+ * Llamada HTTP pura: sin setState ni toasts. Usada en lote y como base de solicitarCAE.
+ */
+async function solicitarCAERaw(ventaId) {
+  try {
+    const response = await axiosAuth.post('/arca/solicitar-cae', {
+      ventaId: ventaId
+    });
+
+    if (response.data.success) {
+      return { success: true, data: response.data.data };
+    }
+
+    return {
+      success: false,
+      error: response.data.message || 'Error desconocido al obtener CAE',
+      detalles: response.data.error || response.data.details || ''
+    };
+  } catch (err) {
+    const errorMessage =
+      err.response?.data?.message || err.message || 'Error al solicitar CAE';
+    const errorDetalles =
+      err.response?.data?.error || err.response?.data?.details || '';
+    return { success: false, error: errorMessage, detalles: errorDetalles };
+  }
+}
+
+/**
  * Hook para solicitar CAE de ARCA/AFIP
  * Incluye guarda contra doble envío (Fase 5).
+ * Fase 1: lote usa solicitarCAERaw (sin toasts ni setState por ítem).
  */
 export function useSolicitarCAE() {
   const [solicitando, setSolicitando] = useState(false);
@@ -14,7 +42,7 @@ export function useSolicitarCAE() {
   const solicitandoRef = useRef(false);
 
   /**
-   * Solicitar CAE para una venta específica
+   * Solicitar CAE para una venta específica (un toast de resultado).
    * @param {number} ventaId - ID de la venta
    * @returns {Promise<Object>} Resultado con CAE y datos de facturación
    */
@@ -25,60 +53,82 @@ export function useSolicitarCAE() {
     setResultado(null);
 
     try {
-      // Llamada al endpoint que conecta ventas con ARCA
-      const response = await axiosAuth.post('/arca/solicitar-cae', {
-        ventaId: ventaId
-      });
+      const raw = await solicitarCAERaw(ventaId);
 
-      if (response.data.success) {
-        const { data } = response.data;
-        
+      if (raw.success) {
+        const { data } = raw;
+
         console.log('✅ CAE obtenido exitosamente:', {
           cae: data.autorizacion.cae,
           vencimiento: data.autorizacion.fechaVencimiento,
           comprobante: data.comprobante.numero,
           total: data.importes.total
         });
-        
+
         setResultado(data);
-        
-        // Toast con información detallada del CAE
+
         toast.success(
           <div className="space-y-1">
             <div className="font-bold">✅ Factura Electrónica Autorizada</div>
             <div className="text-sm">
-              <span className="font-semibold">CAE:</span> {data.autorizacion.cae}
+              <span className="font-semibold">CAE:</span>{' '}
+              {data.autorizacion.cae}
             </div>
             <div className="text-sm">
-              <span className="font-semibold">Vence:</span> {data.autorizacion.fechaVencimiento}
+              <span className="font-semibold">Vence:</span>{' '}
+              {data.autorizacion.fechaVencimiento}
             </div>
             <div className="text-sm">
-              <span className="font-semibold">Comprobante:</span> {
-                `${String(data.comprobante.puntoVenta).padStart(4, '0')}-${String(data.comprobante.numero).padStart(8, '0')}`
-              }
+              <span className="font-semibold">Comprobante:</span>{' '}
+              {`${String(data.comprobante.puntoVenta).padStart(4, '0')}-${String(
+                data.comprobante.numero
+              ).padStart(8, '0')}`}
             </div>
           </div>,
           { duration: 6000 }
         );
-        
+
         return { success: true, data };
-      } else {
-        throw new Error(response.data.message || 'Error desconocido al obtener CAE');
       }
-      
+
+      setError({
+        message: raw.error,
+        detalles: raw.detalles,
+        ventaId: ventaId
+      });
+
+      toast.error(
+        <div className="space-y-1">
+          <div className="font-bold">❌ Error solicitando CAE</div>
+          <div className="text-sm">{raw.error}</div>
+          {raw.detalles && (
+            <div className="text-xs mt-1 text-gray-300 max-w-sm break-words">
+              {raw.detalles}
+            </div>
+          )}
+          <div className="text-xs text-gray-400 mt-2">Venta ID: {ventaId}</div>
+        </div>,
+        { duration: 8000 }
+      );
+
+      return {
+        success: false,
+        error: raw.error,
+        detalles: raw.detalles
+      };
     } catch (err) {
       console.error('❌ Error solicitando CAE:', err);
-      
-      const errorMessage = err.response?.data?.message || err.message || 'Error al solicitar CAE';
-      const errorDetalles = err.response?.data?.error || err.response?.data?.details || '';
-      
+      const errorMessage =
+        err.response?.data?.message || err.message || 'Error al solicitar CAE';
+      const errorDetalles =
+        err.response?.data?.error || err.response?.data?.details || '';
+
       setError({
         message: errorMessage,
         detalles: errorDetalles,
         ventaId: ventaId
       });
-      
-      // Toast de error detallado con información útil
+
       toast.error(
         <div className="space-y-1">
           <div className="font-bold">❌ Error solicitando CAE</div>
@@ -88,19 +138,16 @@ export function useSolicitarCAE() {
               {errorDetalles}
             </div>
           )}
-          <div className="text-xs text-gray-400 mt-2">
-            Venta ID: {ventaId}
-          </div>
+          <div className="text-xs text-gray-400 mt-2">Venta ID: {ventaId}</div>
         </div>,
         { duration: 8000 }
       );
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: errorMessage,
         detalles: errorDetalles
       };
-      
     } finally {
       setSolicitando(false);
     }
@@ -122,105 +169,96 @@ export function useSolicitarCAE() {
       return { success: false, error: 'No hay ventas para procesar' };
     }
 
-    console.log(`📋 Solicitando CAE para ${ventasIds.length} venta${ventasIds.length > 1 ? 's' : ''}...`);
+    console.log(
+      `📋 Solicitando CAE para ${ventasIds.length} venta${
+        ventasIds.length > 1 ? 's' : ''
+      }...`
+    );
     solicitandoRef.current = true;
     setSolicitando(true);
     setError(null);
+    setResultado(null);
 
     const resultados = {
       exitosos: [],
       fallidos: []
     };
 
-    // Toast de progreso
     const toastId = toast.loading(
       `Procesando 0 de ${ventasIds.length} ventas...`
     );
 
     try {
-      // Procesar una por una para tener control detallado
+      let lastSuccessData = null;
+
       for (let i = 0; i < ventasIds.length; i++) {
         const ventaId = ventasIds[i];
-        
-        // Actualizar toast de progreso
+
         toast.loading(
           `Procesando ${i + 1} de ${ventasIds.length} ventas...`,
           { id: toastId }
         );
-        
-        try {
-          const resultado = await solicitarCAE(ventaId);
-          
-          if (resultado.success) {
-            resultados.exitosos.push({
-              ventaId,
-              cae: resultado.data.autorizacion.cae,
-              numeroComprobante: resultado.data.comprobante.numero,
-              total: resultado.data.importes.total
-            });
-            
-            console.log(`✅ Venta ${ventaId}: CAE obtenido`);
-          } else {
-            resultados.fallidos.push({
-              ventaId,
-              error: resultado.error || 'Error desconocido',
-              detalles: resultado.detalles
-            });
-            
-            console.log(`❌ Venta ${ventaId}: Error - ${resultado.error}`);
-          }
-          
-          // Pequeña pausa entre requests para no saturar
-          if (i < ventasIds.length - 1) {
-            await new Promise(resolve => setTimeout(resolve, 800));
-          }
-          
-        } catch (err) {
+
+        const raw = await solicitarCAERaw(ventaId);
+
+        if (raw.success) {
+          const { data } = raw;
+          lastSuccessData = data;
+          resultados.exitosos.push({
+            ventaId,
+            cae: data.autorizacion.cae,
+            numeroComprobante: data.comprobante.numero,
+            total: data.importes.total
+          });
+          console.log(`✅ Venta ${ventaId}: CAE obtenido`);
+        } else {
           resultados.fallidos.push({
             ventaId,
-            error: err.message || 'Error inesperado'
+            error: raw.error || 'Error desconocido',
+            detalles: raw.detalles
           });
-          console.error(`❌ Venta ${ventaId}: Excepción - ${err.message}`);
+          console.log(`❌ Venta ${ventaId}: Error - ${raw.error}`);
+        }
+
+        if (i < ventasIds.length - 1) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
         }
       }
 
-      // Cerrar toast de progreso
       toast.dismiss(toastId);
 
-      // Resumen final
+      if (lastSuccessData) {
+        setResultado(lastSuccessData);
+      }
+
       const totalExitosos = resultados.exitosos.length;
       const totalFallidos = resultados.fallidos.length;
-      
+
       console.log(`\n📊 RESUMEN FINAL:`);
       console.log(`   ✅ Exitosos: ${totalExitosos}`);
       console.log(`   ❌ Fallidos: ${totalFallidos}`);
       console.log(`   📈 Total procesado: ${ventasIds.length}`);
-      
-      // Mostrar resumen con toast apropiado
+
       if (totalExitosos === ventasIds.length) {
-        // Todas exitosas
         toast.success(
           <div>
             <div className="font-bold">✅ Proceso completado</div>
             <div className="text-sm">
-              {totalExitosos} factura{totalExitosos > 1 ? 's' : ''} autorizada{totalExitosos > 1 ? 's' : ''} correctamente
+              {totalExitosos} factura{totalExitosos > 1 ? 's' : ''} autorizada
+              {totalExitosos > 1 ? 's' : ''} correctamente
             </div>
           </div>,
           { duration: 5000 }
         );
       } else if (totalFallidos === ventasIds.length) {
-        // Todas fallidas
         toast.error(
           <div>
             <div className="font-bold">❌ Proceso completado con errores</div>
-            <div className="text-sm">
-              No se pudo autorizar ninguna factura
-            </div>
+            <div className="text-sm">No se pudo autorizar ninguna factura</div>
           </div>,
           { duration: 5000 }
         );
       } else {
-        // Mixto
         toast(
           <div>
             <div className="font-bold">⚠️ Proceso completado parcialmente</div>
@@ -229,13 +267,13 @@ export function useSolicitarCAE() {
               <div>❌ Con error: {totalFallidos}</div>
             </div>
           </div>,
-          { 
+          {
             duration: 6000,
             icon: '⚠️'
           }
         );
       }
-      
+
       return {
         success: totalExitosos > 0,
         resultados,
@@ -246,7 +284,6 @@ export function useSolicitarCAE() {
           porcentajeExito: Math.round((totalExitosos / ventasIds.length) * 100)
         }
       };
-      
     } catch (err) {
       console.error('❌ Error crítico en solicitud múltiple:', err);
       toast.dismiss(toastId);
@@ -256,8 +293,8 @@ export function useSolicitarCAE() {
           <div className="text-sm">Error procesando solicitudes múltiples</div>
         </div>
       );
-      return { 
-        success: false, 
+      return {
+        success: false,
         error: err.message,
         resultados
       };
@@ -274,25 +311,24 @@ export function useSolicitarCAE() {
   const verificarServicio = async () => {
     try {
       const response = await axiosAuth.get('/arca/health');
-      
+
       if (response.data.success) {
         console.log('✅ Servicio ARCA operativo');
         toast.success('Servicio de facturación electrónica operativo');
         return { success: true, data: response.data.data };
       } else {
         console.warn('⚠️ Servicio ARCA con problemas');
-        // ✅ Corregido: toast.warning no existe, usar toast() con estilo de warning
         toast('El servicio de facturación tiene problemas', {
           duration: 3000,
           icon: '⚠️',
           style: {
             background: '#f59e0b',
-            color: '#fff',
+            color: '#fff'
           },
           iconTheme: {
             primary: '#fff',
-            secondary: '#f59e0b',
-          },
+            secondary: '#f59e0b'
+          }
         });
         return { success: false };
       }
@@ -344,17 +380,17 @@ export function useSolicitarCAE() {
     solicitarCAE,
     solicitarCAEMultiple,
     verificarServicio,
-    
+
     // Métodos auxiliares
     obtenerTiposComprobante,
     obtenerPuntosVenta,
     limpiar,
-    
+
     // Estados
     solicitando,
     resultado,
     error,
-    
+
     // Información útil del resultado
     cae: resultado?.autorizacion?.cae,
     fechaVencimiento: resultado?.autorizacion?.fechaVencimiento,

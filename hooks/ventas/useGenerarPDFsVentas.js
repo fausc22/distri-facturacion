@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
+import { toastPromise } from '../../utils/toastActions';
 import { useGenerarPDFUniversal } from '../shared/useGenerarPDFUniversal';
 import { useRankingVentas } from './useRankingVentas';
 
@@ -66,7 +67,6 @@ export function useGenerarPDFsVentas() {
       nombreArchivo: `Factura_${venta.cliente_nombre}_${venta.id}.pdf`,
       titulo: 'Factura Generada',
       subtitulo: `Factura #${venta.id} - ${venta.cliente_nombre}`,
-      mensajeExito: 'Factura generada con éxito',
       mensajeError: 'Error al generar la factura'
     };
 
@@ -102,7 +102,6 @@ export function useGenerarPDFsVentas() {
       nombreArchivo: `Facturas-Multiples.pdf`,
       titulo: 'Facturas Múltiples',
       subtitulo: `${ventasIds.length} facturas generadas`,
-      mensajeExito: `${ventasIds.length} facturas generadas con éxito`,
       mensajeError: 'Error al generar las facturas'
     };
 
@@ -117,25 +116,34 @@ export function useGenerarPDFsVentas() {
     }
 
     try {
-      const response = await axiosAuth.post(
-        `/ventas/generarpdf-factura`,
-        { venta, productos },
-        { responseType: "blob" }
-      );
+      await toastPromise(
+        (async () => {
+          const response = await axiosAuth.post(
+            `/ventas/generarpdf-factura`,
+            { venta, productos },
+            { responseType: "blob" }
+          );
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `FACTURA - ${venta.cliente_nombre}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      toast.success("PDF generado con éxito");
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `FACTURA - ${venta.cliente_nombre}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        })(),
+        {
+          loading: 'Generando PDF...',
+          success: 'PDF generado',
+          error: (err) =>
+            err.response?.data?.error ||
+            err.message ||
+            'Error al generar el PDF'
+        }
+      );
       return true;
     } catch (error) {
       console.error("Error al generar PDF:", error);
-      toast.error("Error al generar el PDF");
       return false;
     }
   };
@@ -162,25 +170,36 @@ export function useGenerarPDFsVentas() {
         return false;
       }
 
-      const response = await axiosAuth.post(
-        `/ventas/generarpdf-facturas-multiples`,
-        { ventasIds },
-        { responseType: "blob" }
-      );
+      const n = ventasIds.length;
+      await toastPromise(
+        (async () => {
+          const response = await axiosAuth.post(
+            `/ventas/generarpdf-facturas-multiples`,
+            { ventasIds },
+            { responseType: "blob" }
+          );
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Facturas-Multiples.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      toast.success(`${ventasIds.length} facturas generadas con éxito`);
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `Facturas-Multiples.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        })(),
+        {
+          loading: n === 1 ? 'Generando factura...' : `Generando ${n} facturas...`,
+          success:
+            n === 1 ? 'Factura lista' : `${n} facturas generadas`,
+          error: (err) =>
+            err.response?.data?.error ||
+            err.message ||
+            'Error al generar las facturas'
+        }
+      );
       return true;
     } catch (error) {
       console.error("Error al generar múltiples PDFs:", error);
-      toast.error(`Error al generar las facturas: ${error.response?.data?.error || error.message}`);
       return false;
     } finally {
       setImprimiendoMultiple(false);

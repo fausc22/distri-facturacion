@@ -228,7 +228,6 @@ export default function ProductoSelector() {
     
     addProducto(productoSeleccionado, cantidad, subtotal);
     limpiarSeleccion();
-    toast.success(`${productoSeleccionado.nombre} agregado al pedido.`);
   };
 
   return (

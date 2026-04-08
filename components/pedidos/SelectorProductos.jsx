@@ -304,7 +304,6 @@ export default function ProductoSelector({ onAddProducto = null, mostrarPreciosC
     
     addProducto(productoSeleccionado, cantidad, subtotal);
     limpiarSeleccion();
-    toast.success(`${productoSeleccionado.nombre} agregado al pedido.`);
   };
 
   return (
