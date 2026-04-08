@@ -535,12 +535,15 @@ export function useFinanzasData() {
       }
     });
 
-    // ✅ Mostrar mensaje apropiado según los resultados
+    // Un solo toast según resultado (Fase 4)
     if (errores.length === 0) {
       toast.success(`✅ Todos los datos actualizados (${exitos.length} módulos)`);
     } else if (exitos.length > 0) {
-      toast.success(`✅ ${exitos.length} módulos actualizados correctamente`);
-      console.warn('⚠️ Algunos errores encontrados:', errores);
+      toast(
+        `Actualizados ${exitos.length} módulos; ${errores.length} con error. Ver consola para detalle.`,
+        { duration: 5500, icon: '⚠️' }
+      );
+      console.warn('⚠️ Errores parciales al recargar finanzas:', errores);
     } else {
       toast.error(`❌ Error cargando todos los módulos`);
       console.error('❌ Errores encontrados:', errores);

@@ -1,5 +1,4 @@
 import { MdSearch } from 'react-icons/md';
-import { toast } from 'react-hot-toast';
 import { useState } from 'react';
 import { axiosAuth } from '../../utils/apiClient';
 import { useControlStock } from '../../context/ControlStockContext';
@@ -103,7 +102,6 @@ export default function SelectorProductosStock() {
     
     addProducto(productoFormateado);
     limpiarSeleccion();
-    toast.success(`${productoSeleccionado.nombre} agregado a la lista.`);
   };
 
   return (

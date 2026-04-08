@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
+import { toastPromise } from '../../utils/toastActions';
 import { useGenerarPDFUniversal } from '../shared/useGenerarPDFUniversal';
 
 export function useGenerarPDFPedido() {
@@ -54,7 +55,6 @@ export function useGenerarPDFPedido() {
       nombreArchivo: `Pedido_${pedido.cliente_nombre}_${pedido.id}.pdf`,
       titulo: 'Nota de Pedido Generada',
       subtitulo: `Pedido #${pedido.id} - ${pedido.cliente_nombre}`,
-      mensajeExito: 'Nota de pedido generada con éxito',
       mensajeError: 'Error al generar la nota de pedido'
     };
 
@@ -81,7 +81,6 @@ export function useGenerarPDFPedido() {
       nombreArchivo: `Notas-Pedidos-Multiples-${fechaActual}.pdf`,
       titulo: 'Notas de Pedido Múltiples',
       subtitulo: `${pedidosIds.length} notas de pedido generadas`,
-      mensajeExito: `${pedidosIds.length} notas de pedido generadas con éxito`,
       mensajeError: 'Error al generar las notas de pedido'
     };
 
@@ -97,25 +96,34 @@ export function useGenerarPDFPedido() {
     }
 
     try {
-      const response = await axiosAuth.post(
-        `/pedidos/generarpdf-notapedido`,
-        { pedido, productos },
-        { responseType: "blob" }
-      );
+      await toastPromise(
+        (async () => {
+          const response = await axiosAuth.post(
+            `/pedidos/generarpdf-notapedido`,
+            { pedido, productos },
+            { responseType: "blob" }
+          );
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `PEDIDO_${pedido.cliente_nombre}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      toast.success("PDF generado con éxito");
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `PEDIDO_${pedido.cliente_nombre}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        })(),
+        {
+          loading: 'Generando PDF...',
+          success: 'PDF generado',
+          error: (err) =>
+            err.response?.data?.error ||
+            err.message ||
+            'Error al generar el PDF'
+        }
+      );
       return true;
     } catch (error) {
       console.error("Error al generar el PDF:", error);
-      toast.error("Error al generar el PDF");
       return false;
     }
   };
@@ -130,38 +138,40 @@ export function useGenerarPDFPedido() {
     setGenerandoPDFMultiple(true);
 
     try {
-      const response = await axiosAuth.post(
-        `/pedidos/generarpdf-notaspedidos-multiples`,
-        { pedidosIds },
-        { responseType: "blob" }
-      );
+      const n = pedidosIds.length;
+      await toastPromise(
+        (async () => {
+          const response = await axiosAuth.post(
+            `/pedidos/generarpdf-notaspedidos-multiples`,
+            { pedidosIds },
+            { responseType: "blob" }
+          );
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Notas-Pedidos-Multiples-${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      toast.success(`${pedidosIds.length} notas de pedido generadas con éxito`);
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `Notas-Pedidos-Multiples-${new Date().toISOString().split('T')[0]}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        })(),
+        {
+          loading: n === 1 ? 'Generando nota...' : `Generando ${n} notas...`,
+          success: n === 1 ? 'Nota lista' : `${n} notas generadas`,
+          error: (err) =>
+            err.response?.data?.error ||
+            err.message ||
+            'Error al generar las notas de pedido'
+        }
+      );
       return true;
     } catch (error) {
       console.error("Error al generar múltiples PDFs de pedidos:", error);
-      toast.error("Error al generar las notas de pedido");
       return false;
     } finally {
       setGenerandoPDFMultiple(false);
     }
   };
-
-  // ✅ DEBUGGING: Agregar logs para verificar el estado
-  console.log('🔍 Hook useGenerarPDFPedido - Estados del modal múltiple:', {
-    loadingMultiple,
-    mostrarModalPDFMultiple,
-    pdfURLMultiple,
-    nombreArchivoMultiple
-  });
 
   return {
     // Estados del modal PDF individual

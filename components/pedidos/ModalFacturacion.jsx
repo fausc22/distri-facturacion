@@ -334,7 +334,6 @@ export function ModalFacturacion({
     const n = Number(totalFinalTemp);
     if (Number.isFinite(n) && n >= 0) {
       setTotalEditadoManual(Math.round(n));
-      toast.success('Total actualizado');
     } else {
       toast.error('Ingrese un total válido');
     }

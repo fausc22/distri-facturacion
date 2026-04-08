@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
+import { toastPromise } from '../../utils/toastActions';
 import { useGenerarPDFUniversal } from '../shared/useGenerarPDFUniversal';
 
 export function useGenerarPDFRemito() {
@@ -51,7 +52,6 @@ export function useGenerarPDFRemito() {
       nombreArchivo: `Remito_${remito.cliente_nombre}_${remito.id}.pdf`,
       titulo: 'Remito Generado',
       subtitulo: `Remito #${remito.id} - ${remito.cliente_nombre}`,
-      mensajeExito: 'Remito generado con éxito',
       mensajeError: 'Error al generar el remito'
     };
 
@@ -87,7 +87,6 @@ export function useGenerarPDFRemito() {
       nombreArchivo: `Remitos-Multiples.pdf`,
       titulo: 'Remitos Múltiples',
       subtitulo: `${remitosIds.length} remitos generados`,
-      mensajeExito: `${remitosIds.length} remitos generados con éxito`,
       mensajeError: 'Error al generar los remitos'
     };
 
@@ -102,25 +101,34 @@ export function useGenerarPDFRemito() {
     }
 
     try {
-      const response = await axiosAuth.post(
-        `/productos/generarpdf-remito`,
-        { remito, productos },
-        { responseType: "blob" }
-      );
+      await toastPromise(
+        (async () => {
+          const response = await axiosAuth.post(
+            `/productos/generarpdf-remito`,
+            { remito, productos },
+            { responseType: "blob" }
+          );
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `REMITO_${remito.cliente_nombre}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      toast.success("PDF de remito generado con éxito");
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `REMITO_${remito.cliente_nombre}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        })(),
+        {
+          loading: 'Generando remito...',
+          success: 'PDF generado',
+          error: (err) =>
+            err.response?.data?.error ||
+            err.message ||
+            'Error al generar el PDF del remito'
+        }
+      );
       return true;
     } catch (error) {
       console.error("Error al generar PDF del remito:", error);
-      toast.error("Error al generar el PDF del remito");
       return false;
     }
   };
@@ -147,25 +155,35 @@ export function useGenerarPDFRemito() {
         return false;
       }
 
-      const response = await axiosAuth.post(
-        `/productos/generarpdf-remitos-multiples`,
-        { remitosIds },
-        { responseType: "blob" }
-      );
+      const n = remitosIds.length;
+      await toastPromise(
+        (async () => {
+          const response = await axiosAuth.post(
+            `/productos/generarpdf-remitos-multiples`,
+            { remitosIds },
+            { responseType: "blob" }
+          );
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Remitos-Multiples.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      
-      toast.success(`${remitosIds.length} remitos generados con éxito`);
+          const url = window.URL.createObjectURL(new Blob([response.data]));
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `Remitos-Multiples.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+        })(),
+        {
+          loading: n === 1 ? 'Generando remito...' : `Generando ${n} remitos...`,
+          success: n === 1 ? 'Remito listo' : `${n} remitos generados`,
+          error: (err) =>
+            err.response?.data?.error ||
+            err.message ||
+            'Error al generar los remitos'
+        }
+      );
       return true;
     } catch (error) {
       console.error("Error al generar múltiples PDFs de remitos:", error);
-      toast.error(`Error al generar los remitos: ${error.response?.data?.error || error.message}`);
       return false;
     } finally {
       setImprimiendoMultiple(false);

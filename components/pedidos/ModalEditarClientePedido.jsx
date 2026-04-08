@@ -22,7 +22,9 @@ export default function ModalEditarClientePedido({
     resultados,
     loading,
     buscarCliente,
-    limpiarBusqueda
+    limpiarBusqueda,
+    cargarMasResultados,
+    hasMore
   } = useClienteSearch();
 
   const [clienteSeleccionado, setClienteSeleccionado] = useState(null);
@@ -195,7 +197,7 @@ export default function ModalEditarClientePedido({
 
               {/* Resultados de Búsqueda */}
               {resultados.length > 0 && (
-                <div className="max-h-48 overflow-y-auto border border-gray-300 rounded-md">
+                <div className="max-h-56 overflow-y-auto border border-gray-300 rounded-md">
               {resultados.map((cliente, idx) => (
                 <div
                   key={idx}
@@ -221,6 +223,16 @@ export default function ModalEditarClientePedido({
                       )}
                     </div>
                   ))}
+                  {hasMore && (
+                    <button
+                      type="button"
+                      onClick={cargarMasResultados}
+                      disabled={loading}
+                      className="w-full min-h-[44px] px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-sm font-medium"
+                    >
+                      {loading ? 'Cargando...' : 'Ver más'}
+                    </button>
+                  )}
                 </div>
               )}
             </div>

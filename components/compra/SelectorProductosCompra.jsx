@@ -201,7 +201,6 @@ export default function SelectorProductosCompra() {
     
     addProducto(productoSeleccionado, cantidad, precioCosto, precioVenta, subtotal);
     limpiarSeleccion();
-    toast.success('Producto agregado al carrito');
   };
 
   return (

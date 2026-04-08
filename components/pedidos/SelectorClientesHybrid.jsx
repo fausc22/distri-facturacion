@@ -6,7 +6,7 @@ import { usePedidosContext } from '../../context/PedidosContext';
 import { useClienteSearchHybrid } from '../../hooks/useBusquedaHybrid';
 import ModalCrearClienteRapido from './ModalCrearClienteRapido';
 
-function ModalClientes({ resultados, onSeleccionar, onCerrar, loading, isPWA, isOnline }) {
+function ModalClientes({ resultados, onSeleccionar, onCerrar, loading, isPWA, isOnline, onVerMas, hasMore }) {
   return (
     <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
       <div className="bg-white rounded-lg p-4 max-w-md w-full">
@@ -63,6 +63,15 @@ function ModalClientes({ resultados, onSeleccionar, onCerrar, loading, isPWA, is
             </li>
           )}
         </ul>
+        {hasMore && (
+          <button
+            onClick={onVerMas}
+            disabled={loading}
+            className="mt-3 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded transition-colors"
+          >
+            {loading ? 'Cargando...' : 'Ver más'}
+          </button>
+        )}
         <button
           onClick={onCerrar}
           className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors"
@@ -124,7 +133,9 @@ export default function ClienteSelectorHybrid() {
     setMostrarModal,
     buscarCliente,
     limpiarBusqueda,
-    isPWA
+    isPWA,
+    cargarMasResultados,
+    hasMore
   } = useClienteSearchHybrid();
 
   // ✅ ESTADO DE CONEXIÓN PARA PWA
@@ -289,6 +300,8 @@ export default function ClienteSelectorHybrid() {
           loading={loading}
           isPWA={isPWA}
           isOnline={isOnline}
+          onVerMas={cargarMasResultados}
+          hasMore={hasMore}
         />
       )}
 

@@ -103,8 +103,6 @@ export function DashboardReportes() {
       link.click();
       link.remove();
       window.URL.revokeObjectURL(url);
-
-      toast.success('¡PDF generado exitosamente!');
     } catch (error) {
       console.error('Error generando PDF:', error);
       toast.error('Error al generar el PDF. Verifica que haya datos en el período seleccionado.');

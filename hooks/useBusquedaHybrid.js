@@ -9,6 +9,9 @@ export function useClienteSearchHybrid() {
   const [loading, setLoading] = useState(false);
   const [mostrarModal, setMostrarModal] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const PAGE_SIZE = 10;
 
   const appMode = getAppMode();
   const isPWA = appMode === 'pwa';
@@ -35,31 +38,43 @@ export function useClienteSearchHybrid() {
   }, [isPWA]);
 
   // ✅ BÚSQUEDA HÍBRIDA DE CLIENTES
-  const buscarCliente = async () => {
+  const buscarCliente = async ({ append = false } = {}) => {
     if (!busqueda.trim()) return;
 
     setLoading(true);
     try {
       console.log(`🔍 Buscando clientes en modo ${appMode}:`, busqueda);
-      
-      const resultados = await buscarClientes(busqueda);
-      
-      setResultados(resultados);
+
+      const nextOffset = append ? offset : 0;
+      const response = await buscarClientes(busqueda, { limit: PAGE_SIZE, offset: nextOffset });
+      const nuevosResultados = response?.data || [];
+
+      setResultados(prev => (append ? [...prev, ...nuevosResultados] : nuevosResultados));
+      setOffset(nextOffset + nuevosResultados.length);
+      setHasMore(Boolean(response?.hasMore));
       setMostrarModal(true);
       
-      console.log(`✅ Clientes encontrados: ${resultados.length}`);
+      console.log(`✅ Clientes encontrados: ${nuevosResultados.length}`);
     } catch (error) {
       console.error('❌ Error buscando clientes:', error);
-      setResultados([]);
+      if (!append) setResultados([]);
+      setHasMore(false);
     } finally {
       setLoading(false);
     }
+  };
+
+  const cargarMasResultados = async () => {
+    if (loading || !hasMore) return;
+    await buscarCliente({ append: true });
   };
 
   const limpiarBusqueda = () => {
     setBusqueda('');
     setResultados([]);
     setMostrarModal(false);
+    setOffset(0);
+    setHasMore(false);
   };
 
   return {
@@ -72,9 +87,11 @@ export function useClienteSearchHybrid() {
     setMostrarModal,
     isPWA,
     isOnline,
+    hasMore,
     
     // Funciones
     buscarCliente,
-    limpiarBusqueda
+    limpiarBusqueda,
+    cargarMasResultados
   };
 }

@@ -82,7 +82,6 @@ function HistorialVentasContent() {
     const cambiaPagina = numeroPagina !== paginaActual;
     if (cambiaPagina && selectedVentas.length > 0) {
       clearSelection();
-      toast.success('Página cambiada. Selección limpiada.', { duration: 2500 });
     } else if (cambiaPagina) {
       clearSelection();
     }
@@ -92,11 +91,7 @@ function HistorialVentasContent() {
   // Etapa 5: al cambiar registros por página se limpia la selección
   const cambiarRegistrosPorPagina = useCallback((cantidad) => {
     if (ventasDesdeBackend !== null) return;
-    const teniaSeleccion = selectedVentas.length > 0;
     clearSelection();
-    if (teniaSeleccion) {
-      toast.success('Cantidad por página cambiada. Selección limpiada.', { duration: 2500 });
-    }
     cargarVentas({ pagina: 1, porPagina: cantidad, filtros });
   }, [ventasDesdeBackend, cargarVentas, filtros, selectedVentas.length, clearSelection]);
 
@@ -227,8 +222,6 @@ function HistorialVentasContent() {
       const url = `${apiUrl}/comprobantes/obtener/${tipo}/${ventaId}`;
       
       window.open(url, '_blank', 'noopener,noreferrer');
-      toast.success('Comprobante abierto en nueva pestaña');
-      
     } catch (error) {
       console.error('❌ Error abriendo comprobante:', error);
       toast.error('Error al abrir el comprobante');
@@ -362,14 +355,7 @@ function HistorialVentasContent() {
       const resultado = await solicitarCAEMultiple(ventasIds);
       
       if (resultado.success) {
-        // ✅ MENSAJE MEJORADO con información de tipo X
-        let mensajeExito = `✅ Proceso completado:\n${resultado.resumen.exitosos} exitosos\n${resultado.resumen.fallidos} fallidos`;
-        
-        if (cantidadTipoX > 0) {
-          mensajeExito += `\n\n🚫 ${cantidadTipoX} factura${cantidadTipoX > 1 ? 's' : ''} tipo X omitida${cantidadTipoX > 1 ? 's' : ''}`;
-        }
-        
-        toast.success(mensajeExito, { duration: 6000 });
+        // Resumen: un solo toast lo muestra useSolicitarCAE.solicitarCAEMultiple
         await cargarVentas({ pagina: paginaActual, porPagina, filtros });
         clearSelection();
       }
@@ -403,8 +389,6 @@ function HistorialVentasContent() {
         if (selectedVenta && selectedVenta.id === ventaId) {
           await cargarProductosVenta(selectedVenta);
         }
-        
-        toast.success('CAE obtenido exitosamente');
       }
     } catch (error) {
       console.error('❌ Error solicitando CAE individual:', error);
@@ -424,27 +408,19 @@ function HistorialVentasContent() {
   // Etapa 5: aplicar filtros y avisar si se limpió la selección
   const handleFiltrosChangeConLimpieza = useCallback(
     (nuevosFiltros) => {
-      const teniaSeleccion = selectedVentas.length > 0;
       handleFiltrosChange(nuevosFiltros);
       setVentasDesdeBackend(null);
       clearSelection();
       cargarVentas({ pagina: 1, porPagina, filtros: nuevosFiltros });
-      if (teniaSeleccion) {
-        toast.success('Filtros aplicados. Selección limpiada.', { duration: 2500 });
-      }
     },
     [handleFiltrosChange, clearSelection, cargarVentas, porPagina, selectedVentas.length]
   );
 
   const handleLimpiarFiltrosConSeleccion = useCallback(() => {
-    const teniaSeleccion = selectedVentas.length > 0;
     limpiarFiltros();
     setVentasDesdeBackend(null);
     clearSelection();
     cargarVentas({ pagina: 1, porPagina, filtros: {} });
-    if (teniaSeleccion) {
-      toast.success('Filtros limpiados. Selección limpiada.', { duration: 2500 });
-    }
   }, [limpiarFiltros, clearSelection, cargarVentas, porPagina, selectedVentas.length]);
 
   const scrollToAcciones = useCallback(() => {
@@ -453,7 +429,6 @@ function HistorialVentasContent() {
         behavior: 'smooth', 
         block: 'center' 
       });
-      toast.success('👇 Desliza para ver todas las acciones', { duration: 2000 });
     }
   }, []);
 
@@ -633,7 +608,6 @@ function HistorialVentasContent() {
           onClose={() => setMostrarModalNotaDebito(false)}
           onNotaCreada={() => {
             cargarVentas({ pagina: 1, porPagina, filtros });
-            toast.success('Nota de Débito creada exitosamente');
           }}
         />
       )}
@@ -645,7 +619,6 @@ function HistorialVentasContent() {
           onClose={() => setMostrarModalNotaCredito(false)}
           onNotaCreada={() => {
             cargarVentas({ pagina: 1, porPagina, filtros });
-            toast.success('Nota de Crédito creada exitosamente');
           }}
         />
       )}

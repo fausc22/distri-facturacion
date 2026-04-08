@@ -567,7 +567,6 @@ export function ModalDetalleVenta({
         const ventaActualizada = await onRecargarVenta(ventaId);
         if (ventaActualizada) {
           setVentaActual(ventaActualizada);
-          toast.success('Datos actualizados con información del CAE');
         }
       }
     }
