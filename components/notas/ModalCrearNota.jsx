@@ -252,10 +252,18 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
   };
 
   const handleConfirmarNota = async (datosFacturacion) => {
+    if (!user?.id) {
+      toast.error('Sesión expirada. Debe volver a iniciar sesión.');
+      setMostrarModalFacturacion(false);
+      window.location.href = '/login';
+      return;
+    }
+
     const datosNota = getDatosNota();
     
     const datosCompletos = {
       ...datosNota,
+      empleado: user,
       cuentaId: datosFacturacion.cuentaId,
       tipoFiscal: datosFacturacion.tipoFiscal,
       ...datosFacturacion

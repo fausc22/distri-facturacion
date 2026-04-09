@@ -37,6 +37,11 @@ export function useNotas() {
       return { success: false };
     }
 
+    if (!empleado?.id) {
+      toast.error('Sesión expirada. Debe volver a iniciar sesión.');
+      return { success: false, error: 'Sesión inválida para crear nota' };
+    }
+
     // Calcular totales
     const subtotal = productos.reduce((acc, prod) => acc + prod.subtotal, 0);
     const totalIva = productos.reduce((acc, prod) => acc + prod.iva_calculado, 0);
@@ -74,8 +79,8 @@ export function useNotas() {
       exento: montoExento > 0 ? montoExento.toFixed(2) : '0.00',
       totalConIva: total.toFixed(2),
       observaciones: observaciones || 'sin observaciones',
-      empleado_id: empleado?.id || 1,
-      empleado_nombre: empleado?.nombre || 'Usuario',
+      empleado_id: empleado.id,
+      empleado_nombre: empleado.nombre || '',
       productos: productos.map(p => ({
         id: p.id,
         nombre: p.nombre,
