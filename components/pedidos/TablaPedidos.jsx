@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 
 // Función helper para formatear fechas
@@ -130,13 +131,13 @@ function TablaEscritorio({
                   )}
                 </div>
               </td>
-              <td className="p-3 text-right">
+              <td className="p-3 text-right whitespace-nowrap">
                 <div className="font-semibold text-green-600">
-                  ${Number(pedido.total || 0).toFixed(2)}
+                  {formatearMoneda(pedido.total || 0)}
                 </div>
                 {pedido.subtotal && (
                   <div className="text-xs text-gray-500">
-                    Subtotal: ${Number(pedido.subtotal || 0).toFixed(2)}
+                    Subtotal: {formatearMoneda(pedido.subtotal || 0)}
                   </div>
                 )}
               </td>
@@ -302,12 +303,12 @@ function TarjetasMovil({
             <div className="grid grid-cols-2 gap-4 mb-3">
               <div className="text-center p-2 bg-green-50 rounded">
                 <div className="text-lg font-bold text-green-600">
-                  ${Number(pedido.total || 0).toFixed(2)}
+                  {formatearMoneda(pedido.total || 0)}
                 </div>
                 <div className="text-xs text-green-800">Total</div>
                 {pedido.subtotal && (
                   <div className="text-xs text-gray-500">
-                    Subtotal: ${Number(pedido.subtotal || 0).toFixed(2)}
+                    Subtotal: {formatearMoneda(pedido.subtotal || 0)}
                   </div>
                 )}
               </div>
@@ -465,7 +466,7 @@ function TablaPedidos({
             </span>
             <span>
               Monto total: <span className="font-medium text-green-600">
-                ${pedidos.reduce((acc, p) => acc + Number(p.total || 0), 0).toFixed(2)}
+                {formatearMoneda(pedidos.reduce((acc, p) => acc + Number(p.total || 0), 0))}
               </span>
             </span>
           </div>

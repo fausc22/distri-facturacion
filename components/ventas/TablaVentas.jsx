@@ -1,5 +1,6 @@
 // components/ventas/TablaVentas.jsx - Etapa 2: Set para selección O(1) + filas/tarjetas memoizadas
 import React, { useState, useMemo, useCallback } from 'react';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 const formatearFecha = (fecha) => {
   if (!fecha) return 'Fecha no disponible';
@@ -151,9 +152,9 @@ const FilaVenta = React.memo(function FilaVenta({ venta, isSelected, onSelectVen
           {venta.tipo_f || 'N/A'}
         </span>
       </td>
-      <td className="p-3 text-right">
-        <div className="font-semibold text-green-600">${Number(venta.total || 0).toFixed(2)}</div>
-        {venta.subtotal && <div className="text-xs text-gray-500">Subtotal: ${Number(venta.subtotal || 0).toFixed(2)}</div>}
+      <td className="p-3 text-right whitespace-nowrap">
+        <div className="font-semibold text-green-600">{formatearMoneda(venta.total || 0)}</div>
+        {venta.subtotal && <div className="text-xs text-gray-500">Subtotal: {formatearMoneda(venta.subtotal || 0)}</div>}
       </td>
       <td className="p-3 text-center">
         <div className="flex items-center justify-center gap-1">
@@ -314,7 +315,7 @@ const TarjetaVenta = React.memo(function TarjetaVenta({ venta, isSelected, onSel
       </div>
       <div className="grid grid-cols-2 gap-4 mb-3">
         <div className="text-center p-2 bg-green-50 rounded">
-          <div className="text-lg font-bold text-green-600">${Number(venta.total || 0).toFixed(2)}</div>
+          <div className="text-lg font-bold text-green-600">{formatearMoneda(venta.total || 0)}</div>
           <div className="text-xs text-green-800">Total</div>
         </div>
         <div className="text-center p-2 bg-blue-50 rounded">
@@ -514,7 +515,7 @@ function TablaVentas({
             </span>
             <span>
               Monto total: <span className="font-medium text-green-600">
-                ${montoTotal.toFixed(2)}
+                {formatearMoneda(montoTotal)}
               </span>
             </span>
           </div>

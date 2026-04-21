@@ -4,8 +4,7 @@
 
 import { useMemo } from 'react';
 import { roundFacturacion } from '../../utils/rounding';
-
-const formatearMoneda = (monto) => `$${Number(monto ?? 0).toFixed(2)}`;
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 function ControlCantidad({ cantidad, max, onChange }) {
   const num = parseFloat(cantidad) || 0;

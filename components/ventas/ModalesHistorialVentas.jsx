@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast';
 import { MdDeleteForever, MdExpandMore, MdExpandLess, MdRemoveRedEye } from "react-icons/md";
 import { ModalPDFUniversal, BotonGenerarPDFUniversal } from '../shared/ModalPDFUniversal';
 import { ModalDetalleCAE } from './ModalDetalleCAE';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 // Función helper para formatear fechas
 const formatearFecha = (fecha) => {
@@ -304,7 +305,7 @@ function TablaProductosEscritorio({ productos }) {
                 <td className="p-2 font-medium">{producto.producto_nombre}</td>
                 <td className="p-2 text-center">{producto.producto_um}</td>
                 <td className="p-2 text-center font-semibold">{cantidad}</td>
-                <td className="p-2 text-right">${precio.toFixed(2)}</td>
+                <td className="p-2 text-right whitespace-nowrap">{formatearMoneda(precio)}</td>
                 <td className="p-2 text-center">
                   {descuentoPorcentaje > 0 ? (
                     <span className="text-orange-600 font-semibold">{descuentoPorcentaje}%</span>
@@ -312,8 +313,8 @@ function TablaProductosEscritorio({ productos }) {
                     <span className="text-gray-400">0%</span>
                   )}
                 </td>
-                <td className="p-2 text-right">${ivaValue.toFixed(2)}</td>
-                <td className="p-2 text-right font-semibold text-green-600">${subtotalSinIva.toFixed(2)}</td>
+                <td className="p-2 text-right whitespace-nowrap">{formatearMoneda(ivaValue)}</td>
+                <td className="p-2 text-right font-semibold text-green-600 whitespace-nowrap">{formatearMoneda(subtotalSinIva)}</td>
               </tr>
             );
           })}
@@ -375,7 +376,7 @@ function SeccionProductosMovil({ productos, expandido, onToggle }) {
                   </div>
                   <div>
                     <span className="text-gray-600 block">Precio:</span>
-                    <span className="font-medium">${precio.toFixed(2)}</span>
+                    <span className="font-medium">{formatearMoneda(precio)}</span>
                   </div>
                   <div>
                     <span className="text-gray-600 block">Descuento:</span>
@@ -387,14 +388,14 @@ function SeccionProductosMovil({ productos, expandido, onToggle }) {
                   </div>
                   <div>
                     <span className="text-gray-600 block">IVA:</span>
-                    <span className="font-medium">${ivaValue.toFixed(2)}</span>
+                    <span className="font-medium">{formatearMoneda(ivaValue)}</span>
                   </div>
                 </div>
 
                 <div className="mt-2 pt-2 border-t border-gray-200">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600 text-xs">Subtotal:</span>
-                    <span className="font-semibold text-green-600">${subtotalSinIva.toFixed(2)}</span>
+                    <span className="font-semibold text-green-600">{formatearMoneda(subtotalSinIva)}</span>
                   </div>
                 </div>
               </div>
@@ -475,25 +476,25 @@ function ResumenTotales({ productos, venta }) {
       <div className="space-y-2">
         <div className="flex justify-between items-center py-1 border-b border-gray-300 text-sm">
           <span className="text-gray-700 font-medium">SUBTOTAL NETO:</span>
-          <span className="font-semibold text-gray-800">${subtotalNeto.toFixed(2)}</span>
+          <span className="font-semibold text-gray-800">{formatearMoneda(subtotalNeto)}</span>
         </div>
         
         <div className="flex justify-between items-center py-1 border-b border-gray-300 text-sm">
           <span className="text-gray-700 font-medium">IVA TOTAL:</span>
-          <span className="font-semibold text-red-600">${ivaTotal.toFixed(2)}</span>
+          <span className="font-semibold text-red-600">{formatearMoneda(ivaTotal)}</span>
         </div>
         
         {/* ✅ Mostrar monto exento si el cliente es exento */}
         {esClienteExento && (
           <div className="flex justify-between items-center py-1 border-b border-gray-300 text-sm">
             <span className="text-gray-700 font-medium italic">MONTO EXENTO (IVA no cobrado):</span>
-            <span className="font-semibold text-orange-600">${montoExento.toFixed(2)}</span>
+            <span className="font-semibold text-orange-600">{formatearMoneda(montoExento)}</span>
           </div>
         )}
         
         <div className="flex justify-between items-center py-2 bg-green-300 rounded-lg px-3 border-2 border-green-400">
           <span className="text-black font-bold">TOTAL FACTURADO:</span>
-          <span className="text-black text-lg font-bold">${totalFinal.toFixed(2)}</span>
+          <span className="text-black text-lg font-bold">{formatearMoneda(totalFinal)}</span>
         </div>
       </div>
     </div>

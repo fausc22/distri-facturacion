@@ -21,6 +21,7 @@ import ModalBase from '../common/ModalBase';
 import LoadingButton from '../common/LoadingButton';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Z_INDEX } from '../../constants/zIndex';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
   const { user } = useAuth();
@@ -359,7 +360,7 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
                       {ventaReferencia.numero_factura} - {ventaReferencia.cliente_nombre}
                     </p>
                     <p className="text-xs text-blue-600">
-                      Total: ${ventaReferencia.total}
+                      Total: {formatearMoneda(ventaReferencia.total)}
                     </p>
                   </div>
                   <button
@@ -480,7 +481,7 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
                       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
                         <div className="text-lg font-semibold text-gray-800 mb-2 sm:mb-0">
                           <p>Total de productos: <span className="text-blue-600">{productos.length}</span></p>
-                          <p>Total de la nota: <span className="text-green-600">${total.toFixed(2)}</span></p>
+                          <p>Total de la nota: <span className="text-green-600">{formatearMoneda(total)}</span></p>
                         </div>
                       </div>
                       <div className="flex flex-col sm:flex-row justify-end gap-4">

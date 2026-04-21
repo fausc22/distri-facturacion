@@ -8,6 +8,7 @@ import { usePedidosHybrid } from '../../hooks/pedidos/usePedidosHybrid';
 import { useConnectionContext } from '../../context/ConnectionContext';
 import { getAppMode, offlineManager } from '../../utils/offlineManager';
 import { usePedidosFormPersistence } from '../../hooks/useFormPersistence';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 // ✅ COMPONENTES HÍBRIDOS
 import ClienteSelectorHybrid from '../../components/pedidos/SelectorClientesHybrid';
@@ -408,9 +409,9 @@ function RegistrarPedidoContent() {
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
             <div className="text-lg font-semibold text-gray-800">
               <p>Total de productos: <span className="text-blue-600">{totalProductos}</span></p>
-              <p>Subtotal sin IVA: <span className="text-gray-700">${subtotal.toFixed(2)}</span></p>
-              <p>IVA total: <span className="text-gray-700">${totalIva.toFixed(2)}</span></p>
-              <p>Total final del pedido: <span className="text-green-600">${total.toFixed(2)}</span></p>
+              <p>Subtotal sin IVA: <span className="text-gray-700">{formatearMoneda(subtotal)}</span></p>
+              <p>IVA total: <span className="text-gray-700">{formatearMoneda(totalIva)}</span></p>
+              <p>Total final del pedido: <span className="text-green-600">{formatearMoneda(total)}</span></p>
             </div>
           </div>
           

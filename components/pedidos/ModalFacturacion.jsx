@@ -5,6 +5,7 @@ import ModalBase from '../common/ModalBase';
 import LoadingButton from '../common/LoadingButton';
 import { Z_INDEX } from '../../constants/zIndex';
 import { roundFacturacion } from '../../utils/rounding';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 // ✅ MODAL DE DESCUENTOS (sin cambios)
 export function ModalDescuentos({
@@ -125,7 +126,7 @@ export function ModalDescuentos({
             </div>
             {tipoDescuento === 'porcentaje' && (
               <p className="text-xs text-gray-500 mt-1">
-                Se aplicará sobre el subtotal (importe neto): ${(subtotalSinIva || 0).toFixed(2)}
+                Se aplicará sobre el subtotal (importe neto): {formatearMoneda(subtotalSinIva || 0)}
               </p>
             )}
           </div>
@@ -136,23 +137,23 @@ export function ModalDescuentos({
               <div className="space-y-1 text-xs">
                 <div className="flex justify-between">
                   <span>Subtotal (neto):</span>
-                  <span>${(subtotalSinIva || 0).toFixed(2)}</span>
+                  <span>{formatearMoneda(subtotalSinIva || 0)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>IVA:</span>
-                  <span>${(ivaTotal || 0).toFixed(2)}</span>
+                  <span>{formatearMoneda(ivaTotal || 0)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Total original:</span>
-                  <span>${(totalConIva || 0).toFixed(2)}</span>
+                  <span>{formatearMoneda(totalConIva || 0)}</span>
                 </div>
                 <div className="flex justify-between text-red-600">
                   <span>Descuento:</span>
-                  <span>-${descuentoCalculado.toFixed(2)}</span>
+                  <span>-{formatearMoneda(descuentoCalculado)}</span>
                 </div>
                 <div className="flex justify-between font-bold border-t pt-1">
                   <span>Total final:</span>
-                  <span className="text-green-600">${nuevoTotal.toFixed(2)}</span>
+                  <span className="text-green-600">{formatearMoneda(nuevoTotal)}</span>
                 </div>
               </div>
             </div>
@@ -450,8 +451,8 @@ export function ModalFacturacion({
                       </p>
                       <p className="text-sm text-yellow-700">
                         {descuentoAplicado.tipo === 'numerico' 
-                          ? `Descuento fijo: $${descuentoAplicado.descuentoCalculado.toFixed(2)}`
-                          : `${descuentoAplicado.valor}% sobre subtotal: $${descuentoAplicado.descuentoCalculado.toFixed(2)}`
+                          ? `Descuento fijo: ${formatearMoneda(descuentoAplicado.descuentoCalculado)}`
+                          : `${descuentoAplicado.valor}% sobre subtotal: ${formatearMoneda(descuentoAplicado.descuentoCalculado)}`
                         }
                       </p>
                     </div>
@@ -475,20 +476,20 @@ export function ModalFacturacion({
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span>Subtotal:</span>
-                  <span>${subtotalSinIva.toFixed(2)}</span>
+                  <span>{formatearMoneda(subtotalSinIva)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>IVA:</span>
-                  <span>${ivaTotal.toFixed(2)}</span>
+                  <span>{formatearMoneda(ivaTotal)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Total original:</span>
-                  <span>${totalOriginal.toFixed(2)}</span>
+                  <span>{formatearMoneda(totalOriginal)}</span>
                 </div>
                 {descuentoAplicado && (
                   <div className="flex justify-between text-red-600">
                     <span>Descuento:</span>
-                    <span>-${descuentoMonto.toFixed(2)}</span>
+                    <span>-{formatearMoneda(descuentoMonto)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold text-lg border-t pt-1 items-center gap-2">
@@ -526,7 +527,7 @@ export function ModalFacturacion({
                     </div>
                   ) : (
                     <div className="flex items-center gap-1">
-                      <span className="text-green-600">${totalFinalDisplay.toFixed(2)}</span>
+                      <span className="text-green-600">{formatearMoneda(totalFinalDisplay)}</span>
                       <button
                         type="button"
                         onClick={() => {

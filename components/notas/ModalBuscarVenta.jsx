@@ -6,6 +6,7 @@ import ModalBase from '../common/ModalBase';
 import LoadingButton from '../common/LoadingButton';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Z_INDEX } from '../../constants/zIndex';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 export function ModalBuscarVenta({ mostrar, onClose, onSeleccionarVenta, buscarVentas }) {
   const [busqueda, setBusqueda] = useState('');
@@ -122,7 +123,7 @@ export function ModalBuscarVenta({ mostrar, onClose, onSeleccionarVenta, buscarV
                         <p className="text-xs text-gray-500">
                           Fecha: {new Date(venta.fecha).toLocaleDateString('es-AR')} | 
                           Tipo: {venta.tipo_f} | 
-                          Total: ${venta.total}
+                          Total: {formatearMoneda(venta.total)}
                         </p>
                       </div>
                       <button className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm">

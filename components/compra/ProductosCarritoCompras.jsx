@@ -1,13 +1,6 @@
 import { useCompra } from '../../context/ComprasContext';
 import { formatearCantidad } from '../../utils/formatearCantidad';
-
-// Formateador de moneda
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS'
-  }).format(value);
-};
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 function ControlCantidad({ cantidad, onCantidadChange }) {
   return (
@@ -56,9 +49,9 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar }) {
                     onCantidadChange={(nuevaCantidad) => onActualizarCantidad(idx, nuevaCantidad)}
                   />
                 </td>
-                <td className="p-2">{formatCurrency(prod.precio_costo)}</td>
-                <td className="p-2">{formatCurrency(prod.precio_venta)}</td>
-                <td className="p-2">{formatCurrency(prod.subtotal)}</td>
+                <td className="p-2 whitespace-nowrap">{formatearMoneda(prod.precio_costo)}</td>
+                <td className="p-2 whitespace-nowrap">{formatearMoneda(prod.precio_venta)}</td>
+                <td className="p-2 whitespace-nowrap">{formatearMoneda(prod.subtotal)}</td>
                 <td className="p-2">
                   <button
                     className="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded"
@@ -124,17 +117,17 @@ function TarjetasMovil({ productos, onActualizarCantidad, onEliminar }) {
               
               <div>
                 <span className="text-gray-600">Precio Costo:</span>
-                <span className="ml-2">{formatCurrency(prod.precio_costo)}</span>
+                <span className="ml-2">{formatearMoneda(prod.precio_costo)}</span>
               </div>
               
               <div>
                 <span className="text-gray-600">Precio Venta:</span>
-                <span className="ml-2">{formatCurrency(prod.precio_venta)}</span>
+                <span className="ml-2">{formatearMoneda(prod.precio_venta)}</span>
               </div>
               
               <div className="col-span-2">
                 <span className="text-gray-600">Subtotal:</span>
-                <span className="ml-2 font-bold">{formatCurrency(prod.subtotal)}</span>
+                <span className="ml-2 font-bold">{formatearMoneda(prod.subtotal)}</span>
               </div>
             </div>
           </div>
@@ -175,7 +168,7 @@ export default function ProductosCarritoCompra() {
       {productos.length > 0 && (
         <div className="mt-6 flex justify-end">
           <div className="bg-green-100 text-green-800 text-2xl font-bold p-4 rounded shadow-lg">
-            Total: {formatCurrency(total)}
+            Total: {formatearMoneda(total)}
           </div>
         </div>
       )}

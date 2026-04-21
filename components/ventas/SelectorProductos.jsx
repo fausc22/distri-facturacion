@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { MdSearch } from "react-icons/md";
 import { useVenta } from '../../context/VentasContext';
 import { useProductoSearch } from '../../hooks/useBusquedaProductos';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 function ControlCantidad({ cantidad, onCantidadChange, className = "" }) {
   return (
@@ -42,7 +43,7 @@ function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAg
         STOCK DISPONIBLE: {producto.stock_actual}
       </div>
       <div className="mb-2 text-black">
-        Precio unitario (IVA incluido): ${precioConIva.toFixed(2)}
+        Precio unitario (IVA incluido): {formatearMoneda(precioConIva)}
       </div>
       
       <div className="flex items-center gap-4 mb-4">
@@ -54,7 +55,7 @@ function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAg
       </div>
 
       <div className="text-black font-semibold mb-4">
-        Subtotal (IVA incluido): ${(precioConIva * cantidad).toFixed(2)}
+        Subtotal (IVA incluido): {formatearMoneda(precioConIva * cantidad)}
       </div>
 
       <button
@@ -107,7 +108,7 @@ function ModalProductos({
                       {producto.nombre}
                     </p>
                     <p className="text-sm text-gray-700">
-                      ${precioConIva.toFixed(2)} (IVA incl.)
+                      {formatearMoneda(precioConIva)} (IVA incl.)
                     </p>
                   </li>
                 );
