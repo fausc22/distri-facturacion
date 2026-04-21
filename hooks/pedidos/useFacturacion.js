@@ -48,6 +48,27 @@ export function useFacturacion() {
     setLoading(true);
     
     try {
+      const subtotal = Number(datosFacturacion?.subtotalSinIva);
+      const iva = Number(datosFacturacion?.ivaTotal);
+      const total = Number(datosFacturacion?.totalConIva);
+      const importesValidos = (
+        Number.isFinite(subtotal) &&
+        Number.isFinite(iva) &&
+        Number.isFinite(total) &&
+        subtotal >= 0 &&
+        iva >= 0 &&
+        total > 0
+      );
+
+      if (!importesValidos) {
+        toast.error('Importes inválidos para facturar. Revise subtotal, IVA y total.');
+        facturandoRef.current = false;
+        return {
+          success: false,
+          error: 'Importes inválidos para facturar'
+        };
+      }
+
       console.log('🧾 Enviando datos de facturación:', datosFacturacion);
       
       const response = await axiosAuth.post(`/ventas/facturar-pedido`, datosFacturacion);

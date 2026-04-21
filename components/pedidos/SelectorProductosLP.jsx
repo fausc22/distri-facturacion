@@ -2,6 +2,7 @@ import { MdSearch } from "react-icons/md";
 import { toast } from 'react-hot-toast'; // Importar toast
 import { useListaPrecios } from '../../context/ListaPreciosContext';
 import { useProductoSearch } from '../../hooks/useBusquedaProductos';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 function ControlCantidad({ cantidad, onCantidadChange, stockDisponible, className = "" }) {
   const formatearCantidad = (cantidad) => {
@@ -91,7 +92,7 @@ function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAg
         STOCK DISPONIBLE: {formatearCantidad(producto.stock_actual)}
       </div>
       <div className="mb-2 text-black">
-        Precio unitario: ${producto.precio}
+        Precio unitario: {formatearMoneda(producto.precio)}
       </div>
       
       <div className="flex items-center gap-4 mb-4">
@@ -113,7 +114,7 @@ function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAg
       )}
 
       <div className="text-black font-semibold mb-4">
-        Subtotal: ${Number(subtotal).toFixed(2)}
+        Subtotal: {formatearMoneda(subtotal)}
       </div>
 
       <button
@@ -160,7 +161,7 @@ function ModalProductos({
                 onClick={() => onSeleccionar(producto)}
               >
                 <div className="flex justify-between items-center">
-                  <span>{producto.nombre} - ${producto.precio}</span>
+                  <span>{producto.nombre} - {formatearMoneda(producto.precio)}</span>
                   <span className={`text-sm ${
                     producto.stock_actual > 0 ? 'text-green-600' : 'text-red-600'
                   }`}>

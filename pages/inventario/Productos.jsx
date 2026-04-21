@@ -9,6 +9,7 @@ import Pagination from '../../components/common/Pagination';
 import ModalProducto from '../../components/productos/ModalProducto';
 import ModalBase from '../../components/common/ModalBase';
 import { formatearCantidad } from '../../utils/formatearCantidad';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 export default function GestionProductos() {
   useAuth();
@@ -314,7 +315,7 @@ export default function GestionProductos() {
                         {producto.unidad_medida || '-'}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-semibold text-green-600">
-                        ${parseFloat(producto.precio || 0).toFixed(2)}
+                        {formatearMoneda(producto.precio || 0)}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
@@ -389,7 +390,7 @@ export default function GestionProductos() {
                     </div>
                     <div>
                       <span className="text-gray-500 text-xs">Precio:</span>
-                      <div className="font-semibold text-green-600">${parseFloat(producto.precio || 0).toFixed(2)}</div>
+                      <div className="font-semibold text-green-600">{formatearMoneda(producto.precio || 0)}</div>
                     </div>
                   </div>
 

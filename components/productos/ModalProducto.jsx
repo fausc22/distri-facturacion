@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ModalBase from '../common/ModalBase';
 import { useProductos } from '../../hooks/useProductos';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 function ModalProducto({
   producto,
@@ -278,7 +279,7 @@ function ModalProducto({
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
             <p className="text-sm text-blue-800">
               <span className="font-semibold">Precio con IVA:</span>{' '}
-              ${(parseFloat(formData.precio) * (1 + parseFloat(formData.iva) / 100)).toFixed(2)}
+              {formatearMoneda(parseFloat(formData.precio) * (1 + parseFloat(formData.iva) / 100))}
             </p>
           </div>
         )}

@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 const SUBTOTAL_MAX = 99999999.99;
 
@@ -189,10 +190,10 @@ export function ModalAgregarFlete({ isOpen, onClose }) {
               {(subtotalNum > 0 || ivaPorcentaje !== 0) && (
                 <div className="rounded-md bg-gray-50 border border-gray-200 p-3 text-sm">
                   <p className="text-gray-600">
-                    IVA: <span className="font-semibold text-gray-900">${ivaMonto.toFixed(2)}</span>
+                    IVA: <span className="font-semibold text-gray-900">{formatearMoneda(ivaMonto)}</span>
                   </p>
                   <p className="text-gray-600 mt-1">
-                    Total: <span className="font-semibold text-green-700">${total.toFixed(2)}</span>
+                    Total: <span className="font-semibold text-green-700">{formatearMoneda(total)}</span>
                   </p>
                 </div>
               )}

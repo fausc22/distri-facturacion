@@ -1,5 +1,6 @@
 import { useListaPrecios } from '../../context/ListaPreciosContext';
 import { formatearCantidad } from '../../utils/formatearCantidad';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 function ControlCantidad({ cantidad, onCantidadChange }) {
   return (
@@ -50,8 +51,8 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar }) {
                       onCantidadChange={(nuevaCantidad) => onActualizarCantidad(idx, nuevaCantidad)}
                     />
                   </td>
-                  <td className="p-2">${precioConIva.toFixed(2)}</td>
-                  <td className="p-2">${subtotalConIva.toFixed(2)}</td>
+                  <td className="p-2 whitespace-nowrap">{formatearMoneda(precioConIva)}</td>
+                  <td className="p-2 whitespace-nowrap">{formatearMoneda(subtotalConIva)}</td>
                   <td className="p-2">
                     <button
                       className="bg-red-500 hover:bg-red-700 text-white px-2 py-1 rounded"
@@ -116,11 +117,11 @@ function TarjetasMovil({ productos, onActualizarCantidad, onEliminar }) {
                 </div>
                 <div>
                   <span className="text-gray-600">Precio (IVA incl.):</span>
-                  <span className="ml-2 font-medium">${precioConIva.toFixed(2)}</span>
+                  <span className="ml-2 font-medium">{formatearMoneda(precioConIva)}</span>
                 </div>
                 <div>
                   <span className="text-gray-600">Subtotal:</span>
-                  <span className="ml-2 font-medium">${subtotalConIva.toFixed(2)}</span>
+                  <span className="ml-2 font-medium">{formatearMoneda(subtotalConIva)}</span>
                 </div>
               </div>
             </div>
@@ -167,7 +168,7 @@ export default function ProductosCarritoListaPrecios() {
       
       {/* Total con IVA incluido */}
       <div className="mt-6 text-right">
-        <p className="text-xl font-bold">Total (IVA incluido): ${totalConIva.toFixed(2)}</p>
+        <p className="text-xl font-bold">Total (IVA incluido): {formatearMoneda(totalConIva)}</p>
       </div>
     </div>
   );

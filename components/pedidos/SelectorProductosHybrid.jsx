@@ -3,6 +3,7 @@ import { MdSearch } from "react-icons/md";
 import { toast } from 'react-hot-toast';
 import { usePedidosContext } from '../../context/PedidosContext';
 import { useProductoSearchHybrid } from '../../hooks/useProductSearchHybrid';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 
 const formatearStock = (stock) => {
@@ -10,8 +11,6 @@ const formatearStock = (stock) => {
   // Si es entero, mostrar sin decimales. Si es decimal, mostrar con decimales
   return stockNum % 1 === 0 ? stockNum.toString() : stockNum.toFixed(1);
 };
-
-const formatearMoneda = (monto) => `$${Number(monto || 0).toFixed(2)}`;
 
 const obtenerPorcentajeIva = (producto) => {
   const iva = Number(producto?.iva ?? producto?.porcentaje_iva ?? 21);

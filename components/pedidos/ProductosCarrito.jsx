@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
 import { ModalEditarProductoVentaDirecta } from '../ventas/ModalEditarProductoVentaDirecta';
-
-const formatearMoneda = (monto) => `$${Number(monto || 0).toFixed(2)}`;
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 const calcularConIva = (montoBase, porcentajeIva) =>
   Number(montoBase || 0) * (1 + (Number(porcentajeIva || 0) / 100));
@@ -98,7 +97,7 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
                     </div>
                   </td>
                   <td className="p-3 text-center">{prod.unidad_medida || 'Unidad'}</td>
-                  <td className="p-3 text-center">
+                  <td className="p-3 text-center whitespace-nowrap">
                     <div className="flex flex-col items-center">
                       <ControlCantidad
                         cantidad={prod.cantidad}
@@ -137,11 +136,11 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
                     />
                     <span className="text-xs ml-1">%</span>
                     {descuentoPorcentaje > 0 && (
-                      <div className="text-xs text-red-600">-${montoDescuento.toFixed(2)}</div>
+                      <div className="text-xs text-red-600">-{formatearMoneda(montoDescuento)}</div>
                     )}
                   </td>
                   <td className="p-3 text-center">{prod.porcentaje_iva}%</td>
-                  <td className="p-3 text-center">
+                  <td className="p-3 text-center whitespace-nowrap">
                     <div className="text-sm text-gray-600">Neto</div>
                     <div className="font-medium">{formatearMoneda(prod.subtotal)}</div>
                     <div className="mt-1 text-sm text-gray-600">Final c/IVA</div>
@@ -222,7 +221,7 @@ function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento,
                   <p className="text-sm text-gray-600">Unidad: {prod.unidad_medida || 'Unidad'}</p>
                   {descuentoPorcentaje > 0 && (
                     <div className="text-xs bg-orange-100 text-orange-800 px-2 py-1 rounded mt-1 inline-block">
-                      {descuentoPorcentaje}% descuento (-${montoDescuento.toFixed(2)})
+                      {descuentoPorcentaje}% descuento (-{formatearMoneda(montoDescuento)})
                     </div>
                   )}
                 </div>
@@ -294,7 +293,7 @@ function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento,
                       <span className="text-sm ml-1">%</span>
                     </div>
                     {descuentoPorcentaje > 0 && (
-                      <div className="text-xs text-red-600 mt-1">-${montoDescuento.toFixed(2)}</div>
+                      <div className="text-xs text-red-600 mt-1">-{formatearMoneda(montoDescuento)}</div>
                     )}
                   </div>
                   <div>
@@ -391,11 +390,11 @@ export default function ProductosCarrito() {
             <div className="flex flex-col space-y-2">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Subtotal (sin IVA):</span>
-                <span className="font-medium">${subtotal.toFixed(2)}</span>
+                <span className="font-medium">{formatearMoneda(subtotal)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">IVA Total:</span>
-                <span className="font-medium">${totalIva.toFixed(2)}</span>
+                <span className="font-medium">{formatearMoneda(totalIva)}</span>
               </div>
               {/* ✅ Mostrar monto exento si el cliente es exento */}
               {(() => {
@@ -413,7 +412,7 @@ export default function ProductosCarrito() {
                     <div className="flex justify-between items-center bg-blue-50 p-2 rounded border border-blue-200 mt-1">
                       <span className="text-blue-700 font-medium">Monto Exento (IVA no cobrado):</span>
                       <span className="font-bold text-blue-600">
-                        ${montoExento.toFixed(2)}
+                        {formatearMoneda(montoExento)}
                       </span>
                     </div>
                   );
@@ -423,7 +422,7 @@ export default function ProductosCarrito() {
               <hr className="my-2" />
               <div className="flex justify-between items-center text-lg">
                 <span className="font-semibold">Total final a cobrar (con IVA):</span>
-                <span className="font-bold text-green-600">${total.toFixed(2)}</span>
+                <span className="font-bold text-green-600">{formatearMoneda(total)}</span>
               </div>
             </div>
           </div>

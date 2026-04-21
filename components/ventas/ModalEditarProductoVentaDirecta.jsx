@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import useAuth from '../../hooks/useAuth';
+import { formatearMoneda } from '../../utils/formatearMoneda';
 
 export function ModalEditarProductoVentaDirecta({
   producto,
@@ -372,12 +373,12 @@ export function ModalEditarProductoVentaDirecta({
                   <div className="bg-white border border-yellow-200 rounded p-2 space-y-2">
                     <div className="flex items-center justify-between text-xs sm:text-sm text-gray-700">
                       <span>Precio neto calculado:</span>
-                      <span className="font-semibold">${localPrecio.toFixed(2)}</span>
+                      <span className="font-semibold">{formatearMoneda(localPrecio)}</span>
                     </div>
                     <div className="flex items-center justify-between text-xs sm:text-sm text-gray-700">
                       <span>IVA unitario ({porcentajeIva}%):</span>
                       <span className="font-semibold">
-                        ${(Math.max(0, localPrecioFinalManual - localPrecio)).toFixed(2)}
+                        {formatearMoneda(Math.max(0, localPrecioFinalManual - localPrecio))}
                       </span>
                     </div>
                   </div>
@@ -452,7 +453,7 @@ export function ModalEditarProductoVentaDirecta({
                   />
                   <span className="text-orange-600">%</span>
                   <div className="flex-1 text-sm text-orange-700">
-                    Descuento: <span className="font-bold">${montoDescuento.toFixed(2)}</span>
+                    Descuento: <span className="font-bold">{formatearMoneda(montoDescuento)}</span>
                   </div>
                 </div>
               </div>
@@ -464,21 +465,21 @@ export function ModalEditarProductoVentaDirecta({
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span>Subtotal base:</span>
-                  <span>${subtotalBase.toFixed(2)}</span>
+                  <span>{formatearMoneda(subtotalBase)}</span>
                 </div>
                 {localDescuento > 0 && (
                   <div className="flex justify-between text-orange-600">
                     <span>Descuento ({localDescuento}%):</span>
-                    <span>-${montoDescuento.toFixed(2)}</span>
+                    <span>-{formatearMoneda(montoDescuento)}</span>
                   </div>
                 )}
                 <div className="flex justify-between font-bold border-t pt-1">
                   <span>Subtotal final:</span>
-                  <span className="text-green-600">${subtotalFinal.toFixed(2)}</span>
+                  <span className="text-green-600">{formatearMoneda(subtotalFinal)}</span>
                 </div>
                 <div className="flex justify-between text-sm text-gray-600">
                   <span>IVA ({porcentajeIva}%):</span>
-                  <span>${ivaCalculado.toFixed(2)}</span>
+                  <span>{formatearMoneda(ivaCalculado)}</span>
                 </div>
                 <div className="flex flex-col gap-1 border-t pt-2">
                   <label className="text-sm font-medium text-gray-700">
@@ -504,7 +505,7 @@ export function ModalEditarProductoVentaDirecta({
                 </div>
                 <div className="flex justify-between font-bold text-blue-600 border-t pt-1">
                   <span>Total con IVA:</span>
-                  <span>${(subtotalFinal + ivaCalculado).toFixed(2)}</span>
+                  <span>{formatearMoneda(subtotalFinal + ivaCalculado)}</span>
                 </div>
               </div>
             </div>
