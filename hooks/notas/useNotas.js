@@ -47,18 +47,9 @@ export function useNotas() {
     const totalIva = productos.reduce((acc, prod) => acc + prod.iva_calculado, 0);
     const total = subtotal + totalIva;
     
-    // Calcular monto exento
+    // Calcular monto exento fiscal (no afecta el precio final comercial)
     const esClienteExento = cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
-    let montoExento = 0;
-    
-    if (esClienteExento && productos && productos.length > 0) {
-      montoExento = productos.reduce((acc, prod) => {
-        const porcentajeIva = prod.porcentaje_iva || 21;
-        const subtotal = parseFloat(prod.subtotal) || 0;
-        const ivaQueDeberiaCobrarse = parseFloat((subtotal * (porcentajeIva / 100)).toFixed(2));
-        return acc + ivaQueDeberiaCobrarse;
-      }, 0);
-    }
+    const montoExento = esClienteExento ? totalIva : 0;
 
     // Preparar datos de la nota
     const notaData = {

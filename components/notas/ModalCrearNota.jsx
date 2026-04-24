@@ -212,7 +212,6 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
       const ivaCalculado = cantFacturada > 0 && subtotalLinea > 0
         ? (ivaLinea * cantAAnular) / cantFacturada
         : 0;
-      const ivaFinal = esClienteExento ? 0 : ivaCalculado;
       const porcentajeIva = subtotalLinea > 0 ? (ivaLinea / subtotalLinea) * 100 : 21;
       lista.push({
         id: item.producto_id,
@@ -221,7 +220,7 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
         cantidad: cantAAnular,
         precio,
         subtotal: parseFloat((subtotalAnular).toFixed(2)),
-        iva_calculado: parseFloat((ivaFinal).toFixed(2)),
+        iva_calculado: parseFloat((ivaCalculado).toFixed(2)),
         porcentaje_iva: porcentajeIva,
         esManual: false
       });

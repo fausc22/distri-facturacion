@@ -77,9 +77,8 @@ export function TablaItemsReferenciaNC({
       const ivaAnular = cantFacturada > 0 && subtotalLinea > 0
         ? (ivaLinea * cantAAnular) / cantFacturada
         : 0;
-      const ivaFinal = esClienteExento ? 0 : ivaAnular;
       st += subtotalAnular;
-      iva += ivaFinal;
+      iva += ivaAnular;
       return {
         ...item,
         index,
@@ -87,7 +86,7 @@ export function TablaItemsReferenciaNC({
         precio,
         cantAAnular,
         subtotalAnular,
-        ivaAnular: ivaFinal
+        ivaAnular
       };
     });
     const total = roundFacturacion(st + iva);
