@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast';
 import { usePedidosContext } from '../../context/PedidosContext';
 import { useProductoSearchHybrid } from '../../hooks/useProductSearchHybrid';
 import { formatearMoneda } from '../../utils/formatearMoneda';
+import { roundFacturacion } from '../../utils/rounding';
 
 
 const formatearStock = (stock) => {
@@ -18,7 +19,7 @@ const obtenerPorcentajeIva = (producto) => {
 };
 
 const calcularMontoConIva = (montoBase, porcentajeIva) =>
-  Number(montoBase || 0) * (1 + porcentajeIva / 100);
+  roundFacturacion(Number(montoBase || 0) * (1 + porcentajeIva / 100));
 
 
 function ControlCantidad({ cantidad, onCantidadChange, stockDisponible, className = "" }) {

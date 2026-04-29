@@ -3,6 +3,7 @@ import { toast } from 'react-hot-toast'; // Importar toast
 import { useListaPrecios } from '../../context/ListaPreciosContext';
 import { useProductoSearch } from '../../hooks/useBusquedaProductos';
 import { formatearMoneda } from '../../utils/formatearMoneda';
+import { roundFacturacion } from '../../utils/rounding';
 
 function ControlCantidad({ cantidad, onCantidadChange, stockDisponible, className = "" }) {
   const formatearCantidad = (cantidad) => {
@@ -86,13 +87,17 @@ function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAg
 
   const stockInsuficiente = cantidad > producto.stock_actual;
 
+  const precioFinal = roundFacturacion(Number(producto.precio || 0) * 1.21);
+  const subtotalFinal = roundFacturacion(Number(subtotal || 0) * 1.21);
+
   return (
     <div className="mt-4">
       <div className={`mb-2 text-xl font-bold ${producto.stock_actual > 0 ? 'text-green-700' : 'text-red-600'}`}>
         STOCK DISPONIBLE: {formatearCantidad(producto.stock_actual)}
       </div>
       <div className="mb-2 text-black">
-        Precio unitario: {formatearMoneda(producto.precio)}
+        <div>Precio unitario neto: {formatearMoneda(producto.precio)}</div>
+        <div className="font-semibold text-green-700">Precio final c/IVA: {formatearMoneda(precioFinal)}</div>
       </div>
       
       <div className="flex items-center gap-4 mb-4">
@@ -114,7 +119,8 @@ function DetallesProducto({ producto, cantidad, subtotal, onCantidadChange, onAg
       )}
 
       <div className="text-black font-semibold mb-4">
-        Subtotal: {formatearMoneda(subtotal)}
+        <div>Subtotal neto: {formatearMoneda(subtotal)}</div>
+        <div className="text-green-700">Subtotal final c/IVA: {formatearMoneda(subtotalFinal)}</div>
       </div>
 
       <button
@@ -161,7 +167,7 @@ function ModalProductos({
                 onClick={() => onSeleccionar(producto)}
               >
                 <div className="flex justify-between items-center">
-                  <span>{producto.nombre} - {formatearMoneda(producto.precio)}</span>
+                  <span>{producto.nombre} - Neto: {formatearMoneda(producto.precio)} | Final c/IVA: {formatearMoneda(roundFacturacion(Number(producto.precio || 0) * 1.21))}</span>
                   <span className={`text-sm ${
                     producto.stock_actual > 0 ? 'text-green-600' : 'text-red-600'
                   }`}>

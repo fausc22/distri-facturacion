@@ -297,7 +297,10 @@ function TablaProductosEscritorio({ productos }) {
             const cantidad = Number(producto.cantidad) || 0;
             const ivaValue = Number(producto.iva) || 0;
             const descuentoPorcentaje = Number(producto.descuento_porcentaje) || 0;
-            const subtotalSinIva = cantidad * precio;
+            const subtotalSinIva = Number.isFinite(Number(producto.subtotal))
+              ? Number(producto.subtotal)
+              : (cantidad * precio);
+            const precioUnitarioMostrado = cantidad > 0 ? (subtotalSinIva / cantidad) : precio;
 
             return (
               <tr key={producto.id} className="hover:bg-gray-100 border-b">
@@ -305,7 +308,7 @@ function TablaProductosEscritorio({ productos }) {
                 <td className="p-2 font-medium">{producto.producto_nombre}</td>
                 <td className="p-2 text-center">{producto.producto_um}</td>
                 <td className="p-2 text-center font-semibold">{cantidad}</td>
-                <td className="p-2 text-right whitespace-nowrap">{formatearMoneda(precio)}</td>
+                <td className="p-2 text-right whitespace-nowrap">{formatearMoneda(precioUnitarioMostrado)}</td>
                 <td className="p-2 text-center">
                   {descuentoPorcentaje > 0 ? (
                     <span className="text-orange-600 font-semibold">{descuentoPorcentaje}%</span>
@@ -354,7 +357,10 @@ function SeccionProductosMovil({ productos, expandido, onToggle }) {
             const cantidad = Number(producto.cantidad) || 0;
             const ivaValue = Number(producto.iva) || 0;
             const descuentoPorcentaje = Number(producto.descuento_porcentaje) || 0;
-            const subtotalSinIva = cantidad * precio;
+            const subtotalSinIva = Number.isFinite(Number(producto.subtotal))
+              ? Number(producto.subtotal)
+              : (cantidad * precio);
+            const precioUnitarioMostrado = cantidad > 0 ? (subtotalSinIva / cantidad) : precio;
 
             return (
               <div key={producto.id} className="bg-white p-3 rounded shadow border">
@@ -376,7 +382,7 @@ function SeccionProductosMovil({ productos, expandido, onToggle }) {
                   </div>
                   <div>
                     <span className="text-gray-600 block">Precio:</span>
-                    <span className="font-medium">{formatearMoneda(precio)}</span>
+                    <span className="font-medium">{formatearMoneda(precioUnitarioMostrado)}</span>
                   </div>
                   <div>
                     <span className="text-gray-600 block">Descuento:</span>
@@ -441,13 +447,16 @@ function TablaProductos({ productos, loading }) {
 }
 
 function ResumenTotales({ productos, venta }) {
-  const subtotalNeto = venta?.subtotal ? Number(venta.subtotal) : productos.reduce((acc, prod) => {
+  const subtotalCabecera = Number(venta?.subtotal);
+  const subtotalNeto = Number.isFinite(subtotalCabecera) ? subtotalCabecera : productos.reduce((acc, prod) => {
     const precio = Number(prod.precio) || 0;
     const cantidad = Number(prod.cantidad) || 0;
-    return acc + (cantidad * precio);
+    const subtotalLinea = Number.isFinite(Number(prod.subtotal)) ? Number(prod.subtotal) : (cantidad * precio);
+    return acc + subtotalLinea;
   }, 0);
 
-  const ivaTotal = venta?.iva_total ? Number(venta.iva_total) : productos.reduce((acc, prod) => {
+  const ivaCabecera = Number(venta?.iva_total);
+  const ivaTotal = Number.isFinite(ivaCabecera) ? ivaCabecera : productos.reduce((acc, prod) => {
     const ivaValue = Number(prod.iva) || 0;
     return acc + ivaValue;
   }, 0);
@@ -467,7 +476,8 @@ function ResumenTotales({ productos, venta }) {
     }, 0);
   }
 
-  const totalFinal = venta?.total ? Number(venta.total) : subtotalNeto + ivaTotal;
+  const totalCabecera = Number(venta?.total);
+  const totalFinal = Number.isFinite(totalCabecera) ? totalCabecera : subtotalNeto + ivaTotal;
 
   if (productos.length === 0) return null;
 

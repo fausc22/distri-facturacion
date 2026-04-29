@@ -4,6 +4,7 @@ import { toast } from 'react-hot-toast'; // Importar toast
 import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
 import { useProductoSearch } from '../../hooks/useBusquedaProductos';
 import { ModalAgregarFlete } from '../ventas/ModalAgregarFlete';
+import { roundFacturacion } from '../../utils/rounding';
 
 const formatearMoneda = (monto) => `$${Number(monto || 0).toFixed(2)}`;
 
@@ -13,7 +14,7 @@ const obtenerPorcentajeIva = (producto) => {
 };
 
 const calcularMontoConIva = (montoBase, porcentajeIva) =>
-  Number(montoBase || 0) * (1 + porcentajeIva / 100);
+  roundFacturacion(Number(montoBase || 0) * (1 + porcentajeIva / 100));
 
 function ControlCantidad({ cantidad, onCantidadChange, stockDisponible, className = "" }) {
   const formatearCantidad = (cantidad) => {

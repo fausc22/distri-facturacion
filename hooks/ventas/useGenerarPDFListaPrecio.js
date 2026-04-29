@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 import { useGenerarPDFUniversal } from '../shared/useGenerarPDFUniversal';
+import { roundFacturacion } from '../../utils/rounding';
 
 export function useGenerarPDF() {
   const [loading, setLoading] = useState(false);
@@ -36,8 +37,8 @@ export function useGenerarPDF() {
       productos: productos.map(p => {
         // Calcular precio con IVA incluido
         const precioSinIva = parseFloat(p.precio);
-        const precioConIva = precioSinIva * 1.21;
-        const subtotalConIva = precioConIva * parseFloat(p.cantidad);
+        const precioConIva = roundFacturacion(precioSinIva * 1.21);
+        const subtotalConIva = roundFacturacion(precioConIva * parseFloat(p.cantidad));
         
         return {
           id: p.id,
