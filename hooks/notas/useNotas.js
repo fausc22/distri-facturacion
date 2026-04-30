@@ -42,6 +42,27 @@ export function useNotas() {
       return { success: false, error: 'Sesión inválida para crear nota' };
     }
 
+    const productoValido = (p) => {
+      const nombreValido = Boolean((p?.nombre || '').toString().trim());
+      const cantidad = Number(p?.cantidad);
+      const precio = Number(p?.precio);
+      const subtotal = Number(p?.subtotal);
+      const iva = Number(p?.iva_calculado);
+      return (
+        nombreValido &&
+        Number.isFinite(cantidad) && cantidad > 0 &&
+        Number.isFinite(precio) && precio >= 0 &&
+        Number.isFinite(subtotal) && subtotal > 0 &&
+        Number.isFinite(iva) && iva >= 0
+      );
+    };
+
+    const productosInvalidos = productos.filter((p) => !productoValido(p));
+    if (productosInvalidos.length > 0) {
+      toast.error('Hay líneas inválidas en la nota. Revise cantidades e importes.');
+      return { success: false };
+    }
+
     // Calcular totales
     const subtotal = productos.reduce((acc, prod) => acc + prod.subtotal, 0);
     const totalIva = productos.reduce((acc, prod) => acc + prod.iva_calculado, 0);

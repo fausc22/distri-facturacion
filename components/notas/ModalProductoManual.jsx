@@ -13,6 +13,16 @@ export function ModalProductoManual({ mostrar, onClose, onGuardar }) {
   const [subtotal, setSubtotal] = useState(0);
   const [editandoSubtotal, setEditandoSubtotal] = useState(false);
 
+  const resetFormulario = () => {
+    setNombre('');
+    setUnidadMedida('Unidad');
+    setCantidad(1);
+    setPrecio(0);
+    setPorcentajeIva(21);
+    setSubtotal(0);
+    setEditandoSubtotal(false);
+  };
+
   // Calcular subtotal automáticamente
   useEffect(() => {
     if (!editandoSubtotal) {
@@ -66,25 +76,11 @@ export function ModalProductoManual({ mostrar, onClose, onGuardar }) {
 
     onGuardar(productoManual);
     
-    // Limpiar formulario
-    setNombre('');
-    setUnidadMedida('Unidad');
-    setCantidad(1);
-    setPrecio(0);
-    setPorcentajeIva(21);
-    setSubtotal(0);
-    setEditandoSubtotal(false);
+    resetFormulario();
   };
 
   const handleClose = () => {
-    // Limpiar formulario
-    setNombre('');
-    setUnidadMedida('Unidad');
-    setCantidad(1);
-    setPrecio(0);
-    setPorcentajeIva(21);
-    setSubtotal(0);
-    setEditandoSubtotal(false);
+    resetFormulario();
     onClose();
   };
 
@@ -99,7 +95,7 @@ export function ModalProductoManual({ mostrar, onClose, onGuardar }) {
       onClose={handleClose}
       title="Agregar Producto Manual"
       size="lg"
-      closeOnOverlay
+      closeOnOverlay={false}
       closeOnEscape
       zIndex={Z_INDEX.MODAL_CRITICAL}
       panelClassName="max-w-lg max-h-[90vh] p-4 sm:p-6"
@@ -157,7 +153,10 @@ export function ModalProductoManual({ mostrar, onClose, onGuardar }) {
               <input
                 type="number"
                 value={cantidad}
-                onChange={(e) => setCantidad(parseFloat(e.target.value) || 1)}
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value);
+                  setCantidad(Number.isFinite(value) ? value : 1);
+                }}
                 min="0.5"
                 step="0.5"
                 className="border p-2 w-full rounded text-sm"
@@ -172,7 +171,10 @@ export function ModalProductoManual({ mostrar, onClose, onGuardar }) {
               <input
                 type="number"
                 value={precio}
-                onChange={(e) => setPrecio(parseFloat(e.target.value) || 0)}
+                onChange={(e) => {
+                  const value = parseFloat(e.target.value);
+                  setPrecio(Number.isFinite(value) ? value : 0);
+                }}
                 min="0"
                 step="0.01"
                 className="border p-2 w-full rounded text-sm"
@@ -184,15 +186,14 @@ export function ModalProductoManual({ mostrar, onClose, onGuardar }) {
               <label className="block mb-1 font-medium text-sm text-gray-700">
                 IVA (%) *
               </label>
-              <input
-                type="number"
+              <select
                 value={porcentajeIva}
-                onChange={(e) => setPorcentajeIva(parseFloat(e.target.value) || 21)}
-                min="0"
-                max="100"
-                step="0.1"
+                onChange={(e) => setPorcentajeIva(Number(e.target.value))}
                 className="border p-2 w-full rounded text-sm"
-              />
+              >
+                <option value={21}>21</option>
+                <option value={0}>0</option>
+              </select>
             </div>
 
             {/* Subtotal (editable) */}

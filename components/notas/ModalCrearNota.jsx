@@ -37,6 +37,7 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
     setCliente,
     setVentaReferencia,
     setProductos,
+    removeProducto,
     clearCliente,
     clearVentaReferencia,
     clearNota,
@@ -178,8 +179,10 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
     setModoCreacion('sin_referencia');
   };
 
-  const esNCConReferencia = tipoNota === 'NOTA_CREDITO' && ventaReferencia;
+  const esNotaConReferencia =
+    (tipoNota === 'NOTA_CREDITO' || tipoNota === 'NOTA_DEBITO') && ventaReferencia;
   const esClienteExento = (cliente?.condicion_iva || ventaReferencia?.cliente_condicion || '').toUpperCase() === 'EXENTO';
+  const productosManuales = productos.filter((p) => p.esManual);
 
   const handleCantidadAAnularChange = useCallback((index, value) => {
     setCantidadAAnular((prev) => ({ ...prev, [index]: value }));
@@ -226,7 +229,27 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
       });
     });
     return lista;
-  }, [itemsReferenciaVenta, cantidadAAnular, esClienteExento]);
+  }, [itemsReferenciaVenta, cantidadAAnular]);
+
+  const validarProductoManual = (productoManual) => {
+    const nombreValido = Boolean((productoManual?.nombre || '').toString().trim());
+    const cantidad = parseFloat(productoManual?.cantidad);
+    const precio = parseFloat(productoManual?.precio);
+    const subtotal = parseFloat(productoManual?.subtotal);
+    const iva = parseFloat(productoManual?.iva_calculado ?? 0);
+
+    return (
+      nombreValido &&
+      Number.isFinite(cantidad) &&
+      cantidad > 0 &&
+      Number.isFinite(precio) &&
+      precio >= 0 &&
+      Number.isFinite(subtotal) &&
+      subtotal > 0 &&
+      Number.isFinite(iva) &&
+      iva >= 0
+    );
+  };
 
   const handleContinuarAFacturacion = () => {
     if (!ventaReferencia && !cliente) {
@@ -234,13 +257,21 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
       return;
     }
 
-    if (esNCConReferencia) {
+    if (esNotaConReferencia) {
       const productosDesdeRef = buildProductosDesdeReferencia();
-      if (productosDesdeRef.length === 0) {
-        toast.error('Indique al menos una cantidad a anular');
+      const manualesValidos = productosManuales.filter(validarProductoManual);
+      const productosFinales = [...productosDesdeRef, ...manualesValidos];
+
+      if (productosFinales.length === 0) {
+        toast.error('Indique al menos una cantidad a ajustar o agregue un concepto manual');
         return;
       }
-      setProductos(productosDesdeRef);
+      if (productosManuales.length > manualesValidos.length) {
+        toast.error('Hay conceptos manuales incompletos o inválidos');
+        return;
+      }
+
+      setProductos(productosFinales);
     } else {
       if (productos.length === 0) {
         toast.error('Debe agregar al menos un producto');
@@ -409,10 +440,22 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
             {/* Paso 2: NC con referencia → grilla de anulación; resto → selector + carrito */}
             {(ventaReferencia || cliente) && (
               <>
-                {esNCConReferencia ? (
+                {esNotaConReferencia ? (
                   <>
                     <div className="mb-6">
-                      <h3 className="font-semibold mb-2 text-gray-800">Indique qué cantidades anular de la venta de referencia:</h3>
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="font-semibold text-gray-800">
+                          {tipoNota === 'NOTA_CREDITO'
+                            ? 'Indique qué cantidades anular de la venta de referencia:'
+                            : 'Indique qué cantidades/de conceptos tomar de la venta de referencia:'}
+                        </h3>
+                        <button
+                          onClick={handleAgregarProductoManual}
+                          className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors flex items-center gap-2"
+                        >
+                          ➕ Agregar concepto manual
+                        </button>
+                      </div>
                       {loadingItemsReferencia ? (
                         <div className="flex items-center justify-center py-12 border border-gray-200 rounded-lg bg-gray-50">
                           <LoadingSpinner size="lg" colorClass="border-red-600" className="mx-auto" />
@@ -433,6 +476,37 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
                         />
                       )}
                     </div>
+                    {productosManuales.length > 0 && (
+                      <div className="mb-6 p-4 border border-purple-200 bg-purple-50 rounded-lg">
+                        <h4 className="font-semibold text-purple-900 mb-2">Ajustes manuales</h4>
+                        <div className="space-y-2">
+                          {productosManuales.map((manual, idx) => {
+                            const indexReal = productos.findIndex((p) => p === manual);
+                            const totalLinea = (parseFloat(manual.subtotal) || 0) + (parseFloat(manual.iva_calculado) || 0);
+                            return (
+                              <div
+                                key={`manual-${idx}`}
+                                className="flex items-center justify-between bg-white border border-purple-100 rounded px-3 py-2"
+                              >
+                                <div>
+                                  <p className="font-medium text-gray-800">{manual.nombre}</p>
+                                  <p className="text-xs text-gray-600">
+                                    Cant: {manual.cantidad} · Precio: {formatearMoneda(manual.precio)} · Total: {formatearMoneda(totalLinea)}
+                                  </p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => removeProducto(indexReal)}
+                                  className="text-red-600 hover:text-red-800 font-semibold text-sm"
+                                >
+                                  Quitar
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     <div className="mb-6">
                       <ObservacionesPedido />
                     </div>
@@ -443,7 +517,13 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
                             loading ? 'bg-gray-500 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700'
                           }`}
                           onClick={handleContinuarAFacturacion}
-                          disabled={loadingItemsReferencia || itemsReferenciaVenta.length === 0 || !Object.values(cantidadAAnular).some((c) => (c ?? 0) > 0)}
+                          disabled={
+                            loadingItemsReferencia ||
+                            (
+                              !Object.values(cantidadAAnular).some((c) => (c ?? 0) > 0) &&
+                              productosManuales.length === 0
+                            )
+                          }
                           loading={loading}
                           loadingText="Procesando..."
                         >

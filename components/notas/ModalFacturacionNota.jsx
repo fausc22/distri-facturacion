@@ -219,10 +219,12 @@ export function ModalFacturacionNota({
                 <span>Subtotal:</span>
                 <span>${subtotalSinIva.toFixed(2)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>IVA:</span>
-                <span>${ivaTotal.toFixed(2)}</span>
-              </div>
+              {tipoFiscal !== 'B' && (
+                <div className="flex justify-between">
+                  <span>IVA:</span>
+                  <span>${ivaTotal.toFixed(2)}</span>
+                </div>
+              )}
               {(montoExento > 0 || cliente?.condicion_iva?.toUpperCase() === 'EXENTO') && (
                 <div className="flex justify-between text-blue-600">
                   <span>Monto Exento (IVA no cobrado):</span>
