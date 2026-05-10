@@ -59,11 +59,20 @@ export function useOfflineCatalog() {
         const { clientes, productos, metadata } = response.data.data;
         
         console.log(`📥 Descargando: ${clientes.length} clientes, ${productos.length} productos`);
+
+        // Offline-first: usar stock "disponible" (real − stock_minimo) como stock_actual local
+        const productosOffline = productos.map((p) => ({
+          ...p,
+          stock_actual:
+            p.stock_disponible_offline !== undefined && p.stock_disponible_offline !== null
+              ? p.stock_disponible_offline
+              : p.stock_actual
+        }));
         
         // Guardar datos offline en paralelo
         await Promise.all([
           offlineManager.saveClientes(clientes),
-          offlineManager.saveProductos(productos)
+          offlineManager.saveProductos(productosOffline)
         ]);
         
         offlineManager.setLastSync('catalogo');
@@ -548,6 +557,10 @@ export function useOfflinePedidos() {
     let exitosos = 0;
     let fallidos = 0;
     let duplicados = 0;
+    let fallidosStock = 0;
+
+    const mensajeEsStockInsuficiente = (msg) =>
+      typeof msg === 'string' && msg.includes('Stock insuficiente');
 
     try {
       console.log(`🔄 [useOfflinePedidos] Sincronizando ${pedidosActuales.length} pedidos pendientes...`);
@@ -609,9 +622,14 @@ export function useOfflinePedidos() {
                 exitosos++;
               }
             } else {
-              // Error del servidor
-              console.error(`❌ [useOfflinePedidos] Error del servidor para pedido ${tempId}: ${response.data.message}`);
-              offlineManager.markPedidoAsFailed(tempId, response.data.message);
+              const msg = response.data.message || '';
+              console.error(`❌ [useOfflinePedidos] Error del servidor para pedido ${tempId}: ${msg}`);
+              if (mensajeEsStockInsuficiente(msg)) {
+                offlineManager.markPedidoStockIssue(tempId, msg);
+                fallidosStock++;
+              } else {
+                offlineManager.markPedidoAsFailed(tempId, msg);
+              }
               fallidos++;
             }
           } catch (requestError) {
@@ -639,6 +657,11 @@ export function useOfflinePedidos() {
               offlineManager.removePedidoPendiente(tempId);
               duplicados++;
               exitosos++;
+            } else if (mensajeEsStockInsuficiente(requestError.response?.data?.message || '')) {
+              const serverMsg = requestError.response?.data?.message || 'Stock insuficiente';
+              offlineManager.markPedidoStockIssue(tempId, serverMsg);
+              fallidosStock++;
+              fallidos++;
             } else {
               // Otro error - marcar como fallido
               console.error(`❌ [useOfflinePedidos] Error sincronizando pedido ${tempId}:`, requestError);
@@ -693,10 +716,22 @@ export function useOfflinePedidos() {
             ? `${exitosos} pedidos procesados (${duplicados} ya existían)`
             : `${exitosos} pedidos sincronizados correctamente`;
         toast.success(mensaje);
-      } else if (fallidos > 0 && exitosos === 0 && pedidosActuales.length > 0) {
+      } else if (
+        fallidos > 0 &&
+        exitosos === 0 &&
+        pedidosActuales.length > 0 &&
+        fallidosStock < fallidos
+      ) {
         toast.error(
           `No se pudo sincronizar ningún pedido. Verifique su conexión a internet.`,
           { duration: 5000 }
+        );
+      }
+
+      if (fallidosStock > 0) {
+        toast.error(
+          `${fallidosStock} pedido(s) sin stock suficiente en servidor — requiere revisión (actualice catálogo y reintente).`,
+          { duration: 7500 }
         );
       }
 
@@ -705,6 +740,7 @@ export function useOfflinePedidos() {
         exitosos, 
         fallidos, 
         duplicados,
+        fallidosStock,
         total: pedidosActuales.length 
       };
       return summary;
