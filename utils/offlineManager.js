@@ -684,6 +684,30 @@ class OfflineManager {
     }
   }
 
+  /** Pedido rechazado por stock en servidor al sincronizar (distinto de fallido_permanente). */
+  markPedidoStockIssue(tempId, message) {
+    try {
+      if (!isClient()) return false;
+
+      const pedidosPendientes = this.getPedidosPendientes();
+      const pedidoIndex = pedidosPendientes.findIndex((p) => p.tempId === tempId);
+
+      if (pedidoIndex !== -1) {
+        pedidosPendientes[pedidoIndex].estado = 'fallido_stock';
+        pedidosPendientes[pedidoIndex].ultimoError = message;
+        pedidosPendientes[pedidoIndex].ultimoIntento = new Date().toISOString();
+        localStorage.setItem(STORAGE_KEYS.PEDIDOS_PENDIENTES, JSON.stringify(pedidosPendientes));
+        console.log(`⚠️ Pedido ${tempId} marcado como fallido_stock: ${message}`);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.error('❌ Error marcando pedido fallido_stock:', error);
+      return false;
+    }
+  }
+
   // ✅ METADATA DE SINCRONIZACIÓN
   setLastSync(tipo, timestamp = Date.now()) {
     try {

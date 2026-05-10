@@ -2033,7 +2033,7 @@ export function ModalDetallePedido({
 
             <div className="mt-6 flex flex-col gap-3">
               <div className="flex flex-col sm:flex-row gap-3">
-                {esGerente && !isPedidoFacturado && (
+                {esGerente && !isPedidoFacturado && !isPedidoAnulado && (
                   <button 
                     onClick={handleFacturar}
                     className="bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base font-semibold px-4 py-3 rounded-lg transition-colors flex items-center justify-center flex-1"
@@ -2051,7 +2051,7 @@ export function ModalDetallePedido({
               </div>
 
               <div className="flex flex-col sm:flex-row gap-3">
-                {esGerente && !isPedidoFacturado && (
+                {esGerente && !isPedidoFacturado && !isPedidoAnulado && (
                   <button 
                     onClick={() => onCambiarEstado('Anulado')}
                     className="bg-red-600 hover:bg-red-700 text-white text-sm sm:text-base font-semibold px-4 py-3 rounded-lg transition-colors flex items-center justify-center flex-1"

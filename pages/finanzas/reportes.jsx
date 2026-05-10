@@ -8,10 +8,21 @@ import { VentasAnalytics } from '../../components/reportes/VentasAnalytics';
 import { FinancialBalance } from '../../components/reportes/FinancialBalance';
 import { ProductAnalytics } from '../../components/reportes/ProductAnalytics';
 import { GeographicAnalytics } from '../../components/reportes/GeographicAnalytics';
+import { ReporteGerencial } from '../../components/reportes/ReporteGerencial';
 import { toast, Toaster } from 'react-hot-toast';
 
 // Configuración de pestañas
 const TABS = [
+  {
+    id: 'gerencial',
+    name: 'Reporte Gerencial',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+    component: ReporteGerencial
+  },
   {
     id: 'dashboard',
     name: 'Dashboard',
@@ -66,7 +77,7 @@ const TABS = [
 ];
 
 function ReportesContent() {
-  const [tabActiva, setTabActiva] = useState('dashboard');
+  const [tabActiva, setTabActiva] = useState('gerencial');
   const [isMobile, setIsMobile] = useState(false);
 
   // Detectar si es móvil
@@ -113,19 +124,22 @@ function ReportesContent() {
           </div>
         </div>
 
-        {/* Filtros - Siempre visibles y aplican a todas las pestañas */}
-        <div className="mb-6">
-          {isMobile ? (
-            <FiltrosCompactos />
-          ) : (
-            <ReportesFiltros />
-          )}
-          
-          {/* Indicadores de filtros activos */}
-          <div className="mt-3">
-            <IndicadoresFiltros />
+        {/* Filtros globales: aplican a todas las pestañas excepto al Reporte Gerencial,
+            que tiene su propio selector por mes/rango y no usa el ReportesContext. */}
+        {tabActiva !== 'gerencial' && (
+          <div className="mb-6">
+            {isMobile ? (
+              <FiltrosCompactos />
+            ) : (
+              <ReportesFiltros />
+            )}
+
+            {/* Indicadores de filtros activos */}
+            <div className="mt-3">
+              <IndicadoresFiltros />
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Navegación por pestañas */}
         <div className="mb-6">
