@@ -115,16 +115,23 @@ export function useReporteGerencial() {
     }
     setGenerandoPDF(true);
     try {
+      // Pedimos arraybuffer en vez de blob: tenemos control directo sobre los bytes
+      // y podemos verificar la firma %PDF antes de armar el Blob, evitando descargar PDFs corruptos.
       const response = await axiosAuth.get('/finanzas/generar-pdf-gerencial', {
         params: { desde: rango.desde, hasta: rango.hasta },
-        responseType: 'blob'
+        responseType: 'arraybuffer',
+        headers: {
+          // server.js respeta este header en el middleware de compression para no comprimir el binario
+          'x-no-compression': '1',
+          Accept: 'application/pdf'
+        }
       });
 
-      // Si el backend devolvio un error como JSON con responseType=blob, el blob
-      // puede ser un application/json. Lo detectamos por content-type/tipo y mostramos el mensaje real.
-      const contentType = response.headers?.['content-type'] || response.data?.type || '';
+      const contentType = response.headers?.['content-type'] || '';
+
+      // Si el backend devolvio un error JSON pese al responseType=arraybuffer
       if (contentType.includes('application/json') || contentType.includes('text/')) {
-        const texto = await response.data.text();
+        const texto = new TextDecoder('utf-8').decode(new Uint8Array(response.data));
         let mensaje = 'No se pudo generar el PDF gerencial';
         try {
           const parsed = JSON.parse(texto);
@@ -137,12 +144,22 @@ export function useReporteGerencial() {
         return;
       }
 
-      const blob = new Blob([response.data], { type: 'application/pdf' });
-      if (blob.size === 0) {
+      const bytes = new Uint8Array(response.data);
+      if (bytes.byteLength === 0) {
         toast.error('El servidor devolvio un PDF vacio');
         return;
       }
 
+      // Validar firma "%PDF" en los primeros 4 bytes
+      const firmaOk = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+      if (!firmaOk) {
+        const muestra = new TextDecoder('utf-8').decode(bytes.slice(0, 200));
+        console.error('Respuesta no es un PDF valido. Muestra inicial:', muestra);
+        toast.error('La respuesta del servidor no es un PDF valido');
+        return;
+      }
+
+      const blob = new Blob([bytes], { type: 'application/pdf' });
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -153,11 +170,10 @@ export function useReporteGerencial() {
       window.URL.revokeObjectURL(url);
       toast.success('PDF generado correctamente');
     } catch (err) {
-      // Intentar leer el blob de error si vino con status >= 400
       let mensaje = err?.response?.data?.message || err?.message || 'No se pudo generar el PDF gerencial';
       try {
-        if (err?.response?.data && typeof err.response.data.text === 'function') {
-          const texto = await err.response.data.text();
+        if (err?.response?.data instanceof ArrayBuffer) {
+          const texto = new TextDecoder('utf-8').decode(new Uint8Array(err.response.data));
           const parsed = JSON.parse(texto);
           mensaje = parsed.message || mensaje;
         }
