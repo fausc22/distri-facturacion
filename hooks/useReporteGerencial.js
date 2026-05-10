@@ -119,7 +119,30 @@ export function useReporteGerencial() {
         params: { desde: rango.desde, hasta: rango.hasta },
         responseType: 'blob'
       });
+
+      // Si el backend devolvio un error como JSON con responseType=blob, el blob
+      // puede ser un application/json. Lo detectamos por content-type/tipo y mostramos el mensaje real.
+      const contentType = response.headers?.['content-type'] || response.data?.type || '';
+      if (contentType.includes('application/json') || contentType.includes('text/')) {
+        const texto = await response.data.text();
+        let mensaje = 'No se pudo generar el PDF gerencial';
+        try {
+          const parsed = JSON.parse(texto);
+          mensaje = parsed.message || mensaje;
+        } catch (_) {
+          if (texto) mensaje = texto.slice(0, 200);
+        }
+        console.error('Error backend generando PDF gerencial:', mensaje);
+        toast.error(mensaje);
+        return;
+      }
+
       const blob = new Blob([response.data], { type: 'application/pdf' });
+      if (blob.size === 0) {
+        toast.error('El servidor devolvio un PDF vacio');
+        return;
+      }
+
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -130,8 +153,17 @@ export function useReporteGerencial() {
       window.URL.revokeObjectURL(url);
       toast.success('PDF generado correctamente');
     } catch (err) {
-      console.error('Error generando PDF gerencial:', err);
-      toast.error('No se pudo generar el PDF gerencial');
+      // Intentar leer el blob de error si vino con status >= 400
+      let mensaje = err?.response?.data?.message || err?.message || 'No se pudo generar el PDF gerencial';
+      try {
+        if (err?.response?.data && typeof err.response.data.text === 'function') {
+          const texto = await err.response.data.text();
+          const parsed = JSON.parse(texto);
+          mensaje = parsed.message || mensaje;
+        }
+      } catch (_) { /* noop */ }
+      console.error('Error generando PDF gerencial:', err, mensaje);
+      toast.error(mensaje);
     } finally {
       setGenerandoPDF(false);
     }
