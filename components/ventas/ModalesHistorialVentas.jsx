@@ -447,20 +447,21 @@ function TablaProductos({ productos, loading }) {
 }
 
 function ResumenTotales({ productos, venta }) {
-  const subtotalCabecera = Number(venta?.subtotal);
-  const subtotalNeto = Number.isFinite(subtotalCabecera) ? subtotalCabecera : productos.reduce((acc, prod) => {
+  // Calcular siempre desde las filas para que el footer sea consistente con la tabla
+  const subtotalNeto = productos.reduce((acc, prod) => {
     const precio = Number(prod.precio) || 0;
     const cantidad = Number(prod.cantidad) || 0;
     const subtotalLinea = Number.isFinite(Number(prod.subtotal)) ? Number(prod.subtotal) : (cantidad * precio);
     return acc + subtotalLinea;
   }, 0);
 
-  const ivaCabecera = Number(venta?.iva_total);
-  const ivaTotal = Number.isFinite(ivaCabecera) ? ivaCabecera : productos.reduce((acc, prod) => {
+  const ivaTotal = productos.reduce((acc, prod) => {
     const ivaValue = Number(prod.iva) || 0;
     return acc + ivaValue;
   }, 0);
   
+  const totalFinal = subtotalNeto + ivaTotal;
+
   // ✅ Obtener monto exento de la venta si está disponible, o calcularlo si el cliente es exento
   const esClienteExento = venta?.cliente_condicion?.toUpperCase() === 'EXENTO';
   let montoExento = venta?.exento ? Number(venta.exento) : 0;
@@ -469,15 +470,11 @@ function ResumenTotales({ productos, venta }) {
   if (esClienteExento && montoExento === 0 && productos.length > 0) {
     montoExento = productos.reduce((acc, prod) => {
       const subtotal = Number(prod.subtotal) || 0;
-      // Intentar obtener el porcentaje de IVA del producto, o usar 21% por defecto
       const porcentajeIva = Number(prod.porcentaje_iva) || 21;
       const ivaQueDeberiaCobrarse = parseFloat((subtotal * (porcentajeIva / 100)).toFixed(2));
       return acc + ivaQueDeberiaCobrarse;
     }, 0);
   }
-
-  const totalCabecera = Number(venta?.total);
-  const totalFinal = Number.isFinite(totalCabecera) ? totalCabecera : subtotalNeto + ivaTotal;
 
   if (productos.length === 0) return null;
 

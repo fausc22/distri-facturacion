@@ -1758,7 +1758,8 @@ export function ResumenTotales({ productos, pedido }) {
     const precio = Number(prod.precio) || 0;
     const cantidad = Number(prod.cantidad) || 0;
     const subtotalBase = precio * cantidad;
-    const ivaBase = subtotalBase * 0.21;
+    const porcentaje = (Number(prod.porcentaje_iva) || 21) / 100;
+    const ivaBase = subtotalBase * porcentaje;
     return acc + subtotalBase + ivaBase;
   }, 0);
   const totalSinDescuentos = roundFacturacion(totalSinDescuentosRaw);
