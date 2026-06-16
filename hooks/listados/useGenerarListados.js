@@ -51,6 +51,37 @@ export function useGenerarListados() {
     return await generarPDF(apiCall, configuracion);
   };
 
+  // Generar PDF del Reporte mensual de Fletes
+  const generarPdfReporteFletes = async (mes, anio) => {
+    if (!mes || !anio) {
+      toast.error('Debe seleccionar mes y año.');
+      return false;
+    }
+
+    const apiCall = () => axiosAuth({
+      url: `/listados/generarpdf-reporte-fletes`,
+      method: 'POST',
+      data: { mes, anio },
+      responseType: 'blob'
+    });
+
+    const mesesNombres = [
+      'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+      'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'
+    ];
+    const mesNombre = mesesNombres[mes - 1];
+
+    const configuracion = {
+      nombreArchivo: `Reporte_Fletes_${mesNombre}_${anio}.pdf`,
+      titulo: 'Reporte de Fletes Generado',
+      subtitulo: `Reporte de Fletes - ${mesNombre} ${anio}`,
+      mensajeExito: 'Reporte de fletes generado con éxito',
+      mensajeError: 'Error al generar el reporte de fletes'
+    };
+
+    return await generarPDF(apiCall, configuracion);
+  };
+
   // Generar PDF de Lista de Precios (con filtro de categorías)
   const generarPdfListaPrecios = async (categorias = []) => {
     // Función que realizará la llamada a la API
@@ -116,6 +147,7 @@ export function useGenerarListados() {
     tituloModal,
     subtituloModal,
     generarPdfLibroIva,
+    generarPdfReporteFletes,
     generarPdfListaPrecios,
     generarPdfListadoVendedores,
     descargarPDF,

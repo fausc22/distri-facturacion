@@ -7,6 +7,7 @@ export default function LibroIvaVentas() {
   const { 
     loading, 
     generarPdfLibroIva,
+    generarPdfReporteFletes,
     pdfURL,
     mostrarModalPDF,
     nombreArchivo,
@@ -28,6 +29,14 @@ export default function LibroIvaVentas() {
       return;
     }
     generarPdfLibroIva(parseInt(mesSeleccionado), parseInt(anioSeleccionado));
+  };
+
+  const handleGenerarReporteFletes = () => {
+    if (!mesSeleccionado || !anioSeleccionado) {
+      toast.error('Debe seleccionar mes y año');
+      return;
+    }
+    generarPdfReporteFletes(parseInt(mesSeleccionado), parseInt(anioSeleccionado));
   };
 
   const meses = [
@@ -55,6 +64,9 @@ export default function LibroIvaVentas() {
       </h2>
       <p className="text-sm text-gray-600 mb-4">
         Genera el libro de IVA con las ventas tipo A y B del mes seleccionado.
+      </p>
+      <p className="text-sm text-gray-600 mb-4 -mt-2">
+        También podés generar el reporte mensual de fletes calculado sobre líneas cuyo nombre contiene "FLETE".
       </p>
 
       <div className="space-y-4">
@@ -104,6 +116,18 @@ export default function LibroIvaVentas() {
           }`}
         >
           {loading ? 'Generando...' : 'Generar Libro IVA'}
+        </button>
+
+        <button
+          onClick={handleGenerarReporteFletes}
+          disabled={loading}
+          className={`w-full py-3 rounded-md font-semibold text-white transition-colors ${
+            loading
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-emerald-600 hover:bg-emerald-700'
+          }`}
+        >
+          {loading ? 'Generando...' : 'Generar Reporte de Fletes'}
         </button>
       </div>
 
