@@ -66,7 +66,7 @@ export default function LibroIvaVentas() {
         Genera el libro de IVA con las ventas tipo A y B del mes seleccionado.
       </p>
       <p className="text-sm text-gray-600 mb-4 -mt-2">
-        También podés generar el reporte mensual de fletes calculado sobre líneas cuyo nombre contiene "FLETE".
+        También podés generar el reporte mensual de fletes calculado sobre líneas cuyo nombre contiene la palabra FLETE.
       </p>
 
       <div className="space-y-4">
