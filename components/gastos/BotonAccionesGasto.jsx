@@ -1,70 +1,54 @@
-export function BotonAccionesGasto({ 
-  onRegistrarGasto, 
-  onLimpiarFormulario, 
-  onVolverMenu, 
-  loading, 
-  disabled 
+import { Button } from '@/components/ui/button';
+
+export function BotonAccionesGasto({
+  onRegistrarGasto,
+  onLimpiarFormulario,
+  onVolverMenu,
+  loading,
+  disabled,
 }) {
   return (
-    <div className="p-6 bg-gray-50 border-t border-gray-200">
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
-        
-        {/* Botón Volver al Menú */}
-        <button
+    <div className="border-t bg-muted/20 p-6">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row">
+        <Button
+          type="button"
+          variant="secondary"
           onClick={onVolverMenu}
           disabled={loading}
-          className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 text-white px-6 py-3 rounded-lg font-semibold transition-colors duration-200 order-3 sm:order-1"
+          className="order-3 sm:order-1"
         >
-          🏠 Volver al Menú
-        </button>
-        
-        {/* Botón Limpiar Formulario */}
-        <button
+          Volver al Menú
+        </Button>
+
+        <Button
+          type="button"
+          variant="outline"
           onClick={onLimpiarFormulario}
           disabled={loading}
-          className="bg-yellow-600 hover:bg-yellow-700 disabled:bg-yellow-400 text-white px-6 py-3 rounded-lg font-semibold transition-colors duration-200 order-2 sm:order-2"
+          className="order-2"
         >
-          🗑️ Limpiar Formulario
-        </button>
-        
-        {/* Botón Registrar Gasto */}
-        <button
+          Limpiar Formulario
+        </Button>
+
+        <Button
+          type="button"
           onClick={onRegistrarGasto}
           disabled={disabled || loading}
-          className={`px-8 py-3 rounded-lg font-semibold transition-colors duration-200 order-1 sm:order-3 ${
-            disabled || loading
-              ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg hover:shadow-xl'
-          }`}
+          className="order-1 sm:order-3"
         >
-          {loading ? (
-            <div className="flex items-center justify-center">
-              <svg className="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Procesando...
-            </div>
-          ) : (
-            '💾 Registrar Gasto'
-          )}
-        </button>
+          {loading ? 'Procesando...' : 'Registrar Gasto'}
+        </Button>
       </div>
-      
-      {/* Mensaje de ayuda */}
-      <div className="mt-4 text-center">
-        <p className="text-sm text-gray-600">
-          {disabled ? (
-            <span className="text-amber-600 font-medium">
-              ⚠️ Complete todos los campos obligatorios para continuar
-            </span>
-          ) : (
-            <span className="text-green-600">
-              ✅ Formulario válido - Puede proceder con el registro
-            </span>
-          )}
-        </p>
-      </div>
+
+      <p className="mt-4 text-center text-sm text-muted-foreground">
+        {disabled ? (
+          <span className="font-medium text-amber-600">
+            Complete todos los campos obligatorios para continuar
+          </span>
+        ) : (
+          <span className="text-emerald-600">Formulario válido — puede proceder con el registro</span>
+        )}
+      </p>
     </div>
   );
 }

@@ -321,7 +321,7 @@ function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento,
   );
 }
 
-export default function ProductosCarrito() {
+export default function ProductosCarrito({ mostrarResumen = true }) {
   // ✅ Usar hook compartido que detecta automáticamente el contexto
   const { productos, cliente, updateCantidad, updateDescuento, removeProducto, updateProducto, subtotal, totalIva, total } = useContextoCompartido();
   const [productoEditando, setProductoEditando] = useState(null);
@@ -384,7 +384,7 @@ export default function ProductosCarrito() {
         />
       
         {/* Resumen de totales */}
-        {productos.length > 0 && (
+        {mostrarResumen && productos.length > 0 && (
           <div className="mt-6 p-4 bg-gray-50 rounded-lg border">
             <h4 className="font-semibold text-lg mb-3 text-gray-800">Resumen del Pedido</h4>
             <div className="flex flex-col space-y-2">

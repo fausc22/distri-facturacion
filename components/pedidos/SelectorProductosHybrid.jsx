@@ -102,7 +102,8 @@ function DetallesProducto({
   onAgregar,
   isPWA,
   isOnline,
-  mostrarPreciosConIva = true
+  mostrarPreciosConIva = true,
+  mostrarBotonAgregar = true,
 }) {
   if (!producto) return null;
 
@@ -168,17 +169,19 @@ function DetallesProducto({
         )}
       </div>
 
-      <button
-        onClick={onAgregar}
-        disabled={stockInsuficiente || producto.stock_actual <= 0}
-        className={`px-6 py-2 rounded font-semibold ${
-          stockInsuficiente || producto.stock_actual <= 0
-            ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-            : 'bg-green-600 hover:bg-green-800 text-white'
-        }`}
-      >
-        {producto.stock_actual <= 0 ? 'Sin Stock' : `Agregar ${formatearStock(cantidad)} unidades`} {/* ← USAR LA FUNCIÓN */}
-      </button>
+      {mostrarBotonAgregar && (
+        <button
+          onClick={onAgregar}
+          disabled={stockInsuficiente || producto.stock_actual <= 0}
+          className={`px-6 py-2 rounded font-semibold ${
+            stockInsuficiente || producto.stock_actual <= 0
+              ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-800 text-white'
+          }`}
+        >
+          {producto.stock_actual <= 0 ? 'Sin Stock' : `Agregar ${formatearStock(cantidad)} unidades`}
+        </button>
+      )}
     </div>
   );
 }
@@ -207,13 +210,12 @@ function ModalProductos({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4">
-      <div className="flex h-[100dvh] w-screen flex-col bg-white p-4 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-md sm:rounded-lg">
-        <div className="mb-4 flex shrink-0 items-center justify-between">
+      <div className="flex h-[100dvh] w-screen flex-col bg-white sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-md sm:rounded-lg">
+        <div className="mb-0 flex shrink-0 items-center justify-between border-b px-4 py-3">
           <h3 className="text-lg font-semibold text-black">Seleccionar Producto</h3>
-          {/* ✅ INDICADOR DE MODO */}
           {isPWA && (
             <div className="flex items-center gap-2 text-sm">
-              <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+              <div className={`h-2 w-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-orange-500'}`} />
               <span className={isOnline ? 'text-green-600' : 'text-orange-600'}>
                 {isOnline ? 'Online' : 'Offline'}
               </span>
@@ -221,12 +223,12 @@ function ModalProductos({
           )}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1 sm:max-h-[70vh]">
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1">
           <ul>
             {loading ? (
               <li className="py-4 text-center text-gray-500">
                 <div className="flex items-center justify-center">
-                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-blue-600"></div>
+                  <div className="mr-2 h-4 w-4 animate-spin rounded-full border-b-2 border-blue-600" />
                   Buscando{isPWA && !isOnline ? ' offline' : ''}...
                 </div>
               </li>
@@ -234,18 +236,18 @@ function ModalProductos({
               resultados.map((producto, idx) => {
                 const isSelected = productoSeleccionado?.id === producto.id;
                 return (
-                  <li key={producto.id ?? idx} className="border-b">
+                  <li key={producto.id ?? idx} className="border-b last:border-0">
                     <div
-                      className={`cursor-pointer p-2 text-black transition-colors ${
-                        producto.stock_actual > 0 
-                          ? 'hover:bg-gray-100' 
+                      className={`cursor-pointer p-3 text-black transition-all ${
+                        producto.stock_actual > 0
+                          ? 'hover:bg-gray-100'
                           : 'bg-red-50 text-red-600'
-                      } ${isSelected ? 'bg-blue-50/60' : ''}`}
+                      } ${isSelected ? 'bg-primary/10 ring-2 ring-inset ring-primary/40' : ''}`}
                       onClick={() => onSeleccionar(producto)}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium leading-snug text-black sm:text-base whitespace-normal break-words">
+                          <p className="text-sm font-medium leading-snug sm:text-base">
                             {producto.nombre}
                           </p>
                           <p className="text-sm text-gray-700">
@@ -253,55 +255,85 @@ function ModalProductos({
                           </p>
                           {mostrarPreciosConIva && (
                             <p className="text-sm font-semibold text-green-700">
-                              Final c/IVA ({obtenerPorcentajeIva(producto)}%):{" "}
-                              {formatearMoneda(calcularMontoConIva(producto.precio, obtenerPorcentajeIva(producto)))}
+                              Final c/IVA ({obtenerPorcentajeIva(producto)}%):{' '}
+                              {formatearMoneda(
+                                calcularMontoConIva(producto.precio, obtenerPorcentajeIva(producto))
+                              )}
                             </p>
                           )}
                         </div>
-                        <div className="min-w-[88px] shrink-0 text-right">
-                          <span className={`text-sm ${
-                            producto.stock_actual > 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            Stock: {formatearStock(producto.stock_actual)} 
+                        <div className="shrink-0 text-right">
+                          <span
+                            className={`text-sm ${
+                              producto.stock_actual > 0 ? 'text-green-600' : 'text-red-600'
+                            }`}
+                          >
+                            Stock: {formatearStock(producto.stock_actual)}
                           </span>
                         </div>
                       </div>
                     </div>
-                    {isSelected && (
-                      <div className="border-t bg-white p-3">
-                        <DetallesProducto
-                          producto={productoSeleccionado}
-                          cantidad={cantidad}
-                          subtotal={subtotal}
-                          onCantidadChange={onCantidadChange}
-                          onAgregar={onAgregar}
-                          isPWA={isPWA}
-                          isOnline={isOnline}
-                          mostrarPreciosConIva={mostrarPreciosConIva}
-                        />
-                      </div>
-                    )}
                   </li>
                 );
               })
             ) : (
               <li className="py-4 text-center text-gray-500">
-                {isPWA && !isOnline 
-                  ? "No se encontraron productos en datos offline." 
-                  : "No se encontraron resultados."
-                }
+                {isPWA && !isOnline
+                  ? 'No se encontraron productos en datos offline.'
+                  : 'No se encontraron resultados.'}
               </li>
             )}
           </ul>
-
         </div>
 
-        <button
-          onClick={onCerrar}
-          className="mt-4 shrink-0 bg-red-500 px-4 py-2 text-white transition-colors hover:bg-red-600 sm:rounded"
+        {productoSeleccionado && (
+          <div className="animate-fade-in shrink-0 border-t bg-gray-50 p-3">
+            <DetallesProducto
+              producto={productoSeleccionado}
+              cantidad={cantidad}
+              subtotal={subtotal}
+              onCantidadChange={onCantidadChange}
+              onAgregar={onAgregar}
+              isPWA={isPWA}
+              isOnline={isOnline}
+              mostrarPreciosConIva={mostrarPreciosConIva}
+              mostrarBotonAgregar={false}
+            />
+          </div>
+        )}
+
+        <div
+          className="shrink-0 space-y-2 border-t bg-white p-4"
+          style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
         >
-          Cerrar
-        </button>
+          {productoSeleccionado && (
+            <button
+              type="button"
+              onClick={onAgregar}
+              disabled={
+                cantidad > productoSeleccionado.stock_actual ||
+                productoSeleccionado.stock_actual <= 0
+              }
+              className={`flex min-h-[44px] w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold text-white transition-colors ${
+                cantidad > productoSeleccionado.stock_actual ||
+                productoSeleccionado.stock_actual <= 0
+                  ? 'cursor-not-allowed bg-gray-400'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
+            >
+              {productoSeleccionado.stock_actual <= 0
+                ? 'Sin Stock'
+                : `Agregar ${formatearStock(cantidad)} unidades`}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-muted px-4 py-2.5 text-sm font-medium text-foreground hover:bg-muted/80"
+          >
+            Cerrar
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -352,7 +384,7 @@ export default function ProductoSelectorHybrid({ mostrarPreciosConIva = true }) 
 
   // ✅ FUNCIÓN PARA OBTENER CLASE DEL CONTENEDOR
   const getContainerClass = () => {
-    const baseClass = "bg-blue-500 p-6 rounded-lg flex-1 text-white";
+    const baseClass = "bg-primary text-primary-foreground p-6 rounded-lg flex-1 min-w-0";
     if (!isPWA) return baseClass;
     
     const borderClass = isOnline ? "border-l-4 border-green-400" : "border-l-4 border-orange-400";

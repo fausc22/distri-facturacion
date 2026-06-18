@@ -1,7 +1,7 @@
 // components/AppInitializer.jsx - SIMPLIFICADO: Sin dependencias de ConnectionManager
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
-import { useOfflineCatalog } from '../hooks/useOfflineCatalog';
+import { useOfflineCatalog, useOfflinePedidos } from '../hooks/useOfflineCatalog';
 import { getAppMode, offlineManager } from '../utils/offlineManager';
 
 /**
@@ -26,6 +26,7 @@ export default function AppInitializer({ children }) {
     isPWA,
     stats
   } = useOfflineCatalog();
+  useOfflinePedidos();
 
   useEffect(() => {
     initializeApp();
@@ -96,11 +97,11 @@ export default function AppInitializer({ children }) {
   // Loading screen
   if (initializing || !appReady) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-600 to-blue-800 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center">
         <div className="text-center text-white p-8 max-w-md">
           <div className="mb-8">
             <h1 className="text-4xl font-bold mb-2">VERTIMAR</h1>
-            <p className="text-blue-200">Sistema ERP</p>
+            <p className="text-slate-300">Sistema ERP</p>
           </div>
 
           <div className="mb-6">
@@ -108,7 +109,7 @@ export default function AppInitializer({ children }) {
             <h2 className="text-xl font-semibold mb-2">{initStep}</h2>
           </div>
 
-          <div className="w-full bg-blue-700 rounded-full h-3 mb-4">
+          <div className="w-full bg-slate-700 rounded-full h-3 mb-4">
             <div 
               className="bg-white h-3 rounded-full transition-all duration-500 ease-out"
               style={{ width: `${progress}%` }}

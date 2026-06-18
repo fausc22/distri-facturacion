@@ -41,3 +41,26 @@ export function redondearImportes(importes, keys) {
   }
   return out;
 }
+
+/**
+ * Redondeo para precios de catálogo (2 decimales).
+ * No usar roundFacturacion aquí — esa regla es para totales de facturación.
+ */
+export function roundPrecio(value, decimals = 2) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return 0;
+  const factor = 10 ** decimals;
+  return Math.round(n * factor) / factor;
+}
+
+export function precioNetoDesdeConIva(precioConIva, porcentajeIva) {
+  const iva = Number(porcentajeIva);
+  if (!Number.isFinite(iva) || iva < 0) return roundPrecio(precioConIva);
+  return roundPrecio(Number(precioConIva) / (1 + iva / 100), 4);
+}
+
+export function precioConIvaDesdeNeto(precioNeto, porcentajeIva) {
+  const iva = Number(porcentajeIva);
+  if (!Number.isFinite(iva) || iva < 0) return roundPrecio(precioNeto);
+  return roundPrecio(Number(precioNeto) * (1 + iva / 100));
+}

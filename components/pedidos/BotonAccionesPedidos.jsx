@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { forwardRef, useState } from 'react';
 import { ModalPDFUniversal, BotonGenerarPDFUniversal } from '../shared/ModalPDFUniversal';
 
-export function BotonAccionesPedidos({ 
+export const BotonAccionesPedidos = forwardRef(function BotonAccionesPedidos({ 
   // Props comunes
   onVolverMenu,
   loading = false,
@@ -37,7 +37,7 @@ export function BotonAccionesPedidos({
   
   // Props adicionales
   textosPersonalizados = {}
-}) {
+}, ref) {
   const [mostrarMenuEstados, setMostrarMenuEstados] = useState(false);
 
   // Textos por defecto
@@ -187,7 +187,7 @@ export function BotonAccionesPedidos({
   };
 
   return (
-    <div className="w-full">
+    <div ref={ref} className="w-full scroll-mt-24">
       {/* Estadísticas (opcional) */}
       <EstadisticasRapidas />
       
@@ -218,4 +218,4 @@ export function BotonAccionesPedidos({
       </div>
     </div>
   );
-}
+});

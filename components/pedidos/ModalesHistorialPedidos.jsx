@@ -1,7 +1,8 @@
 // components/pedidos/ModalesHistorialPedidos.jsx - Versión corregida con descuentos funcionando
 import { useState, useEffect } from 'react';
-import { MdDeleteForever, MdExpandMore, MdExpandLess, MdSearch } from "react-icons/md";
-import { toast } from 'react-hot-toast';
+import { MdDeleteForever, MdExpandMore, MdExpandLess, MdSearch } from 'react-icons/md';
+import toast from '@/components/shared/toast';
+import { ConfirmModal } from '@/components/shared/ConfirmModal';
 import { usePedidos } from '../../hooks/pedidos/usePedidos';
 import { useProductoSearch } from '../../hooks/useBusquedaProductos';
 import useAuth from '../../hooks/useAuth';
@@ -1395,87 +1396,36 @@ export function ModalEditarProductoPedido({
   );
 }
 
-export function ModalEliminarProductoPedido({ 
-  producto, 
-  onClose, 
-  onConfirmar 
-}) {
-  const [eliminandoProducto, setEliminandoProducto] = useState(false); // ✅ NUEVO ESTADO PARA LOADING
-  
+export function ModalEliminarProductoPedido({ producto, onClose, onConfirmar }) {
+  const [eliminandoProducto, setEliminandoProducto] = useState(false);
+
   if (!producto) return null;
 
   const handleConfirmar = async () => {
-    // ✅ ACTIVAR ESTADO DE LOADING
     setEliminandoProducto(true);
-    
     try {
       await onConfirmar();
     } catch (error) {
       console.error('Error eliminando producto:', error);
       toast.error('Error al eliminar producto');
     } finally {
-      // ✅ DESACTIVAR ESTADO DE LOADING
       setEliminandoProducto(false);
     }
   };
 
-  const handleClose = () => {
-    // ✅ NO PERMITIR CERRAR SI ESTÁ PROCESANDO
-    if (eliminandoProducto) return;
-    
-    onClose();
-  };
-
   return (
-    <ModalBase
-      isOpen={Boolean(producto)}
-      onClose={handleClose}
+    <ConfirmModal
+      open={Boolean(producto)}
+      onOpenChange={(open) => !open && !eliminandoProducto && onClose?.()}
       title="Confirmar Eliminación"
-      size="sm"
-      zIndex={Z_INDEX.MODAL_NESTED}
+      description={`¿Estás seguro de que deseas eliminar ${producto.cantidad} unidades de ${producto.producto_nombre}?`}
+      confirmLabel="Sí, eliminar"
+      cancelLabel="No, cancelar"
+      variant="danger"
       loading={eliminandoProducto}
-      panelClassName="max-w-md p-4 md:p-6"
-      showHeader={false}
-    >
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-bold">⚠️ Confirmar Eliminación</h2>
-            <button 
-              type="button"
-              onClick={handleClose}
-              disabled={eliminandoProducto} // ✅ DESHABILITAR DURANTE PROCESAMIENTO
-              className="text-gray-500 hover:text-gray-700 disabled:text-gray-400 disabled:cursor-not-allowed text-xl p-1 rounded-full hover:bg-gray-100 transition-colors"
-              title={eliminandoProducto ? "Procesando..." : "Cerrar"}
-              aria-label="Cerrar confirmación de eliminación"
-            >
-              ✕
-            </button>
-          </div>
-          
-          <p className="text-center my-4">
-            ¿Estás seguro de que deseas eliminar <strong>{producto.cantidad}</strong> unidades de <strong>{producto.producto_nombre}</strong>?
-          </p>
-
-          
-          
-          <div className="flex flex-col sm:flex-row justify-center gap-4 mt-6">
-            <LoadingButton
-              onClick={handleConfirmar}
-              loading={eliminandoProducto}
-              loadingText="Eliminando..."
-              className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors flex items-center justify-center gap-2"
-            >
-              Sí, eliminar
-            </LoadingButton>
-            <LoadingButton
-              onClick={handleClose}
-              loading={eliminandoProducto}
-              loadingText="Procesando..."
-              className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors"
-            >
-              No, cancelar
-            </LoadingButton>
-          </div>
-    </ModalBase>
+      onConfirm={handleConfirmar}
+      zIndex={Z_INDEX.MODAL_NESTED}
+    />
   );
 }
 
@@ -1767,7 +1717,7 @@ export function ResumenTotales({ productos, pedido }) {
   if (productos.length === 0) return null;
 
   return (
-    <div className="mt-4 bg-gray-50 rounded-lg p-3 border-2 border-gray-200">
+    <div className="mt-2 mb-3 bg-gray-50 rounded-lg p-3 border-2 border-gray-200">
       <div className="space-y-2">
         {/* 🆕 MOSTRAR DESCUENTOS SI LOS HAY */}
         {totalDescuentos > 0 && (
@@ -1928,9 +1878,11 @@ export function ModalDetallePedido({
         size="xl"
         closeOnOverlay
         closeOnEscape
-        panelClassName="w-full max-w-xs sm:max-w-2xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] p-3 sm:p-4 lg:p-6"
+        panelClassName="w-full max-w-xs sm:max-w-2xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] p-0 sm:p-0 lg:p-0 flex flex-col"
+        contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4 lg:p-6"
         showHeader={false}
       >
+            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">
                 Pedido #{pedido.id}
@@ -1988,6 +1940,10 @@ export function ModalDetallePedido({
                 </div>
               </div>
 
+              <div className="lg:hidden">
+                <ResumenTotales productos={productos} pedido={pedido} />
+              </div>
+
               <h3 className="hidden lg:block text-xl font-semibold text-gray-800 mb-4">
                 Productos del Pedido
               </h3>
@@ -2017,7 +1973,6 @@ export function ModalDetallePedido({
                     canEdit={canEdit}
                   />
                 </div>
-                {productosExpandidos && <ResumenTotales productos={productos} pedido={pedido} />}
               </div>
 
               <div className="hidden lg:block">
@@ -2031,8 +1986,13 @@ export function ModalDetallePedido({
                 <ResumenTotales productos={productos} pedido={pedido} />
               </div>
             </div>
+            </div>
 
-            <div className="mt-6 flex flex-col gap-3">
+            <div
+              className="sticky bottom-0 z-10 -mx-3 mt-4 shrink-0 border-t bg-background px-3 py-3 sm:-mx-4 sm:px-4 lg:-mx-6 lg:px-6"
+              style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+            >
+            <div className="flex flex-col gap-3">
               <div className="flex flex-col sm:flex-row gap-3">
                 {esGerente && !isPedidoFacturado && !isPedidoAnulado && (
                   <button 
@@ -2068,6 +2028,7 @@ export function ModalDetallePedido({
                   CERRAR
                 </button>
               </div>
+            </div>
             </div>
       </ModalBase>
 

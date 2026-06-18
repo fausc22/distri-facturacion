@@ -1,52 +1,43 @@
-// hooks/fondos/useTransferencias.js
 import { useState } from 'react';
-import axios from 'axios';
-import { toast } from 'react-hot-toast';
-import { useFondos } from '../../context/FondosContext';
+import toast from '@/components/shared/toast';
+import { useFondosUIStore } from '@/stores/fondosUIStore';
+import { useTransferenciaMutation } from '@/hooks/queries/finanzasQueries';
+import { useInvalidateFinanzas } from '@/hooks/queries/useInvalidateQueries';
 
-
-import { axiosAuth, fetchAuth } from '../../utils/apiClient';
-  
 export function useTransferencias() {
-  const { setLoading } = useFondos();
-  
+  const { setLoading } = useFondosUIStore();
+  const { invalidateFondos } = useInvalidateFinanzas();
+  const transferenciaMutation = useTransferenciaMutation();
+
   const [formData, setFormData] = useState({
     cuenta_origen: '',
     cuenta_destino: '',
     monto: 0,
-    descripcion: ''
+    descripcion: '',
   });
 
   const realizarTransferencia = async () => {
     if (!formData.cuenta_origen || !formData.cuenta_destino) {
-      toast.error("Debe seleccionar ambas cuentas");
+      toast.error('Debe seleccionar ambas cuentas');
       return false;
     }
-
     if (formData.cuenta_origen === formData.cuenta_destino) {
-      toast.error("Las cuentas de origen y destino deben ser diferentes");
+      toast.error('Las cuentas de origen y destino deben ser diferentes');
       return false;
     }
-
     if (formData.monto <= 0) {
-      toast.error("El monto debe ser mayor a cero");
+      toast.error('El monto debe ser mayor a cero');
       return false;
     }
-
     setLoading({ operacion: true });
     try {
-      const response = await axiosAuth.post(`/finanzas/transferencias`, formData);
-      if (response.data.success) {
-        toast.success("Transferencia realizada exitosamente");
-        resetForm();
-        return true;
-      } else {
-        toast.error(response.data.message || "Error al realizar la transferencia");
-        return false;
-      }
+      await transferenciaMutation.mutateAsync(formData);
+      toast.success('Transferencia realizada exitosamente');
+      invalidateFondos();
+      resetForm();
+      return true;
     } catch (error) {
-      console.error("Error al realizar transferencia:", error);
-      toast.error("No se pudo realizar la transferencia");
+      toast.error(error.message || 'No se pudo realizar la transferencia');
       return false;
     } finally {
       setLoading({ operacion: false });
@@ -55,9 +46,9 @@ export function useTransferencias() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: name === 'monto' ? parseFloat(value) || 0 : value
+      [name]: name === 'monto' ? parseFloat(value) || 0 : value,
     }));
   };
 
@@ -66,15 +57,12 @@ export function useTransferencias() {
       cuenta_origen: '',
       cuenta_destino: '',
       monto: 0,
-      descripcion: ''
+      descripcion: '',
     });
   };
 
   const precargarCuentaOrigen = (cuentaId) => {
-    setFormData(prev => ({
-      ...prev,
-      cuenta_origen: cuentaId
-    }));
+    setFormData((prev) => ({ ...prev, cuenta_origen: cuentaId }));
   };
 
   return {
@@ -82,6 +70,6 @@ export function useTransferencias() {
     realizarTransferencia,
     handleInputChange,
     resetForm,
-    precargarCuentaOrigen
+    precargarCuentaOrigen,
   };
 }

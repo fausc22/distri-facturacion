@@ -460,6 +460,8 @@ export function useOfflinePedidos() {
   
   // Ref para protección contra ejecuciones múltiples
   const sincronizandoRef = useRef(false);
+  const autoSyncTimerRef = useRef(null);
+  const autoSyncBackoffRef = useRef(3000);
 
   const isPWA = getAppMode() === 'pwa';
   const { updateCatalogAfterSync } = useOfflineCatalog();
@@ -475,8 +477,32 @@ export function useOfflinePedidos() {
         // No bloquear inicialización por errores de cleanup
       }
     }
-    // ⚠️ NO agregar listeners de eventos online/offline
-    // La sincronización es SOLO manual
+    const handleOnlineAutoSync = () => {
+      if (!isPWA) return;
+      if (autoSyncTimerRef.current) {
+        clearTimeout(autoSyncTimerRef.current);
+      }
+      autoSyncTimerRef.current = setTimeout(async () => {
+        const pendientes = offlineManager
+          .getPedidosPendientes()
+          .filter((p) => p.estado !== 'fallido_permanente');
+        if (pendientes.length === 0 || sincronizandoRef.current) return;
+
+        const resultado = await syncPedidosPendientes({ silent: true });
+        if (resultado?.success) {
+          autoSyncBackoffRef.current = 3000;
+        } else {
+          autoSyncBackoffRef.current = Math.min(autoSyncBackoffRef.current * 2, 60000);
+          autoSyncTimerRef.current = setTimeout(handleOnlineAutoSync, autoSyncBackoffRef.current);
+        }
+      }, autoSyncBackoffRef.current);
+    };
+
+    window.addEventListener('online', handleOnlineAutoSync);
+    return () => {
+      window.removeEventListener('online', handleOnlineAutoSync);
+      if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current);
+    };
   }, [isPWA]);
 
   const loadPedidosPendientes = () => {
@@ -516,11 +542,11 @@ export function useOfflinePedidos() {
    * 
    * IMPORTANTE: Esta función debe ser llamada SOLO manualmente desde el menú principal
    */
-  const syncPedidosPendientes = async () => {
+  const syncPedidosPendientes = async ({ silent = false } = {}) => {
     // Protección contra ejecuciones múltiples
     if (sincronizandoRef.current) {
       console.log('⚠️ [useOfflinePedidos] Sincronización ya en curso, ignorando solicitud duplicada');
-      toast.info('Sincronización en curso, por favor espere...');
+      if (!silent) toast.info('Sincronización en curso, por favor espere...');
       return { success: false, error: 'Sincronización en curso' };
     }
 
@@ -533,10 +559,10 @@ export function useOfflinePedidos() {
       // Puede ser un falso negativo de la verificación
       if (navigator.onLine) {
         console.log('⚠️ [useOfflinePedidos] Verificación falló pero navigator.onLine = true, intentando sincronizar de todos modos...');
-        toast.info('Verificación de conexión falló, pero intentando sincronizar...');
+        if (!silent) toast.info('Verificación de conexión falló, pero intentando sincronizar...');
         // Continuar con la sincronización - si realmente no hay conexión, fallará en el primer pedido
       } else {
-        toast.error('Sin conexión para sincronizar. Verifique su conexión a internet.');
+        if (!silent) toast.error('Sin conexión para sincronizar. Verifique su conexión a internet.');
         return { success: false, error: 'Sin conexión' };
       }
     }
@@ -545,7 +571,7 @@ export function useOfflinePedidos() {
     loadPedidosPendientes();
     const pedidosActuales = offlineManager.getPedidosPendientes().filter(p => p.estado !== 'fallido_permanente');
     if (pedidosActuales.length === 0) {
-      toast.info('No hay pedidos pendientes');
+      if (!silent) toast.info('No hay pedidos pendientes');
       return { success: true, count: 0 };
     }
 
@@ -702,7 +728,7 @@ export function useOfflinePedidos() {
 
       // Un solo toast de resultado (evita doble notificación éxito + error)
       if (exitosos > 0 && fallidos > 0) {
-        toast(
+        if (!silent) toast(
           `Sincronización: ${exitosos} correctos, ${fallidos} con error`,
           {
             duration: 6000,
@@ -715,21 +741,21 @@ export function useOfflinePedidos() {
           duplicados > 0
             ? `${exitosos} pedidos procesados (${duplicados} ya existían)`
             : `${exitosos} pedidos sincronizados correctamente`;
-        toast.success(mensaje);
+        if (!silent) toast.success(mensaje);
       } else if (
         fallidos > 0 &&
         exitosos === 0 &&
         pedidosActuales.length > 0 &&
         fallidosStock < fallidos
       ) {
-        toast.error(
+        if (!silent) toast.error(
           `No se pudo sincronizar ningún pedido. Verifique su conexión a internet.`,
           { duration: 5000 }
         );
       }
 
       if (fallidosStock > 0) {
-        toast.error(
+        if (!silent) toast.error(
           `${fallidosStock} pedido(s) sin stock suficiente en servidor — requiere revisión (actualice catálogo y reintente).`,
           { duration: 7500 }
         );
@@ -756,7 +782,7 @@ export function useOfflinePedidos() {
         mensajeError = `Error: ${error.message}`;
       }
       
-      toast.error(mensajeError, { duration: 5000 });
+      if (!silent) toast.error(mensajeError, { duration: 5000 });
       return { success: false, error: error.message || 'Error desconocido' };
     } finally {
       // ⚠️ CRÍTICO: SIEMPRE limpiar el lock, incluso si hay errores inesperados

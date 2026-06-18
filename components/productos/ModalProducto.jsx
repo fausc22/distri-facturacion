@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ModalBase from '../common/ModalBase';
 import { useProductos } from '../../hooks/useProductos';
 import { formatearMoneda } from '../../utils/formatearMoneda';
+import { precioConIvaDesdeNeto, precioNetoDesdeConIva, roundPrecio } from '../../utils/rounding';
 
 function ModalProducto({
   producto,
@@ -24,6 +25,8 @@ function ModalProducto({
 
   const [categorias, setCategorias] = useState([]);
   const [errores, setErrores] = useState([]);
+  const [modoEntradaPrecio, setModoEntradaPrecio] = useState('sin_iva');
+  const [precioConIvaInput, setPrecioConIvaInput] = useState('');
 
   // Cargar categorías al abrir el modal
   useEffect(() => {
@@ -64,6 +67,9 @@ function ModalProducto({
         iva: ivaValue,
         stock_actual: producto.stock_actual || '0'
       });
+      setPrecioConIvaInput(
+        String(precioConIvaDesdeNeto(producto.precio, ivaValue))
+      );
     } else if (modo === 'crear') {
       // Limpiar formulario para crear nuevo
       setFormData({
@@ -75,6 +81,8 @@ function ModalProducto({
         iva: '21.00',
         stock_actual: '0'
       });
+      setPrecioConIvaInput('');
+      setModoEntradaPrecio('sin_iva');
     }
     setErrores([]);
   }, [producto, modo, isOpen]);
@@ -85,11 +93,56 @@ function ModalProducto({
     setErrores([]);
   };
 
+  const handlePrecioNetoChange = (e) => {
+    const value = e.target.value;
+    setFormData((prev) => ({ ...prev, precio: value }));
+    if (value !== '' && !Number.isNaN(Number(value))) {
+      setPrecioConIvaInput(String(precioConIvaDesdeNeto(value, formData.iva)));
+    } else {
+      setPrecioConIvaInput('');
+    }
+    setErrores([]);
+  };
+
+  const handlePrecioConIvaChange = (e) => {
+    const value = e.target.value;
+    setPrecioConIvaInput(value);
+    if (value !== '' && !Number.isNaN(Number(value))) {
+      const neto = precioNetoDesdeConIva(value, formData.iva);
+      setFormData((prev) => ({ ...prev, precio: String(neto) }));
+    } else {
+      setFormData((prev) => ({ ...prev, precio: '' }));
+    }
+    setErrores([]);
+  };
+
+  const handleIvaChange = (e) => {
+    const ivaValue = e.target.value;
+    setFormData((prev) => {
+      const next = { ...prev, iva: ivaValue };
+      if (modoEntradaPrecio === 'con_iva' && precioConIvaInput !== '') {
+        next.precio = String(precioNetoDesdeConIva(precioConIvaInput, ivaValue));
+      } else if (prev.precio !== '') {
+        setPrecioConIvaInput(String(precioConIvaDesdeNeto(prev.precio, ivaValue)));
+      }
+      return next;
+    });
+    setErrores([]);
+  };
+
+  const alternarModoPrecio = () => {
+    setModoEntradaPrecio((prev) => (prev === 'sin_iva' ? 'con_iva' : 'sin_iva'));
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validar datos
-    const erroresValidacion = validarDatosProducto(formData);
+    const payload = {
+      ...formData,
+      precio: formData.precio !== '' ? String(roundPrecio(formData.precio)) : '',
+    };
+
+    const erroresValidacion = validarDatosProducto(payload);
     if (erroresValidacion.length > 0) {
       setErrores(erroresValidacion);
       return;
@@ -97,9 +150,9 @@ function ModalProducto({
 
     let resultado;
     if (modo === 'crear') {
-      resultado = await crearProducto(formData);
+      resultado = await crearProducto(payload);
     } else {
-      resultado = await actualizarProducto(producto.id, formData);
+      resultado = await actualizarProducto(producto.id, payload);
     }
 
     if (resultado.success) {
@@ -216,21 +269,63 @@ function ModalProducto({
 
           {/* Precio */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Precio de Venta (sin IVA) *
-            </label>
-            <input
-              type="number"
-              name="precio"
-              value={formData.precio}
-              onChange={handleInputChange}
-              step="0.01"
-              min="0"
-              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
-              required
-              disabled={loading}
-              placeholder="0.00"
-            />
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <label className="block text-sm font-medium text-gray-700">
+                {modoEntradaPrecio === 'con_iva'
+                  ? 'Precio de Venta (con IVA) *'
+                  : 'Precio de Venta (sin IVA) *'}
+              </label>
+              <button
+                type="button"
+                onClick={alternarModoPrecio}
+                className="text-xs font-medium text-primary hover:underline"
+              >
+                {modoEntradaPrecio === 'con_iva'
+                  ? 'Ingresar sin IVA'
+                  : 'Ingresar con IVA'}
+              </button>
+            </div>
+            {modoEntradaPrecio === 'con_iva' ? (
+              <input
+                type="number"
+                name="precio_con_iva"
+                value={precioConIvaInput}
+                onChange={handlePrecioConIvaChange}
+                step="0.01"
+                min="0"
+                className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
+                required
+                disabled={loading}
+                placeholder="0.00"
+              />
+            ) : (
+              <input
+                type="number"
+                name="precio"
+                value={formData.precio}
+                onChange={handlePrecioNetoChange}
+                step="0.01"
+                min="0"
+                className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
+                required
+                disabled={loading}
+                placeholder="0.00"
+              />
+            )}
+            {formData.precio && formData.iva && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {modoEntradaPrecio === 'con_iva' ? (
+                  <>
+                    Precio sin IVA: <strong>{formatearMoneda(roundPrecio(formData.precio))}</strong>
+                  </>
+                ) : (
+                  <>
+                    Precio con IVA:{' '}
+                    <strong>{formatearMoneda(precioConIvaDesdeNeto(formData.precio, formData.iva))}</strong>
+                  </>
+                )}
+              </p>
+            )}
           </div>
 
           {/* IVA */}
@@ -241,7 +336,7 @@ function ModalProducto({
             <select
               name="iva"
               value={formData.iva}
-              onChange={handleInputChange}
+              onChange={handleIvaChange}
               className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
               disabled={loading}
               required
@@ -275,11 +370,11 @@ function ModalProducto({
         </div>
 
         {/* Información adicional */}
-        {formData.precio && formData.iva && (
+        {formData.precio && formData.iva && modoEntradaPrecio === 'sin_iva' && (
           <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
             <p className="text-sm text-blue-800">
               <span className="font-semibold">Precio con IVA:</span>{' '}
-              {formatearMoneda(parseFloat(formData.precio) * (1 + parseFloat(formData.iva) / 100))}
+              {formatearMoneda(precioConIvaDesdeNeto(formData.precio, formData.iva))}
             </p>
           </div>
         )}

@@ -201,8 +201,8 @@ function AppHeader() {
 
   // ✅ DETERMINAR TEMA SEGÚN CONECTIVIDAD - Usa ConnectionContext
   const getNavbarTheme = () => {
-    if (!isPWA) return 'bg-blue-500'; // Tema normal para web
-    return modoOffline ? 'bg-orange-500' : 'bg-blue-500'; // Naranja offline, azul online
+    if (!isPWA) return 'bg-brand';
+    return modoOffline ? 'bg-offline' : 'bg-brand';
   };
 
   // ✅ OBTENER ESTILO DE MENÚ SEGÚN DISPONIBILIDAD OFFLINE
@@ -563,7 +563,7 @@ function AppHeader() {
             {isPWA && (
               <motion.button
                 onClick={handleManualAppUpdate}
-                className="text-white focus:outline-none bg-emerald-600 hover:bg-emerald-700 px-4 py-2 rounded font-bold"
+                className="text-white focus:outline-none bg-brand hover:opacity-90 px-4 py-2 rounded font-bold"
                 variants={menuItemVariants}
                 whileHover="hover"
                 whileTap="tap"
@@ -590,13 +590,13 @@ function AppHeader() {
 
         {/* ✅ MENU MÓVIL CON NAVEGACIÓN OFFLINE */}
         {showMenu && (
-          <div className="sm:hidden bg-blue-500 py-2 px-4 flex flex-col items-center">
+          <div className="sm:hidden bg-brand py-2 px-4 flex flex-col items-center">
             {/* Información del usuario en móvil */}
             <div className={`w-full text-center mb-4 rounded p-3 ${
-              isOnlineDisplay ? 'bg-blue-600' : 'bg-orange-600'
+              isOnlineDisplay ? 'bg-brand/80' : 'bg-offline/90'
             }`}>
               <p className="font-medium text-white">{getUserName()}</p>
-              <p className="text-blue-200 text-sm">{role}</p>
+              <p className="text-slate-200 text-sm">{role}</p>
               {isPWA && (
                 <div className="flex items-center justify-center gap-2 mt-1">
                   {isOnlineDisplay ? (
@@ -626,7 +626,7 @@ function AppHeader() {
                 >
                   <MenuLink 
                     href="/ventas/RegistrarPedido" 
-                    className="block py-2 px-4 hover:bg-blue-600 text-white"
+                    className="block py-2 px-4 hover:bg-white/10 text-white"
                     requiresOnline={false}
                   >
                     Registrar Pedido
@@ -635,7 +635,7 @@ function AppHeader() {
                     <>
                       <MenuLink 
                         href="/ventas/HistorialPedidos" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
+                        className="block py-2 px-4 hover:bg-white/10 text-white"
                         requiresOnline={true}
                       >
                         Modificar Nota de Pedido
@@ -645,21 +645,21 @@ function AppHeader() {
                         <>
                         <MenuLink 
                             href="/ventas/VentaDirecta" 
-                            className="block py-2 px-4 hover:bg-blue-600 text-white"
+                            className="block py-2 px-4 hover:bg-white/10 text-white"
                             requiresOnline={true}
                           >
                              Venta Directa
                           </MenuLink>
                           <MenuLink 
                             href="/ventas/Facturacion" 
-                            className="block py-2 px-4 hover:bg-blue-600 text-white"
+                            className="block py-2 px-4 hover:bg-white/10 text-white"
                             requiresOnline={true}
                           >
                             Facturación
                           </MenuLink>
                           <MenuLink 
                             href="/ventas/ListaPrecios" 
-                            className="block py-2 px-4 hover:bg-blue-600 text-white"
+                            className="block py-2 px-4 hover:bg-white/10 text-white"
                             requiresOnline={true}
                           >
                             Generar Lista de Precios
@@ -669,7 +669,7 @@ function AppHeader() {
                       )}
                       <MenuLink 
                         href="/ventas/comprobantes" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
+                        className="block py-2 px-4 hover:bg-white/10 text-white"
                         requiresOnline={true}
                       >
                         Gestión de Comprobantes
@@ -702,7 +702,7 @@ function AppHeader() {
                       {role === 'GERENTE' && (
                         <MenuLink 
                           href="/inventario/Productos" 
-                          className="block py-2 px-4 hover:bg-blue-600 text-white"
+                          className="block py-2 px-4 hover:bg-white/10 text-white"
                           requiresOnline={true}
                         >
                           Productos
@@ -710,14 +710,14 @@ function AppHeader() {
                       )}
                       <MenuLink 
                         href="/inventario/consultaStock" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
+                        className="block py-2 px-4 hover:bg-white/10 text-white"
                         requiresOnline={true}
                       >
                         Consulta de STOCK
                       </MenuLink>
                       <MenuLink 
                         href="/inventario/Remitos" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
+                        className="block py-2 px-4 hover:bg-white/10 text-white"
                         requiresOnline={true}
                       >
                         Remitos
@@ -744,7 +744,7 @@ function AppHeader() {
                     {role === 'GERENTE' && (
                       <MenuLink 
                         href="/compras/RegistrarCompra" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
+                        className="block py-2 px-4 hover:bg-white/10 text-white"
                         requiresOnline={true}
                       >
                         Registrar Compra
@@ -753,7 +753,7 @@ function AppHeader() {
                     
                     <MenuLink 
                       href="/compras/RegistrarGasto" 
-                      className="block py-2 px-4 hover:bg-blue-600 text-white"
+                      className="block py-2 px-4 hover:bg-white/10 text-white"
                       requiresOnline={true}
                     >
                       Registrar Gasto
@@ -762,7 +762,7 @@ function AppHeader() {
                     {role === 'GERENTE' && (
                       <MenuLink 
                         href="/compras/HistorialCompras" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
+                        className="block py-2 px-4 hover:bg-white/10 text-white"
                         requiresOnline={true}
                       >
                         Historial de Compras
@@ -789,28 +789,28 @@ function AppHeader() {
                     >
                       <MenuLink 
                         href="/finanzas/fondos" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
+                        className="block py-2 px-4 hover:bg-white/10 text-white"
                         requiresOnline={true}
                       >
                         Fondos
                       </MenuLink>
                       <MenuLink 
                         href="/finanzas/ingresos" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
+                        className="block py-2 px-4 hover:bg-white/10 text-white"
                         requiresOnline={true}
                       >
                         Historial de Ingresos
                       </MenuLink>
                       <MenuLink 
                         href="/finanzas/egresos" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
+                        className="block py-2 px-4 hover:bg-white/10 text-white"
                         requiresOnline={true}
                       >
                         Historial de Egresos
                       </MenuLink>
                       <MenuLink 
                         href="/finanzas/reportes" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
+                        className="block py-2 px-4 hover:bg-white/10 text-white"
                         requiresOnline={true}
                       >
                         Reportes Financieros
@@ -836,7 +836,7 @@ function AppHeader() {
                   >
                     <MenuLink 
                       href="/edicion/Clientes" 
-                      className="block py-2 px-4 hover:bg-blue-600 text-white"
+                      className="block py-2 px-4 hover:bg-white/10 text-white"
                       requiresOnline={true}
                     >
                       Clientes
@@ -846,14 +846,14 @@ function AppHeader() {
                       <>
                         <MenuLink 
                           href="/edicion/Proveedores" 
-                          className="block py-2 px-4 hover:bg-blue-600 text-white"
+                          className="block py-2 px-4 hover:bg-white/10 text-white"
                           requiresOnline={true}
                         >
                           Proveedores
                         </MenuLink>
                         <MenuLink 
                           href="/edicion/Empleados" 
-                          className="block py-2 px-4 hover:bg-blue-600 text-white"
+                          className="block py-2 px-4 hover:bg-white/10 text-white"
                           requiresOnline={true}
                         >
                           Empleados

@@ -1,189 +1,207 @@
-// hooks/pedidos/useHistorialPedidos.js - VERSIÓN COMPLETA ACTUALIZADA
-import { useState, useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+// hooks/pedidos/useHistorialPedidos.js — v2: React Query + Zustand (offline preservado)
+import { useState, useEffect, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import toast from '@/components/shared/toast';
 import { axiosAuth } from '../../utils/apiClient';
 import { offlineManager, getAppMode } from '../../utils/offlineManager';
 import { useConnectionContext } from '../../context/ConnectionContext';
+import { usePedidosUIStore } from '@/stores/pedidosUIStore';
+import { usePedidosHistorialQuery } from '@/hooks/queries/finanzasQueries';
+import { queryKeys } from '@/hooks/queries/queryKeys';
+import { useInvalidateFinanzas } from '@/hooks/queries/useInvalidateQueries';
 
 export function useHistorialPedidos(filtroEmpleado = null) {
-  const [pedidosOriginales, setPedidosOriginales] = useState([]); // NUEVO: Pedidos sin filtrar
-  const [selectedPedidos, setSelectedPedidos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [filtros, setFiltros] = useState({
-    estado: '',
-    cliente: '',
-    ciudad: '',
-    empleado: '',
-    fechaDesde: '',
-    fechaHasta: ''
-  });
-  const [totalPedidos, setTotalPedidos] = useState(0);
-  const [paginaActual, setPaginaActual] = useState(1);
-  const [porPagina, setPorPagina] = useState(50);
-  const [usarSoloRecientes, setUsarSoloRecientes] = useState(true);
+  const {
+    filtros,
+    paginacion,
+    setFiltros,
+    resetFiltros,
+    setPaginacion,
+    setLoading,
+  } = usePedidosUIStore();
+
+  const queryClient = useQueryClient();
+  const { invalidatePedidos } = useInvalidateFinanzas();
   const { modoOffline } = useConnectionContext();
   const isPWA = getAppMode() === 'pwa';
+  const offlineMode = modoOffline && isPWA;
 
-  const cargarPedidos = async (filtrosParaServidor = null, opts = {}) => {
-    const usarTodoElHistorial = opts.usarTodoElHistorial === true;
-    const pagina = opts.pagina !== undefined ? opts.pagina : paginaActual;
-    const porPaginaParam = opts.porPagina !== undefined ? opts.porPagina : porPagina;
-    if (usarTodoElHistorial) setUsarSoloRecientes(false);
+  const [selectedPedidos, setSelectedPedidos] = useState([]);
+  const [pedidosOffline, setPedidosOffline] = useState([]);
+  const [usarSoloRecientes, setUsarSoloRecientes] = useState(true);
 
-    setLoading(true);
-    try {
-      const isManager = !filtroEmpleado;
-      if (modoOffline && isPWA) {
-        const pedidosOffline = offlineManager.getPedidosCache({
-          empleadoId: filtroEmpleado,
-          isManager,
-          maxDays: 30
-        });
-        setPedidosOriginales(pedidosOffline);
-        setTotalPedidos(pedidosOffline.length);
-        return;
-      }
-
-      const params = new URLSearchParams();
-      params.set('pagina', String(pagina));
-      params.set('porPagina', String(porPaginaParam));
-      if (filtroEmpleado) params.set('empleado_id', filtroEmpleado);
-
-      const f = filtrosParaServidor || filtros;
-      const trim = (v) => (typeof v === 'string' ? v.trim() : v);
-      if (trim(f.fechaDesde)) params.set('fechaDesde', trim(f.fechaDesde));
-      if (trim(f.fechaHasta)) params.set('fechaHasta', trim(f.fechaHasta));
-      if (trim(f.cliente)) params.set('cliente', trim(f.cliente));
-      if (trim(f.estado)) params.set('estado', trim(f.estado));
-      if (trim(f.ciudad)) params.set('ciudad', trim(f.ciudad));
-      if (trim(f.empleado)) params.set('empleado_nombre', trim(f.empleado));
-
-      if (!usarTodoElHistorial && usarSoloRecientes) {
-        params.set('dias', '30');
-      }
-
-      const url = `/pedidos/obtener-pedidos?${params.toString()}`;
-      const response = await axiosAuth.get(url);
-
-      if (response.data.success) {
-        const data = response.data.data || [];
-        setPedidosOriginales(data);
-        setTotalPedidos(response.data.total ?? 0);
-        setPaginaActual(response.data.pagina ?? pagina);
-        setPorPagina(response.data.porPagina ?? porPaginaParam);
-        if (isPWA) offlineManager.savePedidosCache(data, 30);
-      } else {
-        toast.error(response.data.message || 'Error al cargar pedidos');
-        setPedidosOriginales([]);
-        setTotalPedidos(0);
-      }
-    } catch (error) {
-      console.error("❌ Error completo al obtener pedidos:", {
-        message: error.message,
-        response: error.response?.data,
-        status: error.response?.status,
-        url: error.config?.url,
-        fullUrl: error.config?.baseURL + error.config?.url
-      });
-      if (isPWA) {
-        const pedidosOffline = offlineManager.getPedidosCache({
-          empleadoId: filtroEmpleado,
-          isManager: !filtroEmpleado,
-          maxDays: 30
-        });
-        if (pedidosOffline.length > 0) {
-          toast('Mostrando historial offline (últimos 30 días)', { icon: '📴' });
-          setPedidosOriginales(pedidosOffline);
-          setTotalPedidos(pedidosOffline.length);
-        } else {
-          toast.error("No se pudieron cargar los pedidos");
-          setPedidosOriginales([]);
-          setTotalPedidos(0);
-        }
-      } else {
-        toast.error("No se pudieron cargar los pedidos");
-        setPedidosOriginales([]);
-        setTotalPedidos(0);
-      }
-    } finally {
-      setLoading(false);
-    }
+  const queryParams = {
+    pagina: paginacion.paginaActual,
+    porPagina: paginacion.registrosPorPagina,
+    filtros,
+    empleadoId: filtroEmpleado,
+    usarSoloRecientes,
   };
+
+  const query = usePedidosHistorialQuery(queryParams, !offlineMode);
+
+  const cargarPedidosOffline = useCallback(() => {
+    const isManager = !filtroEmpleado;
+    const pedidos = offlineManager.getPedidosCache({
+      empleadoId: filtroEmpleado,
+      isManager,
+      maxDays: 30,
+    });
+    setPedidosOffline(pedidos);
+  }, [filtroEmpleado]);
 
   useEffect(() => {
-    cargarPedidos(null, {});
-  }, [filtroEmpleado, modoOffline, isPWA]);
+    if (!offlineMode) return;
+    cargarPedidosOffline();
+    setLoading({ pedidos: false });
+  }, [offlineMode, cargarPedidosOffline, setLoading, modoOffline, filtroEmpleado]);
 
-  // Lista a mostrar = lo que devuelve el servidor (filtrado y paginado en backend). Sin filtro local.
+  useEffect(() => {
+    if (!offlineMode) {
+      setLoading({ pedidos: query.isLoading });
+    }
+  }, [query.isLoading, offlineMode, setLoading]);
+
+  useEffect(() => {
+    if (query.isError && isPWA) {
+      const pedidos = offlineManager.getPedidosCache({
+        empleadoId: filtroEmpleado,
+        isManager: !filtroEmpleado,
+        maxDays: 30,
+      });
+      if (pedidos.length > 0) {
+        toast.warning('Mostrando historial offline (últimos 30 días)');
+        setPedidosOffline(pedidos);
+      } else {
+        toast.error('No se pudieron cargar los pedidos');
+      }
+    }
+  }, [query.isError, isPWA, filtroEmpleado]);
+
+  useEffect(() => {
+    if (query.data?.pedidos && isPWA) {
+      offlineManager.savePedidosCache(query.data.pedidos, 30);
+    }
+  }, [query.data?.pedidos, isPWA]);
+
+  const pedidosOriginales = offlineMode ? pedidosOffline : (query.data?.pedidos ?? []);
+  const totalPedidos = offlineMode ? pedidosOffline.length : (query.data?.total ?? 0);
+  const paginaActual = offlineMode
+    ? paginacion.paginaActual
+    : (query.data?.pagina ?? paginacion.paginaActual);
+  const porPagina = offlineMode
+    ? paginacion.registrosPorPagina
+    : (query.data?.porPagina ?? paginacion.registrosPorPagina);
   const pedidos = pedidosOriginales;
+  const loading = offlineMode ? false : query.isLoading;
 
-  // Seleccionar/deseleccionar un pedido individual
+  const clearSelection = () => setSelectedPedidos([]);
+
   const handleSelectPedido = (pedidoId) => {
-    if (selectedPedidos.includes(pedidoId)) {
-      setSelectedPedidos(selectedPedidos.filter(id => id !== pedidoId));
-    } else {
-      setSelectedPedidos([...selectedPedidos, pedidoId]);
-    }
+    setSelectedPedidos((prev) =>
+      prev.includes(pedidoId) ? prev.filter((id) => id !== pedidoId) : [...prev, pedidoId]
+    );
   };
 
-  // Seleccionar/deseleccionar todos los pedidos visibles
   const handleSelectAllPedidos = (pedidosVisibles) => {
-    const todosSeleccionados = pedidosVisibles.every(p => selectedPedidos.includes(p.id));
-    
+    const todosSeleccionados = pedidosVisibles.every((p) => selectedPedidos.includes(p.id));
     if (todosSeleccionados) {
-      // Deseleccionar todos los visibles
-      setSelectedPedidos(selectedPedidos.filter(id => !pedidosVisibles.some(p => p.id === id)));
+      setSelectedPedidos((prev) =>
+        prev.filter((id) => !pedidosVisibles.some((p) => p.id === id))
+      );
     } else {
-      // Seleccionar todos los visibles que no estén ya seleccionados
-      const nuevosIds = pedidosVisibles.map(p => p.id).filter(id => !selectedPedidos.includes(id));
-      setSelectedPedidos([...selectedPedidos, ...nuevosIds]);
+      const nuevosIds = pedidosVisibles.map((p) => p.id).filter((id) => !selectedPedidos.includes(id));
+      setSelectedPedidos((prev) => [...prev, ...nuevosIds]);
     }
-  };
-
-  // Limpiar selección
-  const clearSelection = () => {
-    setSelectedPedidos([]);
-  };
-
-  const FILTROS_VACIOS = {
-    estado: '',
-    cliente: '',
-    ciudad: '',
-    empleado: '',
-    fechaDesde: '',
-    fechaHasta: ''
   };
 
   const actualizarFiltros = (nuevosFiltros) => {
     setFiltros(nuevosFiltros);
+    setUsarSoloRecientes(false);
+    setPaginacion({ paginaActual: 1 });
     clearSelection();
-    // Siempre refetch con los nuevos filtros (también al quitar el último filtro)
-    cargarPedidos(nuevosFiltros, { usarTodoElHistorial: true, pagina: 1 });
+    if (offlineMode) {
+      cargarPedidosOffline();
+    } else {
+      invalidatePedidos();
+    }
   };
 
   const limpiarFiltros = () => {
-    setFiltros(FILTROS_VACIOS);
+    resetFiltros();
+    setUsarSoloRecientes(false);
+    setPaginacion({ paginaActual: 1 });
     clearSelection();
-    // Pasar filtros vacíos explícitos: cargarPedidos(null) usa el state anterior (aún no actualizado)
-    cargarPedidos(FILTROS_VACIOS, { usarTodoElHistorial: true, pagina: 1 });
+    if (offlineMode) {
+      cargarPedidosOffline();
+    } else {
+      invalidatePedidos();
+    }
+  };
+
+  const cargarPedidos = async (filtrosParaServidor = null, opts = {}) => {
+    const usarTodoElHistorial = opts.usarTodoElHistorial === true;
+    if (usarTodoElHistorial) setUsarSoloRecientes(false);
+
+    if (opts.pagina !== undefined || opts.porPagina !== undefined) {
+      setPaginacion({
+        ...(opts.pagina !== undefined ? { paginaActual: opts.pagina } : {}),
+        ...(opts.porPagina !== undefined ? { registrosPorPagina: opts.porPagina } : {}),
+      });
+    }
+
+    if (filtrosParaServidor) {
+      setFiltros(filtrosParaServidor);
+    }
+
+    if (offlineMode) {
+      cargarPedidosOffline();
+      return;
+    }
+
+    const result = await query.refetch();
+    if (result.isError) {
+      toast.error('No se pudieron cargar los pedidos');
+    }
+    return result;
   };
 
   const cargarPagina = (numeroPagina, nuevaPorPagina = null) => {
-    cargarPedidos(filtros, {
-      usarTodoElHistorial: true,
-      pagina: numeroPagina,
-      porPagina: nuevaPorPagina !== null ? nuevaPorPagina : porPagina
+    setPaginacion({
+      paginaActual: numeroPagina,
+      ...(nuevaPorPagina !== null ? { registrosPorPagina: nuevaPorPagina } : {}),
     });
+    if (offlineMode) {
+      cargarPedidosOffline();
+    }
   };
 
-  // Cambiar estado de múltiples pedidos
+  const patchPedidosCache = (pedidoId, datosActualizados) => {
+    queryClient.setQueryData(queryKeys.pedidos.historial(queryParams), (old) => {
+      if (!old) return old;
+      return {
+        ...old,
+        pedidos: old.pedidos.map((p) =>
+          p.id === pedidoId ? { ...p, ...datosActualizados } : p
+        ),
+      };
+    });
+    setPedidosOffline((prev) =>
+      prev.map((p) => (p.id === pedidoId ? { ...p, ...datosActualizados } : p))
+    );
+  };
+
+  const actualizarPedidoEnLista = (pedidoId, datosActualizados) => {
+    patchPedidosCache(pedidoId, datosActualizados);
+  };
+
   const cambiarEstadoMultiple = async (nuevoEstado) => {
     if (selectedPedidos.length === 0) {
       toast.error('No hay pedidos seleccionados');
       return false;
     }
 
-    setLoading(true);
+    setLoading({ operacion: true });
     let exitosos = 0;
     let fallidos = 0;
 
@@ -191,16 +209,11 @@ export function useHistorialPedidos(filtroEmpleado = null) {
       for (const pedidoId of selectedPedidos) {
         try {
           const response = await axiosAuth.put(`/pedidos/actualizar-estado/${pedidoId}`, {
-            estado: nuevoEstado
+            estado: nuevoEstado,
           });
-          
-          if (response.data.success) {
-            exitosos++;
-          } else {
-            fallidos++;
-          }
-        } catch (error) {
-          console.error(`Error actualizando pedido ${pedidoId}:`, error);
+          if (response.data.success) exitosos++;
+          else fallidos++;
+        } catch {
           fallidos++;
         }
       }
@@ -212,23 +225,21 @@ export function useHistorialPedidos(filtroEmpleado = null) {
       }
       if (fallidos > 0) toast.error(`${fallidos} pedidos no se pudieron actualizar`);
       return exitosos > 0;
-    } catch (error) {
-      console.error('Error en cambio masivo de estado:', error);
+    } catch {
       toast.error('Error al cambiar estado de pedidos');
       return false;
     } finally {
-      setLoading(false);
+      setLoading({ operacion: false });
     }
   };
 
-  // Eliminar múltiples pedidos
   const eliminarMultiple = async () => {
     if (selectedPedidos.length === 0) {
       toast.error('No hay pedidos seleccionados');
       return false;
     }
 
-    setLoading(true);
+    setLoading({ operacion: true });
     let exitosos = 0;
     let fallidos = 0;
 
@@ -236,14 +247,9 @@ export function useHistorialPedidos(filtroEmpleado = null) {
       for (const pedidoId of selectedPedidos) {
         try {
           const response = await axiosAuth.delete(`/pedidos/eliminar-pedido/${pedidoId}`);
-          
-          if (response.data.success) {
-            exitosos++;
-          } else {
-            fallidos++;
-          }
-        } catch (error) {
-          console.error(`Error eliminando pedido ${pedidoId}:`, error);
+          if (response.data.success) exitosos++;
+          else fallidos++;
+        } catch {
           fallidos++;
         }
       }
@@ -254,23 +260,21 @@ export function useHistorialPedidos(filtroEmpleado = null) {
         clearSelection();
       }
       if (fallidos > 0) toast.error(`${fallidos} pedidos no se pudieron eliminar`);
-
       return exitosos > 0;
-    } catch (error) {
-      console.error('Error en eliminación múltiple:', error);
+    } catch {
       toast.error('Error al eliminar pedidos');
       return false;
     } finally {
-      setLoading(false);
+      setLoading({ operacion: false });
     }
   };
 
   const getEstadisticas = () => {
     const total = totalPedidos;
-    const filtrado = pedidosOriginales.length; // cantidad en la página actual
-    const exportados = pedidosOriginales.filter(p => p.estado === 'Exportado').length;
-    const facturados = pedidosOriginales.filter(p => p.estado === 'Facturado').length;
-    const anulados = pedidosOriginales.filter(p => p.estado === 'Anulado').length;
+    const filtrado = pedidosOriginales.length;
+    const exportados = pedidosOriginales.filter((p) => p.estado === 'Exportado').length;
+    const facturados = pedidosOriginales.filter((p) => p.estado === 'Facturado').length;
+    const anulados = pedidosOriginales.filter((p) => p.estado === 'Anulado').length;
     const totalMonto = pedidosOriginales.reduce((acc, p) => acc + parseFloat(p.total || 0), 0);
     return {
       total,
@@ -279,25 +283,11 @@ export function useHistorialPedidos(filtroEmpleado = null) {
       facturados,
       anulados,
       totalMonto: parseFloat(totalMonto.toFixed(2)),
-      seleccionados: selectedPedidos.length
+      seleccionados: selectedPedidos.length,
     };
   };
 
-  // Función para verificar si hay filtros activos
-  const hayFiltrosActivos = () => {
-    return Object.values(filtros).some(valor => valor && valor !== '');
-  };
-
-  /**
-   * Actualiza un solo pedido en la lista sin recargar desde el servidor.
-   * Usado tras facturar (Fase 1). Reutilizar para anulación u otras actualizaciones
-   * puntuales: llamar con el id y { estado: 'Anulado' } (u otros campos) para evitar cargarPedidos().
-   */
-  const actualizarPedidoEnLista = (pedidoId, datosActualizados) => {
-    setPedidosOriginales(prev =>
-      prev.map(p => (p.id === pedidoId ? { ...p, ...datosActualizados } : p))
-    );
-  };
+  const hayFiltrosActivos = () => Object.values(filtros).some((valor) => valor && valor !== '');
 
   return {
     pedidos,
@@ -314,17 +304,11 @@ export function useHistorialPedidos(filtroEmpleado = null) {
     handleSelectAllPedidos,
     clearSelection,
     actualizarPedidoEnLista,
-
-    // Funciones de filtrado
     actualizarFiltros,
     limpiarFiltros,
     hayFiltrosActivos,
-
-    // Operaciones múltiples
     cambiarEstadoMultiple,
     eliminarMultiple,
-
-    // Utilidades
-    getEstadisticas
+    getEstadisticas,
   };
 }

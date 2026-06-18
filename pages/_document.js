@@ -4,6 +4,25 @@ export default function Document() {
   return (
     <Html lang="es">
       <Head>
+        {process.env.NODE_ENV === 'development' && (
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                (function () {
+                  if (!('serviceWorker' in navigator)) return;
+                  navigator.serviceWorker.getRegistrations().then(function (regs) {
+                    regs.forEach(function (reg) { reg.unregister(); });
+                  });
+                  if ('caches' in window) {
+                    caches.keys().then(function (keys) {
+                      keys.forEach(function (key) { caches.delete(key); });
+                    });
+                  }
+                })();
+              `,
+            }}
+          />
+        )}
         <meta
           name="viewport"
           content="width=device-width, initial-scale=1, viewport-fit=cover"

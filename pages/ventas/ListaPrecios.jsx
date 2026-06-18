@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import Head from 'next/head';
-import { toast } from 'react-hot-toast';
+import toast from '@/components/shared/toast';
 import useAuth from '../../hooks/useAuth';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 
 import { ListaPreciosProvider, useListaPrecios } from '../../context/ListaPreciosContext';
 import { useGenerarPDF } from '../../hooks/ventas/useGenerarPDFListaPrecio';
@@ -60,36 +62,36 @@ function GenerarListaPreciosContent() {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+    <div className="flex min-h-screen flex-col items-center bg-muted/30 p-4">
       <Head>
         <title>VERTIMAR | LISTA DE PRECIOS</title>
         <meta name="description" content="Generador de listas de precios" />
       </Head>
-      
-      <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-6xl">
-        <h1 className="text-2xl font-bold mb-4 text-center">LISTA DE PRECIOS</h1>
-        
-        <div className="flex flex-col md:flex-row gap-6">
+
+      <Card className="w-full max-w-6xl shadow-lg">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">LISTA DE PRECIOS</CardTitle>
+        </CardHeader>
+        <CardContent>
+        <div className="flex flex-col gap-6 md:flex-row">
           <ClienteSelectorListaPrecios />
           <ProductoSelector />
         </div>
 
         <ProductosCarritoListaPrecios />
-        
-        <div className="flex flex-col sm:flex-row justify-end mt-6 gap-4">
-          <BotonGenerarPDFUniversal 
+
+        <div className="mt-6 flex flex-col justify-end gap-4 sm:flex-row">
+          <BotonGenerarPDFUniversal
             onGenerar={handleGenerarPDF}
             loading={loading}
             texto="Generar Lista de Precios"
           />
-          <button 
-            className="bg-red-600 hover:bg-red-800 px-6 py-2 rounded text-white font-semibold"
-            onClick={handleConfirmarSalida}
-          >
+          <Button variant="danger" onClick={handleConfirmarSalida}>
             Volver al Menú
-          </button>
+          </Button>
         </div>
-      </div>
+        </CardContent>
+      </Card>
       
       {/* Modal PDF Unificado */}
       <ModalPDFUniversal

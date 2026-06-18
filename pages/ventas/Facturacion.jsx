@@ -1,7 +1,9 @@
-import { useState, useRef, useMemo, useCallback } from 'react';
+import { useRef, useMemo, useCallback, useState } from 'react';
+import dynamic from 'next/dynamic';
 import Head from 'next/head';
-import { toast } from 'react-hot-toast';
+import toast from '@/components/shared/toast';
 import useAuth from '../../hooks/useAuth';
+import { useVentasUIStore } from '@/stores/ventasUIStore';
 
 // Hooks personalizados (paginación y filtros en servidor para evitar congelamientos)
 import { useHistorialVentas } from '../../hooks/ventas/useHistorialVentas';
@@ -11,32 +13,48 @@ import { useComprobantes } from '../../hooks/ventas/useComprobantes';
 import { useGenerarPDFsVentas } from '../../hooks/ventas/useGenerarPDFsVentas';
 import { useSolicitarCAE } from '../../hooks/ventas/useSolicitarCAE';
 
-// Componentes
+// Componentes — modales pesados con dynamic import (v2 hardening)
+const ModalDetalleVenta = dynamic(
+  () => import('../../components/ventas/ModalesHistorialVentas').then((m) => ({ default: m.ModalDetalleVenta })),
+  { ssr: false }
+);
+const ModalComprobantesVenta = dynamic(
+  () => import('../../components/ventas/ModalComprobantesVenta'),
+  { ssr: false }
+);
+const ModalConfirmacionSalida = dynamic(
+  () => import('../../components/ventas/ModalesConfirmacion').then((m) => ({ default: m.ModalConfirmacionSalida })),
+  { ssr: false }
+);
+const ModalCrearNota = dynamic(
+  () => import('../../components/notas/ModalCrearNota'),
+  { ssr: false }
+);
 import FiltrosHistorialVentas from '../../components/ventas/FiltrosHistorialVentas';
 import TablaVentas from '../../components/ventas/TablaVentas';
 import { Paginacion } from '../../components/Paginacion';
-import { ModalDetalleVenta } from '../../components/ventas/ModalesHistorialVentas';
-import { ModalComprobantesVenta } from '../../components/ventas/ModalComprobantesVenta';
-import { ModalConfirmacionSalida } from '../../components/ventas/ModalesConfirmacion';
 import { BotonAcciones } from '../../components/ventas/BotonAcciones';
 import { BotonFlotanteAcciones } from '../../components/ventas/BotonFlotanteAcciones';
-import { ModalCrearNota } from '../../components/notas/ModalCrearNota';
+import { ConfirmModal } from '@/components/shared/ConfirmModal';
+import PageBreadcrumbs from '@/components/shared/PageBreadcrumbs';
 
 // API Client
 import { axiosAuth } from '../../utils/apiClient';
 
 function HistorialVentasContent() {
-  // Estados para modales
-  const [mostrarModalDetalle, setMostrarModalDetalle] = useState(false);
-  const [mostrarModalComprobante, setMostrarModalComprobante] = useState(false);
-  const [mostrarConfirmacionSalida, setMostrarConfirmacionSalida] = useState(false);
-  const [mostrarModalNotaDebito, setMostrarModalNotaDebito] = useState(false);
-  const [mostrarModalNotaCredito, setMostrarModalNotaCredito] = useState(false);
-  
-  // ✅ NUEVO: Estado para ventas desde búsqueda en backend
-  const [ventasDesdeBackend, setVentasDesdeBackend] = useState(null);
+  const { modales, openModal, closeModal, ventasDesdeBackend, setVentasDesdeBackend } =
+    useVentasUIStore();
+
+  const mostrarModalDetalle = modales.detalle;
+  const mostrarModalComprobante = modales.comprobante;
+  const mostrarConfirmacionSalida = modales.confirmacionSalida;
+  const mostrarModalNotaDebito = modales.notaDebito;
+  const mostrarModalNotaCredito = modales.notaCredito;
   const botonesAccionRef = useRef(null);
   const { user, loading: authLoading } = useAuth();
+  const [confirmarCAEOpen, setConfirmarCAEOpen] = useState(false);
+  const [confirmarCAEText, setConfirmarCAEText] = useState('');
+  const [ventasSinCAEConfirmadas, setVentasSinCAEConfirmadas] = useState([]);
 
   // Hooks personalizados (paginación en servidor)
   const {
@@ -171,14 +189,14 @@ function HistorialVentasContent() {
     try {
       await cargarProductosVenta(venta);
       await cargarCuenta(venta);
-      setMostrarModalDetalle(true);
+      openModal('detalle');
     } catch (error) {
       toast.error('Error al cargar detalles de la venta');
     }
   }, [cargarProductosVenta, cargarCuenta]);
 
   const handleCloseModalDetalle = useCallback(() => {
-    setMostrarModalDetalle(false);
+    closeModal('detalle');
     cerrarEdicion();
   }, [cerrarEdicion]);
 
@@ -189,13 +207,13 @@ function HistorialVentasContent() {
     }
     limpiarComprobante();
     await verificarComprobanteExistente(selectedVenta.id);
-    setMostrarModalDetalle(false);
-    setTimeout(() => setMostrarModalComprobante(true), 300);
+    closeModal('detalle');
+    setTimeout(() => openModal('comprobante'), 300);
   }, [selectedVenta, limpiarComprobante, verificarComprobanteExistente]);
 
   const handleCloseModalComprobante = useCallback(() => {
-    setMostrarModalComprobante(false);
-    setTimeout(() => setMostrarModalDetalle(true), 300);
+    closeModal('comprobante');
+    setTimeout(() => openModal('detalle'), 300);
   }, []);
 
   const handleUploadComprobante = useCallback(async () => {
@@ -203,8 +221,8 @@ function HistorialVentasContent() {
     const exito = await uploadComprobante(selectedVenta.id);
     if (exito) {
       setTimeout(() => {
-        setMostrarModalComprobante(false);
-        setTimeout(() => setMostrarModalDetalle(true), 300);
+        closeModal('comprobante');
+        setTimeout(() => openModal('detalle'), 300);
       }, 1500);
     }
   }, [selectedVenta, uploadComprobante]);
@@ -287,7 +305,7 @@ function HistorialVentasContent() {
   }, [ventasAMostrar, selectedVentas, generarRankingVentas]);
 
   const handleConfirmarSalida = useCallback(() => {
-    setMostrarConfirmacionSalida(true);
+    openModal('confirmacionSalida');
   }, []);
 
   const handleSalir = useCallback(() => {
@@ -336,10 +354,27 @@ function HistorialVentasContent() {
   }
   
   mensajeConfirmacion += `Esto enviará las facturas a ARCA/AFIP para obtener autorización electrónica.`;
-  
-  const confirmacion = window.confirm(mensajeConfirmacion);
-  
-  if (!confirmacion) return;
+
+  setVentasSinCAEConfirmadas(ventasSinCAE);
+  setConfirmarCAEText(mensajeConfirmacion);
+  setConfirmarCAEOpen(true);
+  }, [
+    ventasSeleccionadasCompletas,
+    solicitarCAE,
+    solicitarCAEMultiple,
+    cargarVentas,
+    paginaActual,
+    porPagina,
+    filtros,
+    clearSelection,
+    solicitandoCAE
+  ]);
+
+  const ejecutarSolicitudCAE = useCallback(async () => {
+  const ventasSinCAE = ventasSinCAEConfirmadas;
+  const cantidadTipoX = ventasSeleccionadasCompletas.length - ventasSinCAE.length;
+  if (ventasSinCAE.length === 0) return;
+  setConfirmarCAEOpen(false);
   
   console.log(`📋 Solicitando CAE para ${ventasSinCAE.length} ventas (${cantidadTipoX} tipo X omitidas)...`);
   
@@ -365,15 +400,15 @@ function HistorialVentasContent() {
     toast.error('Error al procesar solicitudes de CAE');
   }
   }, [
-    ventasSeleccionadasCompletas,
+    ventasSinCAEConfirmadas,
+    ventasSeleccionadasCompletas.length,
     solicitarCAE,
     solicitarCAEMultiple,
     cargarVentas,
     paginaActual,
     porPagina,
     filtros,
-    clearSelection,
-    solicitandoCAE
+    clearSelection
   ]);
 
   const handleSolicitarCAEIndividual = useCallback(async (ventaId) => {
@@ -458,6 +493,7 @@ function HistorialVentasContent() {
 
       <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-8">
         <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-6xl mx-auto">
+          <PageBreadcrumbs />
           <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
             <h1 className="text-3xl font-bold text-center text-gray-800">
               HISTORIAL DE VENTAS
@@ -465,7 +501,7 @@ function HistorialVentasContent() {
             <div className="flex gap-2 flex-wrap justify-center sm:justify-end">
               <button
                 type="button"
-                onClick={() => setMostrarModalNotaDebito(true)}
+                onClick={() => openModal('notaDebito')}
                 className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-4 py-2.5 rounded-lg font-semibold transition-colors flex items-center gap-2 min-h-[44px] min-w-[44px] touch-manipulation"
                 aria-label="Nueva Nota de Débito"
               >
@@ -473,7 +509,7 @@ function HistorialVentasContent() {
               </button>
               <button
                 type="button"
-                onClick={() => setMostrarModalNotaCredito(true)}
+                onClick={() => openModal('notaCredito')}
                 className="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-4 py-2.5 rounded-lg font-semibold transition-colors flex items-center gap-2 min-h-[44px] min-w-[44px] touch-manipulation"
                 aria-label="Nueva Nota de Crédito"
               >
@@ -597,7 +633,7 @@ function HistorialVentasContent() {
         <ModalConfirmacionSalida
           mostrar
           onConfirmar={handleSalir}
-          onCancelar={() => setMostrarConfirmacionSalida(false)}
+          onCancelar={() => closeModal('confirmacionSalida')}
         />
       )}
 
@@ -605,7 +641,7 @@ function HistorialVentasContent() {
         <ModalCrearNota
           tipoNota="NOTA_DEBITO"
           mostrar
-          onClose={() => setMostrarModalNotaDebito(false)}
+          onClose={() => closeModal('notaDebito')}
           onNotaCreada={() => {
             cargarVentas({ pagina: 1, porPagina, filtros });
           }}
@@ -616,12 +652,22 @@ function HistorialVentasContent() {
         <ModalCrearNota
           tipoNota="NOTA_CREDITO"
           mostrar
-          onClose={() => setMostrarModalNotaCredito(false)}
+          onClose={() => closeModal('notaCredito')}
           onNotaCreada={() => {
             cargarVentas({ pagina: 1, porPagina, filtros });
           }}
         />
       )}
+
+      <ConfirmModal
+        open={confirmarCAEOpen}
+        onOpenChange={setConfirmarCAEOpen}
+        title="Confirmar solicitud de CAE"
+        description={confirmarCAEText}
+        confirmLabel="Solicitar CAE"
+        cancelLabel="Cancelar"
+        onConfirm={ejecutarSolicitudCAE}
+      />
     </div>
   );
 }

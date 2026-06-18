@@ -2,7 +2,7 @@ import { MdSearch } from "react-icons/md";
 import { useEffect } from 'react';
 import { useCompra } from '../../context/ComprasContext';
 import { useProductoSearchCompra } from '../../hooks/compra/useBusquedaProductosCompra';
-import { toast } from 'react-hot-toast';
+import toast from '@/components/shared/toast';
 
 // Formateador de moneda
 const formatCurrency = (value) => {

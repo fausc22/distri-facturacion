@@ -1,5 +1,6 @@
-// context/ReportesContext.js - VERSIÓN CORREGIDA
-import { createContext, useContext, useReducer, useEffect } from 'react';
+// context/ReportesContext.js — bridge v2: UI state en Zustand, datos en context
+import { createContext, useContext, useReducer } from 'react';
+import { useReportesUIStore } from '@/stores/reportesUIStore';
 import { useReportes } from '../hooks/useReportes';
 import { useFinanzasData } from '../hooks/useFinanzasData';
 
@@ -344,33 +345,7 @@ export function ReportesProvider({ children }) {
     dispatch({ type: 'CLEAR_ERROR' });
   };
 
-  // ✅ EFECTO MEJORADO: Auto-cargar datos cuando cambien los filtros
-  useEffect(() => {
-    // ✅ Solo cargar si tenemos filtros válidos
-    const tieneHasValidosFiltros = reportesConfig.filtros.desde && 
-                                   reportesConfig.filtros.hasta && 
-                                   reportesConfig.isPeriodoValido;
-    
-    if (tieneHasValidosFiltros) {
-      console.log('🔄 Filtros cambiaron, recargando dashboard:', reportesConfig.filtros);
-      cargarDashboard();
-    } else {
-      console.log('⏳ Esperando filtros válidos...', reportesConfig.filtros);
-    }
-  }, [
-    reportesConfig.filtros.desde, 
-    reportesConfig.filtros.hasta, 
-    reportesConfig.filtros.periodo
-  ]);
-
-  // ✅ EFECTO INICIAL: Cargar datos por defecto
-  useEffect(() => {
-    // ✅ Cargar datos iniciales si no hay dashboard cargado
-    if (!state.dashboardData && reportesConfig.filtros.desde && reportesConfig.filtros.hasta) {
-      console.log('🚀 Carga inicial de dashboard');
-      cargarDashboard();
-    }
-  }, [state.dashboardData, reportesConfig.filtros.desde, reportesConfig.filtros.hasta]);
+  // Sin auto-carga de dashboard: cada pestaña carga sus propios datos.
 
   // Valores del contexto
   const contextValue = {
@@ -430,3 +405,5 @@ export function useReportesContext() {
   }
   return context;
 }
+
+export { useReportesUIStore };

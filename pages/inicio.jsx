@@ -188,20 +188,20 @@ export default function Inicio() {
       </Head>
 
       {/* ✅ HEADER - Cambia de color en modo offline */}
-      <div className={`bg-gradient-to-r ${estaEnModoOffline ? 'from-orange-500 to-orange-600' : 'from-blue-500 to-blue-600'} text-white rounded-xl shadow-lg p-6 mb-6`}>
+      <div className={`rounded-xl shadow-lg p-6 mb-6 text-white ${estaEnModoOffline ? 'bg-offline' : 'bg-brand'}`}>
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold mb-2">
               {getGreeting()}, {empleado?.nombre} {empleado?.apellido}
             </h1>
-            <p className={estaEnModoOffline ? 'text-orange-100' : 'text-blue-100'}>
+            <p className={estaEnModoOffline ? 'text-white/80' : 'text-white/80'}>
               {estaEnModoOffline ? 'Modo Offline - Solo Registrar Pedidos' : getRoleDescription(empleado?.rol)}
             </p>
           </div>
 
           <div className="mt-4 md:mt-0 text-right">
             <InstallButton />
-            <p className={`${estaEnModoOffline ? 'text-orange-100' : 'text-blue-100'} text-sm mt-2`}>
+            <p className={`${estaEnModoOffline ? 'text-white/80' : 'text-white/80'} text-sm mt-2`}>
               {new Date().toLocaleDateString('es-AR', {
                 weekday: 'long',
                 year: 'numeric',
@@ -215,7 +215,7 @@ export default function Inicio() {
 
       {/* ✅ BOTÓN "RECONECTAR APP" - Visible cuando está en modo offline (PWA o desktop con estado desincronizado) */}
       {modoOffline && (
-        <div className="mb-6 border-2 rounded-xl p-6 shadow-lg bg-orange-50 border-orange-500">
+        <div className="mb-6 border-2 rounded-xl p-6 shadow-lg bg-amber-50 border-warning">
           <div className="flex flex-col md:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-full bg-orange-100">
@@ -261,7 +261,7 @@ export default function Inicio() {
       {!estaEnModoOffline && shouldShowPWAPanels && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
           {shouldShowCatalogPanel && (
-            <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-orange-500">
+            <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-warning">
               <div className="flex items-center mb-4">
                 <div className="p-3 rounded-xl bg-orange-100">
                   <svg className={`w-6 h-6 ${catalogLoading ? 'text-gray-500 animate-spin' : 'text-orange-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -280,7 +280,7 @@ export default function Inicio() {
           )}
 
           {shouldShowPedidosPanel && (
-            <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-green-500">
+            <div className="bg-white rounded-xl shadow-md p-6 border-l-4 border-success">
               <div className="flex items-center mb-4">
                 <div className="p-3 rounded-xl bg-green-100">
                   <svg className={`w-6 h-6 ${syncing ? 'text-gray-500 animate-pulse' : 'text-green-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -306,8 +306,8 @@ export default function Inicio() {
 
         {/* 1. VENTAS - Prioridad máxima - SIEMPRE visible */}
         {(empleado?.rol === 'GERENTE' || empleado?.rol === 'VENDEDOR') && (
-          <div className={`bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 ${estaEnModoOffline ? 'border-orange-300' : 'border-transparent hover:border-emerald-200'}`}>
-            <div className={`bg-gradient-to-br ${estaEnModoOffline ? 'from-orange-500 to-orange-600' : 'from-emerald-500 to-emerald-600'} p-5 md:p-6`}>
+          <div className={`bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 ${estaEnModoOffline ? 'border-warning/40' : 'border-transparent hover:border-border'}`}>
+            <div className={`p-5 md:p-6 text-white ${estaEnModoOffline ? 'bg-offline' : 'bg-brand'}`}>
               <div className="flex items-center">
                 <div className="bg-white bg-opacity-25 p-3 md:p-4 rounded-xl backdrop-blur-sm">
                   <svg className="w-7 h-7 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -316,15 +316,15 @@ export default function Inicio() {
                 </div>
                 <h3 className="text-xl md:text-2xl font-bold text-white ml-3">Ventas</h3>
               </div>
-              <p className={`${estaEnModoOffline ? 'text-orange-50' : 'text-emerald-50'} mt-2 text-sm`}>
+              <p className="text-white/80 mt-2 text-sm">
                 {estaEnModoOffline ? 'Modo Offline - Solo Registrar Pedidos' : 'Gestión de pedidos y facturación'}
               </p>
             </div>
             <div className="p-3 md:p-4 space-y-1">
               {/* ✅ REGISTRAR PEDIDO - SIEMPRE disponible */}
-              <LinkGuard href="/ventas/RegistrarPedido" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-emerald-700">Registrar Nota de Pedido</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/ventas/RegistrarPedido" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Registrar Nota de Pedido</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
@@ -332,40 +332,40 @@ export default function Inicio() {
               {/* ✅ OTRAS OPCIONES DE VENTAS - Solo en modo online */}
               {!estaEnModoOffline && (
                 <>
-                  <LinkGuard href="/ventas/HistorialPedidos" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
-                    <span className="font-medium text-gray-800 group-hover:text-emerald-700">Historial de Pedidos</span>
-                    <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <LinkGuard href="/ventas/HistorialPedidos" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                    <span className="font-medium text-gray-800 group-hover:text-foreground">Historial de Pedidos</span>
+                    <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </LinkGuard>
                   {empleado?.rol === 'GERENTE' && (
                     <>
-                    <LinkGuard href="/ventas/VentaDirecta" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
-                      <span className="font-medium text-gray-800 group-hover:text-emerald-700">Venta Directa</span>
-                      <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <LinkGuard href="/ventas/VentaDirecta" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                      <span className="font-medium text-gray-800 group-hover:text-foreground">Venta Directa</span>
+                      <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </LinkGuard>
-                    <LinkGuard href="/ventas/Facturacion" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
-                      <span className="font-medium text-gray-800 group-hover:text-emerald-700">Facturación</span>
-                      <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <LinkGuard href="/ventas/Facturacion" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                      <span className="font-medium text-gray-800 group-hover:text-foreground">Facturación</span>
+                      <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>
                     </LinkGuard>
                     </>
                   )}
-                  <LinkGuard href="/ventas/comprobantes" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-emerald-50 active:bg-emerald-100 transition-colors group">
-                    <span className="font-medium text-gray-800 group-hover:text-emerald-700">Gestión de Comprobantes</span>
-                    <svg className="w-5 h-5 text-gray-400 group-hover:text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <LinkGuard href="/ventas/comprobantes" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                    <span className="font-medium text-gray-800 group-hover:text-foreground">Gestión de Comprobantes</span>
+                    <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
                   </LinkGuard>
                 </>
               )}
               {estaEnModoOffline && (
-                <LinkGuard href="/ventas/HistorialPedidosOffline" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-orange-50 active:bg-orange-100 transition-colors group">
-                  <span className="font-medium text-gray-800 group-hover:text-orange-700">Historial de Pedidos Offline</span>
-                  <svg className="w-5 h-5 text-gray-400 group-hover:text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <LinkGuard href="/ventas/HistorialPedidosOffline" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                  <span className="font-medium text-gray-800 group-hover:text-foreground">Historial de Pedidos Offline</span>
+                  <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </LinkGuard>
@@ -376,8 +376,8 @@ export default function Inicio() {
 
         {/* 2. INVENTARIO - Solo en modo online */}
         {!estaEnModoOffline && (empleado?.rol === 'GERENTE' || empleado?.rol === 'VENDEDOR') && (
-          <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-blue-200">
-            <div className="bg-gradient-to-br from-blue-500 to-blue-600 p-5 md:p-6">
+          <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-border">
+            <div className="bg-brand p-5 md:p-6 text-white">
               <div className="flex items-center">
                 <div className="bg-white bg-opacity-25 p-3 md:p-4 rounded-xl backdrop-blur-sm">
                   <svg className="w-7 h-7 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -386,26 +386,26 @@ export default function Inicio() {
                 </div>
                 <h3 className="text-xl md:text-2xl font-bold text-white ml-3">Inventario</h3>
               </div>
-              <p className="text-blue-50 mt-2 text-sm">Control de stock y productos</p>
+              <p className="text-white/80 mt-2 text-sm">Control de stock y productos</p>
             </div>
             <div className="p-3 md:p-4 space-y-1">
               {empleado?.rol === 'GERENTE' && (
-                <LinkGuard href="/inventario/Productos" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-colors group">
-                  <span className="font-medium text-gray-800 group-hover:text-blue-700">Gestión de Productos</span>
-                  <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <LinkGuard href="/inventario/Productos" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                  <span className="font-medium text-gray-800 group-hover:text-foreground">Gestión de Productos</span>
+                  <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </LinkGuard>
               )}
-              <LinkGuard href="/inventario/consultaStock" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-blue-700">Consulta de Stock</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/inventario/consultaStock" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Consulta de Stock</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
-              <LinkGuard href="/inventario/Remitos" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-blue-50 active:bg-blue-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-blue-700">Remitos</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/inventario/Remitos" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Remitos</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
@@ -415,8 +415,8 @@ export default function Inicio() {
 
         {/* 3. FINANZAS - Solo gerentes, solo en modo online */}
         {!estaEnModoOffline && empleado?.rol === 'GERENTE' && (
-          <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-teal-200">
-            <div className="bg-gradient-to-br from-teal-500 to-teal-600 p-5 md:p-6">
+          <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-border">
+            <div className="bg-brand p-5 md:p-6 text-white">
               <div className="flex items-center">
                 <div className="bg-white bg-opacity-25 p-3 md:p-4 rounded-xl backdrop-blur-sm">
                   <svg className="w-7 h-7 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -425,24 +425,24 @@ export default function Inicio() {
                 </div>
                 <h3 className="text-xl md:text-2xl font-bold text-white ml-3">Finanzas</h3>
               </div>
-              <p className="text-teal-50 mt-2 text-sm">Control financiero y reportes</p>
+              <p className="text-white/80 mt-2 text-sm">Control financiero y reportes</p>
             </div>
             <div className="p-3 md:p-4 space-y-1">
-              <LinkGuard href="/finanzas/fondos" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-teal-50 active:bg-teal-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-teal-700">Fondos</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/finanzas/fondos" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Fondos</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
-              <LinkGuard href="/finanzas/reportes" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-teal-50 active:bg-teal-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-teal-700">Reportes Financieros</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/finanzas/reportes" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Reportes Financieros</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
-              <LinkGuard href="/finanzas/Listados" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-teal-50 active:bg-teal-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-teal-700">Listados (IVA, Precios)</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/finanzas/Listados" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Listados (IVA, Precios)</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
@@ -452,8 +452,8 @@ export default function Inicio() {
 
         {/* 4. ADMINISTRACIÓN - Solo gerentes, solo en modo online */}
         {!estaEnModoOffline && empleado?.rol === 'GERENTE' && (
-          <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-purple-200">
-            <div className="bg-gradient-to-br from-purple-500 to-purple-600 p-5 md:p-6">
+          <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-border">
+            <div className="bg-brand p-5 md:p-6 text-white">
               <div className="flex items-center">
                 <div className="bg-white bg-opacity-25 p-3 md:p-4 rounded-xl backdrop-blur-sm">
                   <svg className="w-7 h-7 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -462,30 +462,30 @@ export default function Inicio() {
                 </div>
                 <h3 className="text-xl md:text-2xl font-bold text-white ml-3">Administración</h3>
               </div>
-              <p className="text-purple-50 mt-2 text-sm">Gestión de usuarios y sistema</p>
+              <p className="text-white/80 mt-2 text-sm">Gestión de usuarios y sistema</p>
             </div>
             <div className="p-3 md:p-4 space-y-1">
-              <LinkGuard href="/edicion/Empleados" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-purple-50 active:bg-purple-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-purple-700">Gestión de Empleados</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/edicion/Empleados" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Gestión de Empleados</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
-              <LinkGuard href="/edicion/Clientes" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-purple-50 active:bg-purple-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-purple-700">Gestión de Clientes</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/edicion/Clientes" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Gestión de Clientes</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
-              <LinkGuard href="/edicion/Proveedores" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-purple-50 active:bg-purple-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-purple-700">Gestión de Proveedores</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/edicion/Proveedores" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Gestión de Proveedores</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
-              <LinkGuard href="/auditoria/Auditoria" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-purple-50 active:bg-purple-100 transition-colors group border-t border-gray-200">
-                <span className="font-medium text-gray-800 group-hover:text-purple-700">Auditoría del Sistema</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/auditoria/Auditoria" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group border-t border-gray-200">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Auditoría del Sistema</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
@@ -495,8 +495,8 @@ export default function Inicio() {
 
         {/* 5. COMPRAS - Al final por menor uso, solo en modo online */}
         {!estaEnModoOffline && empleado?.rol === 'GERENTE' && (
-          <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-amber-200">
-            <div className="bg-gradient-to-br from-amber-500 to-amber-600 p-5 md:p-6">
+          <div className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 border-transparent hover:border-border">
+            <div className="bg-brand p-5 md:p-6 text-white">
               <div className="flex items-center">
                 <div className="bg-white bg-opacity-25 p-3 md:p-4 rounded-xl backdrop-blur-sm">
                   <svg className="w-7 h-7 md:w-8 md:h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -505,24 +505,24 @@ export default function Inicio() {
                 </div>
                 <h3 className="text-xl md:text-2xl font-bold text-white ml-3">Compras</h3>
               </div>
-              <p className="text-amber-50 mt-2 text-sm">Gestión de compras y gastos</p>
+              <p className="text-white/80 mt-2 text-sm">Gestión de compras y gastos</p>
             </div>
             <div className="p-3 md:p-4 space-y-1">
-              <LinkGuard href="/compras/RegistrarCompra" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-amber-50 active:bg-amber-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-amber-700">Registrar Compra Proveedores</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/compras/RegistrarCompra" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Registrar Compra Proveedores</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
-              <LinkGuard href="/compras/HistorialCompras" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-amber-50 active:bg-amber-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-amber-700">Historial de Compras</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/compras/HistorialCompras" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Historial de Compras</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
-              <LinkGuard href="/compras/RegistrarGasto" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-amber-50 active:bg-amber-100 transition-colors group">
-                <span className="font-medium text-gray-800 group-hover:text-amber-700">Registrar Gasto</span>
-                <svg className="w-5 h-5 text-gray-400 group-hover:text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <LinkGuard href="/compras/RegistrarGasto" className="flex items-center justify-between p-3 md:p-4 rounded-lg hover:bg-muted active:bg-muted/80 transition-colors group">
+                <span className="font-medium text-gray-800 group-hover:text-foreground">Registrar Gasto</span>
+                <svg className="w-5 h-5 text-gray-400 group-hover:text-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>

@@ -1,40 +1,58 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { MdFilterList, MdClear, MdExpandMore, MdSearch } from 'react-icons/md';
-import { axiosAuth } from '../../utils/apiClient';
-import ModalBase from '../common/ModalBase';
+import { axiosAuth } from '@/utils/apiClient';
+import { usePedidosUIStore } from '@/stores/pedidosUIStore';
+import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import ModalBase from '@/components/common/ModalBase';
 
 const DEBOUNCE_MS = 350;
 
-/** Autocomplete que busca en TODOS los pedidos vía API (sugerencias-filtros). */
 function AutocompleteFiltroPedidos({ tipo, value, onChange, placeholder, ariaLabel }) {
   const [sugerencias, setSugerencias] = useState([]);
   const [loading, setLoading] = useState(false);
   const [abierto, setAbierto] = useState(false);
-  const ref = useRef(null);
   const debounceRef = useRef(null);
 
-  const buscar = useCallback(async (q) => {
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ tipo, q: (q || '').trim() });
-      const res = await axiosAuth.get(`/pedidos/sugerencias-filtros?${params.toString()}`);
-      if (res.data?.success && Array.isArray(res.data.data)) {
-        setSugerencias(res.data.data);
-        setAbierto(true);
-      } else {
+  const buscar = useCallback(
+    async (q) => {
+      const trimmed = (q || '').trim();
+      if (!trimmed) {
         setSugerencias([]);
+        setAbierto(false);
+        return;
       }
-    } catch (err) {
-      console.error('Error sugerencias filtros pedidos:', err);
-      setSugerencias([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [tipo]);
+      setLoading(true);
+      try {
+        const params = new URLSearchParams({ tipo, q: trimmed });
+        const res = await axiosAuth.get(`/pedidos/sugerencias-filtros?${params.toString()}`);
+        if (res.data?.success && Array.isArray(res.data.data)) {
+          setSugerencias(res.data.data);
+          setAbierto(true);
+        } else {
+          setSugerencias([]);
+        }
+      } catch (err) {
+        console.error('Error sugerencias filtros pedidos:', err);
+        setSugerencias([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [tipo]
+  );
 
-  useEffect(() => {
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
-  }, []);
+  useEffect(() => () => debounceRef.current && clearTimeout(debounceRef.current), []);
 
   const handleChange = (e) => {
     const v = e.target.value;
@@ -50,12 +68,9 @@ function AutocompleteFiltroPedidos({ tipo, value, onChange, placeholder, ariaLab
 
   const handleFocus = () => {
     if (value?.trim()) buscar(value);
-    else buscar('');
   };
 
-  const handleBlur = () => {
-    setTimeout(() => setAbierto(false), 180);
-  };
+  const handleBlur = () => setTimeout(() => setAbierto(false), 180);
 
   const handleSelect = (item) => {
     onChange(item);
@@ -63,9 +78,9 @@ function AutocompleteFiltroPedidos({ tipo, value, onChange, placeholder, ariaLab
   };
 
   return (
-    <div className="relative" ref={ref}>
+    <div className="relative">
       <div className="relative">
-        <input
+        <Input
           type="text"
           value={value || ''}
           onChange={handleChange}
@@ -75,27 +90,35 @@ function AutocompleteFiltroPedidos({ tipo, value, onChange, placeholder, ariaLab
           aria-label={ariaLabel}
           aria-autocomplete="list"
           aria-expanded={abierto}
-          className="w-full p-2.5 pl-10 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px]"
+          className="pl-10"
         />
-        <MdSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={20} />
+        <MdSearch
+          className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+          size={20}
+        />
       </div>
       {abierto && (
         <div
-          className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto"
+          className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border bg-popover shadow-lg"
           role="listbox"
         >
           {loading ? (
-            <div className="p-3 text-sm text-gray-500">Buscando...</div>
+            <div className="p-3 text-sm text-muted-foreground">Buscando...</div>
           ) : sugerencias.length === 0 ? (
-            <div className="p-3 text-sm text-gray-500">Sin resultados. Escribí y aplicá filtro.</div>
+            <div className="p-3 text-sm text-muted-foreground">
+              Sin resultados. Escribí y aplicá filtro.
+            </div>
           ) : (
             sugerencias.map((item, i) => (
               <button
                 key={i}
                 type="button"
                 role="option"
-                className="w-full text-left px-3 py-2.5 text-sm hover:bg-blue-50 border-b border-gray-100 last:border-0"
-                onMouseDown={(e) => { e.preventDefault(); handleSelect(item); }}
+                className="w-full border-b px-3 py-2.5 text-left text-sm last:border-0 hover:bg-muted/50"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  handleSelect(item);
+                }}
               >
                 {item}
               </button>
@@ -114,275 +137,276 @@ export default function FiltrosHistorialPedidos({
   user,
   totalPedidos = 0,
   pedidosFiltrados = 0,
-  pedidosOriginales = []
 }) {
-  const [modalAbierto, setModalAbierto] = useState(false);
+  const { modalFiltros, openModalFiltros, closeModalFiltros } = usePedidosUIStore();
+  const [localFiltros, setLocalFiltros] = useState(() => ({ ...filtros }));
   const [empleadosUnicos, setEmpleadosUnicos] = useState([]);
   const [loadingDatos, setLoadingDatos] = useState(false);
   const datosCargadosRef = useRef(false);
 
   const esGerente = user?.rol === 'GERENTE';
 
-  const necesitaCargarDatos = modalAbierto;
   useEffect(() => {
-    if (!necesitaCargarDatos) {
+    setLocalFiltros({ ...filtros });
+  }, [filtros]);
+
+  useEffect(() => {
+    if (!modalFiltros) {
       datosCargadosRef.current = false;
       return;
     }
     if (datosCargadosRef.current) return;
     datosCargadosRef.current = true;
     setLoadingDatos(true);
-    axiosAuth.get('/pedidos/datos-filtros')
+    axiosAuth
+      .get('/pedidos/datos-filtros')
       .then((res) => {
         if (res.data?.success && res.data.data) {
-          const { empleados = [] } = res.data.data;
-          setEmpleadosUnicos(empleados);
+          setEmpleadosUnicos(res.data.data.empleados ?? []);
         }
       })
       .catch((err) => console.error('Error cargando datos filtros pedidos:', err))
       .finally(() => setLoadingDatos(false));
-  }, [necesitaCargarDatos]);
+  }, [modalFiltros]);
 
   const handleFiltroChange = (campo, valor) => {
-    onFiltrosChange({ ...filtros, [campo]: valor });
+    setLocalFiltros((prev) => ({ ...prev, [campo]: valor }));
   };
 
-  const limpiarTodosFiltros = () => {
+  const hayFiltrosActivos = (source) =>
+    Object.values(source).some((valor) => valor && valor !== '');
+
+  const contarFiltrosActivos = (source) =>
+    Object.values(source).filter((valor) => valor && valor !== '').length;
+
+  const aplicarFiltros = () => {
+    onFiltrosChange({ ...localFiltros });
+  };
+
+  const aplicarYCerrarModal = () => {
+    aplicarFiltros();
+    closeModalFiltros();
+  };
+
+  const limpiarYCerrarModal = () => {
     onLimpiarFiltros();
+    closeModalFiltros();
   };
 
-  const limpiarYCerrarModal = (e) => {
-    e?.stopPropagation();
-    onLimpiarFiltros();
-    setModalAbierto(false);
+  const cerrarSinAplicar = () => {
+    setLocalFiltros({ ...filtros });
+    closeModalFiltros();
   };
 
-  const hayFiltrosActivos = () => {
-    return Object.values(filtros).some(valor => valor && valor !== '');
+  const etiquetas = {
+    fechaDesde: 'Desde',
+    fechaHasta: 'Hasta',
+    cliente: 'Cliente',
+    ciudad: 'Ciudad',
+    estado: 'Estado',
+    empleado: 'Empleado',
   };
 
-  const contarFiltrosActivos = () => {
-    return Object.values(filtros).filter(valor => valor && valor !== '').length;
-  };
-
-  const contenidoFiltros = () => (
+  const contenidoFiltros = (
     <div className="space-y-4">
-      {/* Cliente: busca en todo el historial de pedidos */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
+      <p className="text-xs text-muted-foreground">
+        Completá los criterios y hacé clic en <strong>Filtrar</strong> para buscar.
+      </p>
+      <p
+        className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800"
+        role="note"
+      >
+        Al aplicar o limpiar filtros, la selección de pedidos se reinicia.
+      </p>
+
+      <div className="space-y-2">
+        <Label>Cliente</Label>
         <AutocompleteFiltroPedidos
           tipo="cliente"
-          value={filtros.cliente || ''}
+          value={localFiltros.cliente || ''}
           onChange={(v) => handleFiltroChange('cliente', v)}
           placeholder="Buscar cliente (en todo el historial)..."
           ariaLabel="Cliente"
         />
       </div>
 
-      {/* Estado */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Estado</label>
-        <select
-          value={filtros.estado || ''}
-          onChange={(e) => handleFiltroChange('estado', e.target.value)}
-          className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+      <div className="space-y-2">
+        <Label>Estado</Label>
+        <Select
+          value={localFiltros.estado || 'todos'}
+          onValueChange={(v) => handleFiltroChange('estado', v === 'todos' ? '' : v)}
         >
-          <option value="">Todos los estados</option>
-          <option value="Exportado">Exportado</option>
-          <option value="Facturado">Facturado</option>
-          <option value="Anulado">Anulado</option>
-        </select>
+          <SelectTrigger>
+            <SelectValue placeholder="Todos los estados" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los estados</SelectItem>
+            <SelectItem value="Exportado">Exportado</SelectItem>
+            <SelectItem value="Facturado">Facturado</SelectItem>
+            <SelectItem value="Anulado">Anulado</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* Ciudad: busca en todo el historial de pedidos */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Ciudad</label>
+      <div className="space-y-2">
+        <Label>Ciudad</Label>
         <AutocompleteFiltroPedidos
           tipo="ciudad"
-          value={filtros.ciudad || ''}
+          value={localFiltros.ciudad || ''}
           onChange={(v) => handleFiltroChange('ciudad', v)}
           placeholder="Buscar ciudad (en todo el historial)..."
           ariaLabel="Ciudad"
         />
       </div>
 
-      {/* Empleado (solo gerente) */}
       {esGerente && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Empleado</label>
-          <select
-            value={filtros.empleado || ''}
-            onChange={(e) => handleFiltroChange('empleado', e.target.value)}
-            className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px]"
+        <div className="space-y-2">
+          <Label>Empleado</Label>
+          <Select
+            value={localFiltros.empleado || 'todos'}
+            onValueChange={(v) => handleFiltroChange('empleado', v === 'todos' ? '' : v)}
           >
-            <option value="">Todos los empleados</option>
-            {empleadosUnicos.map((empleado, i) => (
-              <option key={i} value={empleado}>{empleado}</option>
-            ))}
-          </select>
+            <SelectTrigger>
+              <SelectValue placeholder="Todos los empleados" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="todos">Todos los empleados</SelectItem>
+              {empleadosUnicos.map((empleado, i) => (
+                <SelectItem key={i} value={empleado}>
+                  {empleado}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {loadingDatos && (
-            <div className="text-xs text-gray-500 mt-1">Cargando empleados...</div>
+            <p className="text-xs text-muted-foreground">Cargando empleados...</p>
           )}
         </div>
       )}
 
-      {/* Fecha */}
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
-        <div className="space-y-2">
-          <input
+      <div className="space-y-2">
+        <Label>Fecha</Label>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Input
             type="date"
-            value={filtros.fechaDesde || ''}
+            value={localFiltros.fechaDesde || ''}
             onChange={(e) => handleFiltroChange('fechaDesde', e.target.value)}
-            className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px]"
             title="Desde"
           />
-          <input
+          <Input
             type="date"
-            value={filtros.fechaHasta || ''}
+            value={localFiltros.fechaHasta || ''}
             onChange={(e) => handleFiltroChange('fechaHasta', e.target.value)}
-            className="w-full p-2.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent min-h-[44px]"
             title="Hasta"
           />
         </div>
       </div>
 
-      {/* Resumen filtros activos */}
-      {hayFiltrosActivos() && (
-        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="text-sm">
-            <span className="font-medium text-blue-800">Filtros activos:</span>
-            <div className="flex flex-wrap gap-1 mt-1">
-              {Object.entries(filtros).map(([campo, valor]) => {
-                if (!valor) return null;
-                const etiquetas = { fechaDesde: 'Desde', fechaHasta: 'Hasta', cliente: 'Cliente', ciudad: 'Ciudad', estado: 'Estado', empleado: 'Empleado' };
-                const etiqueta = etiquetas[campo] || campo;
-                return (
-                  <span
-                    key={campo}
-                    className="inline-flex items-center gap-1 bg-white text-blue-800 px-2 py-1 rounded text-xs border border-blue-300"
+      {hayFiltrosActivos(localFiltros) && (
+        <div className="rounded-lg border border-primary/20 bg-primary/5 p-3">
+          <span className="text-sm font-medium">Filtros en borrador:</span>
+          <div className="mt-2 flex flex-wrap gap-1">
+            {Object.entries(localFiltros).map(([campo, valor]) => {
+              if (!valor) return null;
+              return (
+                <Badge key={campo} variant="outline" className="gap-1">
+                  <strong>{etiquetas[campo] || campo}:</strong> {valor}
+                  <button
+                    type="button"
+                    onClick={() => handleFiltroChange(campo, '')}
+                    className="ml-1 hover:text-destructive"
+                    aria-label={`Quitar filtro ${etiquetas[campo] || campo}`}
                   >
-                    <strong>{etiqueta}:</strong> {valor}
-                    <button
-                      type="button"
-                      onClick={() => handleFiltroChange(campo, '')}
-                      className="text-blue-600 hover:text-blue-800 ml-1"
-                      title={`Quitar ${etiqueta}`}
-                      aria-label={`Quitar filtro ${etiqueta}`}
-                    >
-                      ×
-                    </button>
-                  </span>
-                );
-              })}
-            </div>
+                    ×
+                  </button>
+                </Badge>
+              );
+            })}
           </div>
         </div>
       )}
 
-      {/* Botones: Filtrar cierra modal, Limpiar limpia y cierra, Cerrar solo cierra */}
-      <div className="flex flex-col sm:flex-row gap-2 pt-2 sm:justify-end flex-wrap">
-        <button
-          type="button"
-          onClick={() => setModalAbierto(false)}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium min-h-[44px] min-w-[44px]"
-          title="Aplicar filtros y cerrar"
-          aria-label="Filtrar"
-        >
-          <MdSearch size={18} />
+      <div className="flex flex-col flex-wrap gap-2 pt-2 sm:flex-row sm:justify-end">
+        <Button type="button" onClick={aplicarYCerrarModal}>
+          <MdSearch size={16} />
           Filtrar
-        </button>
-        {hayFiltrosActivos() && (
-          <button
-            type="button"
-            onClick={limpiarYCerrarModal}
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium min-h-[44px] min-w-[44px]"
-            title="Quitar todos los filtros y recargar"
-            aria-label="Limpiar filtros"
-          >
+        </Button>
+        {hayFiltrosActivos(localFiltros) && (
+          <Button type="button" variant="danger" onClick={limpiarYCerrarModal}>
             <MdClear size={16} />
             Limpiar Filtros
-          </button>
+          </Button>
         )}
-        <button
-          type="button"
-          onClick={() => setModalAbierto(false)}
-          className="flex items-center justify-center gap-2 px-4 py-2.5 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors text-sm font-medium min-h-[44px] min-w-[44px]"
-          aria-label="Cerrar filtros sin aplicar"
-        >
+        <Button type="button" variant="secondary" onClick={cerrarSinAplicar}>
           Cerrar
-        </button>
+        </Button>
       </div>
     </div>
   );
 
   return (
     <>
-      <div className="bg-white border rounded-lg shadow-sm mb-4">
-        {/* Barra única (desktop y móvil): abre modal al hacer clic */}
-        <div
-          className="flex items-center justify-between p-4 cursor-pointer hover:bg-gray-50 transition-colors border-b border-gray-200"
-          onClick={() => setModalAbierto(true)}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              setModalAbierto(true);
-            }
-          }}
-          aria-expanded={modalAbierto}
-          aria-haspopup="dialog"
-          aria-label="Abrir filtros de búsqueda"
-        >
-          <div className="flex items-center gap-3 min-w-0">
-            <MdFilterList className="text-blue-600 shrink-0" size={24} />
-            <div className="min-w-0">
-              <h3 className="font-semibold text-gray-800">Filtros de Búsqueda</h3>
-              <div className="flex items-center gap-2 sm:gap-4 text-sm text-gray-600 flex-wrap">
-                <span>Mostrando {pedidosFiltrados} de {totalPedidos} pedidos</span>
-                {hayFiltrosActivos() && (
-                  <span className="bg-blue-100 text-blue-800 px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium shrink-0">
-                    {contarFiltrosActivos()} filtro{contarFiltrosActivos() !== 1 ? 's' : ''} activo{contarFiltrosActivos() !== 1 ? 's' : ''}
+      <Card className="mb-4 shadow-sm">
+        <CardContent className="p-0">
+          <button
+            type="button"
+            className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-muted/30"
+            onClick={openModalFiltros}
+            aria-expanded={modalFiltros}
+            aria-haspopup="dialog"
+            aria-label="Abrir filtros de búsqueda"
+          >
+            <div className="flex min-w-0 items-center gap-3">
+              <MdFilterList className="shrink-0 text-primary" size={24} />
+              <div className="min-w-0">
+                <h3 className="font-semibold">Filtros de Búsqueda</h3>
+                <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                  <span>
+                    Mostrando {pedidosFiltrados} de {totalPedidos} pedidos
                   </span>
-                )}
+                  {hayFiltrosActivos(filtros) && (
+                    <Badge variant="info">
+                      {contarFiltrosActivos(filtros)} filtro
+                      {contarFiltrosActivos(filtros) !== 1 ? 's' : ''} activo
+                      {contarFiltrosActivos(filtros) !== 1 ? 's' : ''}
+                    </Badge>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {hayFiltrosActivos() && (
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  limpiarTodosFiltros();
-                }}
-                className="text-red-600 hover:text-red-700 p-2 rounded-lg hover:bg-red-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
-                title="Limpiar todos los filtros"
-                aria-label="Limpiar filtros"
-              >
-                <MdClear size={20} />
-              </button>
-            )}
-            <span className="text-gray-400" aria-hidden>
-              <MdExpandMore size={24} />
-            </span>
-          </div>
-        </div>
-      </div>
+            <div className="flex shrink-0 items-center gap-2">
+              {hayFiltrosActivos(filtros) && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onLimpiarFiltros();
+                  }}
+                  title="Limpiar todos los filtros"
+                  aria-label="Limpiar filtros"
+                >
+                  <MdClear size={20} className="text-destructive" />
+                </Button>
+              )}
+              <MdExpandMore size={24} className="text-muted-foreground" aria-hidden />
+            </div>
+          </button>
+        </CardContent>
+      </Card>
 
       <ModalBase
-        isOpen={modalAbierto}
-        onClose={() => setModalAbierto(false)}
+        isOpen={modalFiltros}
+        onClose={cerrarSinAplicar}
         title="Filtros de Búsqueda"
-        size="md"
+        size="lg"
         closeOnOverlay={false}
-        closeOnEscape={true}
-        showHeader
-        panelClassName="max-h-[90vh] flex flex-col"
+        closeOnEscape
+        panelClassName="mx-4 w-full max-w-lg sm:mx-auto max-h-[min(90dvh,90vh)] flex flex-col"
         contentClassName="overflow-y-auto flex-1 min-h-0"
       >
-        {contenidoFiltros()}
+        {contenidoFiltros}
       </ModalBase>
     </>
   );

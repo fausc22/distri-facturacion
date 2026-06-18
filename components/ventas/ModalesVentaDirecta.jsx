@@ -5,6 +5,9 @@ import LoadingButton from '../common/LoadingButton';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Z_INDEX } from '../../constants/zIndex';
 import { roundFacturacion } from '../../utils/rounding';
+import { useZodForm } from '@/hooks/forms/useZodForm';
+import { descuentoVentaSchema, facturacionVentaSchema } from '@/lib/formSchemas';
+import FormFieldError from '@/components/shared/FormFieldError';
 
 // Modal de descuentos (SIN CAMBIOS)
 export function ModalDescuentosVentaDirecta({
@@ -18,6 +21,13 @@ export function ModalDescuentosVentaDirecta({
   const [tipoDescuento, setTipoDescuento] = useState('numerico');
   const [valorDescuento, setValorDescuento] = useState('');
   const [descuentoCalculado, setDescuentoCalculado] = useState(0);
+  const { register, setValue, trigger, formState } = useZodForm({
+    schema: descuentoVentaSchema,
+    defaultValues: {
+      tipoDescuento: 'numerico',
+      valorDescuento: '',
+    },
+  });
 
   useEffect(() => {
     if (!valorDescuento || valorDescuento === '') {
@@ -36,6 +46,8 @@ export function ModalDescuentosVentaDirecta({
   }, [valorDescuento, tipoDescuento, subtotalSinIva, totalConIva]);
 
   const handleAplicar = () => {
+    trigger();
+    if (formState.errors.valorDescuento) return;
     if (descuentoCalculado > 0) {
       onAplicarDescuento({
         tipo: tipoDescuento,
@@ -50,6 +62,8 @@ export function ModalDescuentosVentaDirecta({
     setTipoDescuento('numerico');
     setValorDescuento('');
     setDescuentoCalculado(0);
+    setValue('tipoDescuento', 'numerico');
+    setValue('valorDescuento', '');
   };
 
   const handleClose = () => {
@@ -86,7 +100,10 @@ export function ModalDescuentosVentaDirecta({
                   name="tipoDescuento"
                   value="numerico"
                   checked={tipoDescuento === 'numerico'}
-                  onChange={(e) => setTipoDescuento(e.target.value)}
+                  onChange={(e) => {
+                    setTipoDescuento(e.target.value);
+                    setValue('tipoDescuento', e.target.value);
+                  }}
                   className="mr-2"
                 />
                 <span className="text-sm">Descuento numérico (en pesos)</span>
@@ -97,7 +114,10 @@ export function ModalDescuentosVentaDirecta({
                   name="tipoDescuento"
                   value="porcentaje"
                   checked={tipoDescuento === 'porcentaje'}
-                  onChange={(e) => setTipoDescuento(e.target.value)}
+                  onChange={(e) => {
+                    setTipoDescuento(e.target.value);
+                    setValue('tipoDescuento', e.target.value);
+                  }}
                   className="mr-2"
                 />
                 <span className="text-sm">Descuento porcentual (% sobre subtotal)</span>
@@ -114,7 +134,10 @@ export function ModalDescuentosVentaDirecta({
               <input
                 type="number"
                 value={valorDescuento}
-                onChange={(e) => setValorDescuento(e.target.value)}
+                onChange={(e) => {
+                  setValorDescuento(e.target.value);
+                  setValue('valorDescuento', e.target.value);
+                }}
                 min="0"
                 max={tipoDescuento === 'numerico' ? (totalConIva || 0) : 100}
                 step={tipoDescuento === 'numerico' ? '0.01' : '1'}
@@ -128,6 +151,7 @@ export function ModalDescuentosVentaDirecta({
                 Se aplicará sobre el subtotal (importe neto): ${(subtotalSinIva || 0).toFixed(2)}
               </p>
             )}
+            <FormFieldError message={formState.errors.valorDescuento?.message} />
           </div>
 
           {descuentoCalculado > 0 && (
@@ -193,6 +217,10 @@ export function ModalFacturacionVentaDirecta({
   const [totalConIva, setTotalConIva] = useState(0);
   const [mostrarModalDescuentos, setMostrarModalDescuentos] = useState(false);
   const [descuentoAplicado, setDescuentoAplicado] = useState(null);
+  const { setValue, trigger, formState } = useZodForm({
+    schema: facturacionVentaSchema,
+    defaultValues: { tipoFiscal: 'A' },
+  });
 
   // ✅ FUNCIÓN: Determinar tipo fiscal según condición IVA
   const determinarTipoFiscal = (condicionIva) => {
@@ -250,9 +278,10 @@ export function ModalFacturacionVentaDirecta({
       setTimeout(() => {
         const tipoFiscalAuto = determinarTipoFiscal(cliente.condicion_iva);
         setTipoFiscal(tipoFiscalAuto);
+        setValue('tipoFiscal', tipoFiscalAuto);
       }, 50);
     }
-  }, [mostrar, productos, cliente?.condicion_iva]);
+  }, [mostrar, productos, cliente?.condicion_iva, setValue]);
 
   const handleAplicarDescuento = (descuento) => {
     setDescuentoAplicado(descuento);
@@ -263,6 +292,8 @@ export function ModalFacturacionVentaDirecta({
   };
 
   const handleConfirmar = async () => {
+    const isValid = await trigger();
+    if (!isValid) return;
     // ✅ Determinar cuenta según tipo fiscal (1=ARCA, 2=X)
     const cuentaId = tipoFiscal === 'X' ? 2 : 1;
 
@@ -343,7 +374,10 @@ export function ModalFacturacionVentaDirecta({
               </label>
               <select
                 value={tipoFiscal}
-                onChange={(e) => setTipoFiscal(e.target.value)}
+                onChange={(e) => {
+                  setTipoFiscal(e.target.value);
+                  setValue('tipoFiscal', e.target.value);
+                }}
                 className="border p-2 rounded w-full text-sm font-medium"
                 required
               >
@@ -367,6 +401,7 @@ export function ModalFacturacionVentaDirecta({
                   X
                 </option>
               </select>
+              <FormFieldError message={formState.errors.tipoFiscal?.message} />
             </div>
             
             {/* Sección de descuentos */}

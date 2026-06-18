@@ -16,34 +16,28 @@ export default function SelectorCategoriasStock({ onCategoriasChange }) {
     cargarCategorias();
   }, []);
 
-  // Cargar productos automáticamente cuando cambien las categorías seleccionadas
+  // Cargar productos y sincronizar con el padre solo cuando cambia la selección local
   useEffect(() => {
-    // Notificar al componente padre sobre el cambio siempre
-    if (onCategoriasChange) {
-      onCategoriasChange(categoriasSeleccionadas);
-    }
-
-    // No cargar en el primer render
     if (isInitialMount.current) {
       isInitialMount.current = false;
       prevCategoriasRef.current = categoriasSeleccionadas;
       return;
     }
 
-    // Solo cargar si las categorías realmente cambiaron
-    if (JSON.stringify(categoriasSeleccionadas) !== JSON.stringify(prevCategoriasRef.current)) {
-      prevCategoriasRef.current = categoriasSeleccionadas;
+    if (JSON.stringify(categoriasSeleccionadas) === JSON.stringify(prevCategoriasRef.current)) {
+      return;
+    }
 
-      // Si hay categorías seleccionadas, cargar productos automáticamente
-      if (categoriasSeleccionadas.length > 0) {
-        cargarProductosAutomaticamente();
-      } else {
-        // Si no hay categorías seleccionadas, limpiar productos
-        clearProductos();
-      }
+    prevCategoriasRef.current = categoriasSeleccionadas;
+    onCategoriasChange?.(categoriasSeleccionadas);
+
+    if (categoriasSeleccionadas.length > 0) {
+      cargarProductosAutomaticamente();
+    } else {
+      clearProductos();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoriasSeleccionadas, onCategoriasChange]);
+  }, [categoriasSeleccionadas]);
 
   const cargarCategorias = async () => {
     setLoadingCategorias(true);

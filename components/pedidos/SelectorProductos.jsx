@@ -95,7 +95,8 @@ function DetallesProducto({
   subtotal,
   onCantidadChange,
   onAgregar,
-  mostrarPreciosConIva = true
+  mostrarPreciosConIva = true,
+  mostrarBotonAgregar = true,
 }) {
   if (!producto) return null;
 
@@ -158,17 +159,19 @@ function DetallesProducto({
         )}
       </div>
 
-      <button
-        onClick={onAgregar}
-        disabled={stockInsuficiente || producto.stock_actual === 0}
-        className={`px-6 py-2 rounded font-semibold ${
-          stockInsuficiente || producto.stock_actual === 0
-            ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-            : 'bg-green-600 hover:bg-green-800 text-white'
-        }`}
-      >
-        {producto.stock_actual === 0 ? 'Sin Stock' : `Agregar ${formatearCantidad(cantidad)} unidades`}
-      </button>
+      {mostrarBotonAgregar && (
+        <button
+          onClick={onAgregar}
+          disabled={stockInsuficiente || producto.stock_actual === 0}
+          className={`px-6 py-2 rounded font-semibold ${
+            stockInsuficiente || producto.stock_actual === 0
+              ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+              : 'bg-green-600 hover:bg-green-800 text-white'
+          }`}
+        >
+          {producto.stock_actual === 0 ? 'Sin Stock' : `Agregar ${formatearCantidad(cantidad)} unidades`}
+        </button>
+      )}
     </div>
   );
 }
@@ -194,82 +197,120 @@ function ModalProductos({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 sm:p-4">
-      <div className="flex h-[100dvh] w-screen flex-col bg-white p-4 sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-md sm:rounded-lg">
-        <h3 className="mb-4 shrink-0 text-lg font-semibold text-black">Seleccionar Producto</h3>
-        <div className="min-h-0 flex-1 overflow-y-auto pr-1 sm:max-h-[70vh]">
+      <div className="flex h-[100dvh] w-screen flex-col bg-white sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-md sm:rounded-lg">
+        <div className="shrink-0 border-b px-4 py-3">
+          <h3 className="text-lg font-semibold text-black">Seleccionar Producto</h3>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-2 py-1">
           <ul>
             {loading ? (
-              <li className="text-center text-gray-500">Buscando...</li>
+              <li className="py-4 text-center text-gray-500">Buscando...</li>
             ) : resultados.length > 0 ? (
               resultados.map((producto, idx) => {
                 const isSelected = productoSeleccionado?.id === producto.id;
                 return (
-                  <li key={producto.id ?? idx} className="border-b">
+                  <li key={producto.id ?? idx} className="border-b last:border-0">
                     <div
-                      className={`cursor-pointer p-2 text-black ${
-                        producto.stock_actual > 0 
-                          ? 'hover:bg-gray-100' 
+                      className={`cursor-pointer p-3 text-black transition-all ${
+                        producto.stock_actual > 0
+                          ? 'hover:bg-gray-100'
                           : 'bg-red-50 text-red-600'
-                      } ${isSelected ? 'bg-blue-50/60' : ''}`}
+                      } ${isSelected ? 'bg-primary/10 ring-2 ring-inset ring-primary/40' : ''}`}
                       onClick={() => onSeleccionar(producto)}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium leading-snug text-black sm:text-base whitespace-normal break-words">
-                            {producto.nombre}
-                          </p>
+                          <p className="text-sm font-medium sm:text-base">{producto.nombre}</p>
                           <p className="text-sm text-gray-700">Neto: {formatearMoneda(producto.precio)}</p>
                           {mostrarPreciosConIva && (
                             <p className="text-sm font-semibold text-green-700">
-                              Final c/IVA ({obtenerPorcentajeIva(producto)}%):{" "}
-                              {formatearMoneda(calcularMontoConIva(producto.precio, obtenerPorcentajeIva(producto)))}
+                              Final c/IVA ({obtenerPorcentajeIva(producto)}%):{' '}
+                              {formatearMoneda(
+                                calcularMontoConIva(producto.precio, obtenerPorcentajeIva(producto))
+                              )}
                             </p>
                           )}
                         </div>
-                        <span className={`min-w-[88px] shrink-0 text-right text-sm ${
-                          producto.stock_actual > 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
+                        <span
+                          className={`shrink-0 text-right text-sm ${
+                            producto.stock_actual > 0 ? 'text-green-600' : 'text-red-600'
+                          }`}
+                        >
                           Stock: {producto.stock_actual}
                         </span>
                       </div>
                     </div>
-                    {isSelected && (
-                      <div className="border-t bg-white p-3">
-                        <DetallesProducto
-                          producto={productoSeleccionado}
-                          cantidad={cantidad}
-                          subtotal={subtotal}
-                          onCantidadChange={onCantidadChange}
-                          onAgregar={onAgregar}
-                          mostrarPreciosConIva={mostrarPreciosConIva}
-                        />
-                      </div>
-                    )}
                   </li>
                 );
               })
             ) : (
-              <li className="text-gray-500">No se encontraron resultados.</li>
+              <li className="py-4 text-center text-gray-500">No se encontraron resultados.</li>
             )}
           </ul>
-
         </div>
 
-        <button
-          onClick={onCerrar}
-          className="mt-4 shrink-0 bg-red-500 px-4 py-2 text-white hover:bg-red-600 sm:rounded"
+        {productoSeleccionado && (
+          <div className="animate-fade-in shrink-0 border-t bg-gray-50 p-3">
+            <DetallesProducto
+              producto={productoSeleccionado}
+              cantidad={cantidad}
+              subtotal={subtotal}
+              onCantidadChange={onCantidadChange}
+              onAgregar={onAgregar}
+              mostrarPreciosConIva={mostrarPreciosConIva}
+              mostrarBotonAgregar={false}
+            />
+          </div>
+        )}
+
+        <div
+          className="shrink-0 space-y-2 border-t bg-white p-4"
+          style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
         >
-          Cerrar
-        </button>
+          {productoSeleccionado && (
+            <button
+              type="button"
+              onClick={onAgregar}
+              disabled={
+                cantidad > productoSeleccionado.stock_actual ||
+                productoSeleccionado.stock_actual <= 0
+              }
+              className={`flex min-h-[44px] w-full items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold text-white ${
+                cantidad > productoSeleccionado.stock_actual ||
+                productoSeleccionado.stock_actual <= 0
+                  ? 'cursor-not-allowed bg-gray-400'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+              }`}
+            >
+              {productoSeleccionado.stock_actual <= 0
+                ? 'Sin Stock'
+                : `Agregar ${cantidad} unidades`}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onCerrar}
+            className="flex min-h-[44px] w-full items-center justify-center rounded-lg bg-muted px-4 py-2.5 text-sm font-medium"
+          >
+            Cerrar
+          </button>
+        </div>
       </div>
     </div>
   );
 }
 
-export default function ProductoSelector({ onAddProducto = null, mostrarPreciosConIva = true, mostrarBotonFletes = false }) {
-  // ✅ Usar hook compartido que detecta automáticamente el contexto
-  const contexto = useContextoCompartido();
-  const addProducto = onAddProducto || contexto.addProducto;
+export default function ProductoSelector({
+  onAddProducto = null,
+  mostrarPreciosConIva = true,
+  mostrarBotonFletes = false,
+  contextAdapter,
+  containerClassName = 'bg-primary text-primary-foreground p-6 rounded-lg flex-1 min-w-0',
+  title = 'Productos',
+}) {
+  const sharedContext = useContextoCompartido();
+  const activeContext = contextAdapter || sharedContext;
+  const addProducto = onAddProducto || activeContext.addProducto;
   const [mostrarModalFlete, setMostrarModalFlete] = useState(false);
 
   const {
@@ -308,8 +349,8 @@ export default function ProductoSelector({ onAddProducto = null, mostrarPreciosC
   };
 
   return (
-    <div className="bg-blue-500 p-6 rounded-lg flex-1 text-white">
-      <h2 className="text-2xl font-semibold mb-4 text-center">Productos</h2>
+    <div className={containerClassName}>
+      <h2 className="text-2xl font-semibold mb-4 text-center">{title}</h2>
 
       <div className="flex gap-2 mb-4">
         <input

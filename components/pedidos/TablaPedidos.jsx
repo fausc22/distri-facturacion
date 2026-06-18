@@ -1,345 +1,148 @@
-import React, { useState, useMemo, useCallback } from 'react';
-import { formatearMoneda } from '../../utils/formatearMoneda';
+import { useMemo } from 'react';
+import { DataTable } from '@/components/tables/DataTable';
+import { Badge } from '@/components/ui/badge';
+import { LoadingState, EmptyState } from '@/components/shared/StateViews';
+import { formatearMoneda } from '@/utils/formatearMoneda';
+import { cn } from '@/lib/utils';
 
-
-// Función helper para formatear fechas
 const formatearFecha = (fecha) => {
   if (!fecha) return 'Fecha no disponible';
-  
   return new Date(fecha).toLocaleString('es-AR', {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
-    second: '2-digit',
-    hour12: true
   });
 };
 
-// Componente para tabla en escritorio
-function TablaEscritorio({
-  pedidos,
-  selectedPedidos,
-  onSelectPedido,
-  onSelectAll,
-  onRowDoubleClick,
-  sortField,
-  sortDirection,
-  onSort,
-  mostrarPermisos = false,
-  verificarPermisos = () => true
-}) {
-  const getSortIcon = (field) => {
-    if (sortField !== field) return '↕️';
-    return sortDirection === 'asc' ? '↑' : '↓';
-  };
+const estadoVariant = (estado) => {
+  switch (estado) {
+    case 'Exportado':
+      return 'warning';
+    case 'Facturado':
+      return 'success';
+    case 'Anulado':
+      return 'destructive';
+    default:
+      return 'secondary';
+  }
+};
 
-  const getEstadoStyle = (estado) => {
-    switch (estado) {
-      case 'Exportado':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'Facturado':
-        return 'bg-green-100 text-green-800 border-green-200';
-      case 'Anulado':
-        return 'bg-red-100 text-red-800 border-red-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
-    }
-  };
-
+function ResumenPedidos({ pedidos, selectedPedidos }) {
+  const montoTotal = pedidos.reduce((acc, p) => acc + Number(p.total || 0), 0);
   return (
-    <div className="hidden lg:block overflow-x-auto bg-white rounded-lg shadow">
-      <table className="w-full">
-        <thead className="bg-gray-200">
-          <tr>
-            <th className="p-3 text-center">
-              <input
-                type="checkbox"
-                checked={selectedPedidos.length === pedidos.length && pedidos.length > 0}
-                onChange={() => onSelectAll()}
-                className="w-4 h-4"
-              />
-            </th>
-            <th 
-              className="p-3 text-left cursor-pointer hover:bg-gray-300 transition-colors"
-              onClick={() => onSort('id')}
-            >
-              ID {getSortIcon('id')}
-            </th>
-            <th 
-              className="p-3 text-left cursor-pointer hover:bg-gray-300 transition-colors"
-              onClick={() => onSort('fecha')}
-            >
-              Fecha {getSortIcon('fecha')}
-            </th>
-            <th 
-              className="p-3 text-left cursor-pointer hover:bg-gray-300 transition-colors"
-              onClick={() => onSort('cliente_nombre')}
-            >
-              Cliente {getSortIcon('cliente_nombre')}
-            </th>
-            <th 
-              className="p-3 text-right cursor-pointer hover:bg-gray-300 transition-colors"
-              onClick={() => onSort('total')}
-            >
-              Total {getSortIcon('total')}
-            </th>
-            <th 
-              className="p-3 text-center cursor-pointer hover:bg-gray-300 transition-colors"
-              onClick={() => onSort('estado')}
-            >
-              Estado {getSortIcon('estado')}
-            </th>
-            <th 
-              className="p-3 text-left cursor-pointer hover:bg-gray-300 transition-colors"
-              onClick={() => onSort('empleado_nombre')}
-            >
-              VENDEDOR {getSortIcon('empleado_nombre')}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {pedidos.map((pedido) => (
-            <tr
-              key={pedido.id}
-              className={`border-b hover:bg-gray-50 cursor-pointer transition-colors ${
-                selectedPedidos.includes(pedido.id) ? 'bg-blue-50' : ''
-              }`}
-              onDoubleClick={() => onRowDoubleClick(pedido)}
-            >
-              <td className="p-3 text-center">
-                <input
-                  type="checkbox"
-                  checked={selectedPedidos.includes(pedido.id)}
-                  onChange={() => onSelectPedido(pedido.id)}
-                  className="w-4 h-4"
-                  onClick={(e) => e.stopPropagation()}
-                />
-              </td>
-              <td className="p-3 font-mono text-sm font-semibold text-blue-600">
-                #{pedido.id}
-              </td>
-              <td className="p-3 text-sm">
-                {formatearFecha(pedido.fecha)}
-              </td>
-              <td className="p-3 font-medium">
-                <div>
-                  <div className="font-semibold">{pedido.cliente_nombre || 'Cliente no especificado'}</div>
-                  {pedido.cliente_ciudad && (
-                    <div className="text-xs text-gray-500">{pedido.cliente_ciudad}</div>
-                  )}
-                </div>
-              </td>
-              <td className="p-3 text-right whitespace-nowrap">
-                <div className="font-semibold text-green-600">
-                  {formatearMoneda(pedido.total || 0)}
-                </div>
-                {pedido.subtotal && (
-                  <div className="text-xs text-gray-500">
-                    Subtotal: {formatearMoneda(pedido.subtotal || 0)}
-                  </div>
-                )}
-              </td>
-              <td className="p-3 text-center">
-                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getEstadoStyle(pedido.estado)}`}>
-                  {pedido.estado || 'Sin estado'}
-                </span>
-              </td>
-              <td className="p-3">
-                <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-sm">
-                  {pedido.empleado_nombre || 'No especificado'}
-                </span>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="bg-primary p-4 text-primary-foreground">
+      <div className="flex flex-col justify-between gap-2 md:flex-row md:items-center">
+        <h2 className="text-xl font-semibold">Resumen de Pedidos</h2>
+        <div className="flex flex-wrap gap-4 text-sm">
+          <span>
+            Total pedidos: <strong>{pedidos.length}</strong>
+          </span>
+          <span>
+            Monto total: <strong>{formatearMoneda(montoTotal)}</strong>
+          </span>
+          {selectedPedidos.length > 0 && (
+            <span>
+              Seleccionados: <strong>{selectedPedidos.length}</strong>
+            </span>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
 
-// Componente para tarjetas en móvil
-function TarjetasMovil({
+function TarjetasMoviles({
   pedidos,
   selectedPedidos,
   onSelectPedido,
   onSelectAll,
   onRowDoubleClick,
   mostrarPermisos = false,
-  verificarPermisos = () => true
+  verificarPermisos = () => true,
 }) {
-  const getEstadoStyle = (estado) => {
-    switch (estado) {
-      case 'Exportado':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      case 'Facturado':
-        return 'bg-green-100 text-green-800 border-green-300';
-      case 'Anulado':
-        return 'bg-red-100 text-red-800 border-red-300';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
-    }
-  };
-
-  const getEstadoIcon = (estado) => {
-    switch (estado) {
-      case 'Exportado': return '📤';
-      case 'Facturado': return '✅';
-      case 'Anulado': return '❌';
-      default: return '📋';
-    }
-  };
-
-  const handleCardDoubleClick = (pedido) => {
-    console.log('📱 Doble click en tarjeta móvil, pedido:', pedido.id); // Debug
-    onRowDoubleClick(pedido);
-  };
-
-  const handleCardClick = (pedido) => {
-    console.log('📱 Click simple en tarjeta móvil, pedido:', pedido.id); // Debug
-    onRowDoubleClick(pedido); // En móvil, un solo toque abre el modal
-  };
+  const todosSeleccionados = pedidos.length > 0 && selectedPedidos.length === pedidos.length;
 
   return (
     <div className="lg:hidden">
-      {/* Header con seleccionar todos: área táctil ≥44px (Fase 4) */}
-      <div className="bg-gray-100 p-3 rounded-t-lg flex items-center justify-between mb-4 min-h-[52px]">
-        <label className="flex items-center gap-2 cursor-pointer min-h-[44px] py-2 -my-1 flex-1">
+      <div className="mb-4 flex min-h-[52px] items-center justify-between rounded-t-lg bg-muted/50 p-3">
+        <label className="flex min-h-[44px] flex-1 cursor-pointer items-center gap-2 py-2">
           <input
             type="checkbox"
-            checked={selectedPedidos.length === pedidos.length && pedidos.length > 0}
+            checked={todosSeleccionados}
             onChange={() => onSelectAll()}
-            className="w-5 h-5 rounded border-gray-300"
+            className="h-4 w-4 rounded border-input"
             aria-label="Seleccionar todos los pedidos"
           />
-          <span className="text-sm font-medium text-gray-700">
-            Seleccionar todos ({pedidos.length})
-          </span>
+          <span className="text-sm font-medium">Seleccionar todos ({pedidos.length})</span>
         </label>
         {selectedPedidos.length > 0 && (
-          <span className="text-sm font-medium text-blue-600">
+          <span className="text-sm font-medium text-primary">
             {selectedPedidos.length} seleccionados
           </span>
         )}
       </div>
 
-      {/* Tarjetas de pedidos: touch-action para respuesta inmediata (Fase 4) */}
       <div className="space-y-3">
         {pedidos.map((pedido) => (
           <div
             key={pedido.id}
             role="button"
             tabIndex={0}
-            className={`touch-manipulation bg-white rounded-lg border-2 p-4 transition-all duration-200 cursor-pointer relative select-none ${
+            className={cn(
+              'touch-manipulation cursor-pointer rounded-lg border-2 p-4 transition-all select-none',
               selectedPedidos.includes(pedido.id)
-                ? 'border-blue-300 bg-blue-50 shadow-md'
-                : 'border-gray-200 hover:border-gray-300 hover:shadow-sm active:shadow-inner'
-            } ${!verificarPermisos(pedido) ? 'opacity-75' : ''}`}
-            onClick={() => handleCardClick(pedido)}
-            onDoubleClick={() => handleCardDoubleClick(pedido)}
+                ? 'border-primary/40 bg-primary/5 shadow-md'
+                : 'border-border hover:border-muted-foreground/30 hover:shadow-sm',
+              mostrarPermisos && !verificarPermisos(pedido) && 'opacity-75'
+            )}
+            onClick={() => onRowDoubleClick(pedido)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' || e.key === ' ') {
                 e.preventDefault();
-                handleCardClick(pedido);
+                onRowDoubleClick(pedido);
               }
             }}
-            aria-label={`Pedido ${pedido.id}, ${pedido.cliente_nombre || 'cliente'}`}
           >
-            {/* Indicador de permisos */}
-            {mostrarPermisos && !verificarPermisos(pedido) && (
-              <div className="absolute top-2 right-2 bg-red-100 text-red-600 px-2 py-1 rounded-full text-xs font-medium">
-                🔒 Sin editar
-              </div>
-            )}
-            {/* Header de la tarjeta: checkbox con área táctil ≥44px */}
-            <div className="flex items-start justify-between mb-3">
-              <div className="flex items-center gap-3 min-h-[44px]">
-                <label className="flex items-center gap-2 cursor-pointer py-2 -my-2 px-1 -mx-1 min-h-[44px] min-w-[44px]">
-                  <input
-                    type="checkbox"
-                    checked={selectedPedidos.includes(pedido.id)}
-                    onChange={() => onSelectPedido(pedido.id)}
-                    className="w-5 h-5 rounded border-gray-300"
-                    onClick={(e) => e.stopPropagation()}
-                    aria-label={`Seleccionar pedido ${pedido.id}`}
-                  />
-                </label>
+            <div className="mb-3 flex items-start justify-between">
+              <div className="flex min-h-[44px] items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={selectedPedidos.includes(pedido.id)}
+                  onChange={() => onSelectPedido(pedido.id)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="h-4 w-4 rounded border-input"
+                  aria-label={`Seleccionar pedido ${pedido.id}`}
+                />
                 <div>
-                  <h3 className="text-lg font-bold text-blue-600">#{pedido.id}</h3>
-                  <p className="text-xs text-gray-500">
-                    {formatearFecha(pedido.fecha)}
-                  </p>
+                  <h3 className="text-lg font-bold text-primary">#{pedido.id}</h3>
+                  <p className="text-xs text-muted-foreground">{formatearFecha(pedido.fecha)}</p>
                 </div>
               </div>
-              
-              {/* Estado */}
-              <div className="flex items-center gap-1">
-                <span className="text-lg">{getEstadoIcon(pedido.estado)}</span>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium border ${getEstadoStyle(pedido.estado)}`}>
-                  {pedido.estado || 'Sin estado'}
-                </span>
-              </div>
+              <Badge variant={estadoVariant(pedido.estado)}>{pedido.estado || 'Sin estado'}</Badge>
             </div>
 
-            {/* Información del cliente */}
-            <div className="mb-3 p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h4 className="font-semibold text-gray-800">
-                    👤 {pedido.cliente_nombre || 'Cliente no especificado'}
-                  </h4>
-                  {pedido.cliente_ciudad && (
-                    <p className="text-sm text-gray-600">
-                      📍 {pedido.cliente_ciudad}
-                      {pedido.cliente_provincia && `, ${pedido.cliente_provincia}`}
-                    </p>
-                  )}
-                </div>
-              </div>
+            <div className="mb-3 rounded-lg bg-muted/30 p-3">
+              <h4 className="font-semibold">{pedido.cliente_nombre || 'Cliente no especificado'}</h4>
+              {pedido.cliente_ciudad && (
+                <p className="text-sm text-muted-foreground">{pedido.cliente_ciudad}</p>
+              )}
             </div>
 
-            {/* Información financiera */}
-            <div className="grid grid-cols-2 gap-4 mb-3">
-              <div className="text-center p-2 bg-green-50 rounded">
-                <div className="text-lg font-bold text-green-600">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="rounded bg-emerald-50 p-2 text-center dark:bg-emerald-950/30">
+                <div className="text-lg font-bold text-emerald-600">
                   {formatearMoneda(pedido.total || 0)}
                 </div>
-                <div className="text-xs text-green-800">Total</div>
-                {pedido.subtotal && (
-                  <div className="text-xs text-gray-500">
-                    Subtotal: {formatearMoneda(pedido.subtotal || 0)}
-                  </div>
-                )}
+                <div className="text-xs text-muted-foreground">Total</div>
               </div>
-              <div className="text-center p-2 bg-blue-50 rounded">
-                <div className="text-lg font-bold text-blue-600">
+              <div className="rounded bg-blue-50 p-2 text-center dark:bg-blue-950/30">
+                <div className="text-sm font-bold text-blue-600">
                   {pedido.empleado_nombre || 'No especificado'}
                 </div>
-                <div className="text-xs text-blue-800">VENDEDOR</div>
+                <div className="text-xs text-muted-foreground">Vendedor</div>
               </div>
-            </div>
-
-            {/* Indicador de observaciones */}
-            {pedido.observaciones && pedido.observaciones !== 'sin observaciones' && (
-              <div className="text-xs text-gray-600 bg-yellow-50 p-2 rounded border-l-4 border-yellow-400">
-                💬 {pedido.observaciones.length > 50 
-                  ? `${pedido.observaciones.substring(0, 50)}...` 
-                  : pedido.observaciones}
-              </div>
-            )}
-
-            {/* Footer con acción */}
-            <div className="mt-3 pt-3 border-t border-gray-200 text-center">
-              {verificarPermisos(pedido) ? (
-                <p className="text-xs text-gray-500">
-                  💡 Toca para ver detalles
-                </p>
-              ) : (
-                <p className="text-xs text-red-500">
-                  👁️ Solo lectura
-                </p>
-              )}
             </div>
           </div>
         ))}
@@ -348,8 +151,7 @@ function TarjetasMovil({
   );
 }
 
-// Componente principal: memoizado (Fase 5) para evitar re-renders cuando los props no cambian
-function TablaPedidos({
+export default function TablaPedidos({
   pedidos,
   selectedPedidos,
   onSelectPedido,
@@ -357,123 +159,134 @@ function TablaPedidos({
   onRowDoubleClick,
   loading,
   mostrarPermisos = false,
-  verificarPermisos = () => true
+  verificarPermisos = () => true,
 }) {
-  const [sortField, setSortField] = useState(null);
-  const [sortDirection, setSortDirection] = useState('asc');
+  const todosSeleccionados = pedidos.length > 0 && selectedPedidos.length === pedidos.length;
 
-  // ✅ FASE 2: Memoizar callback de ordenamiento
-  const handleSort = useCallback((field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  }, [sortField, sortDirection]);
-
-  // ✅ FASE 2: Memoizar ordenamiento para evitar re-cálculos innecesarios
-  const sortedPedidos = useMemo(() => {
-    if (!sortField) return pedidos;
-    
-    return [...pedidos].sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
-      
-      // Manejar campos numéricos
-      if (sortField === 'id' || sortField === 'total') {
-        aValue = Number(aValue) || 0;
-        bValue = Number(bValue) || 0;
-      }
-      
-      // Manejar fechas
-      if (sortField === 'fecha') {
-        aValue = new Date(aValue);
-        bValue = new Date(bValue);
-      }
-      
-      // Manejar texto
-      if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-      
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  }, [pedidos, sortField, sortDirection]);
+  const columns = useMemo(
+    () => [
+      {
+        id: 'select',
+        header: () => (
+          <input
+            type="checkbox"
+            checked={todosSeleccionados}
+            onChange={() => onSelectAll()}
+            className="h-4 w-4 rounded border-input"
+            aria-label="Seleccionar todos"
+          />
+        ),
+        cell: ({ row }) => (
+          <input
+            type="checkbox"
+            checked={selectedPedidos.includes(row.original.id)}
+            onChange={() => onSelectPedido(row.original.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="h-4 w-4 rounded border-input"
+            aria-label={`Seleccionar pedido ${row.original.id}`}
+          />
+        ),
+        enableSorting: false,
+      },
+      {
+        accessorKey: 'id',
+        header: 'ID',
+        cell: ({ row }) => (
+          <span className="font-mono text-sm font-semibold text-primary">#{row.original.id}</span>
+        ),
+      },
+      {
+        accessorKey: 'fecha',
+        header: 'Fecha',
+        cell: ({ row }) => formatearFecha(row.original.fecha),
+      },
+      {
+        accessorKey: 'cliente_nombre',
+        header: 'Cliente',
+        cell: ({ row }) => (
+          <div>
+            <div className="font-medium">
+              {row.original.cliente_nombre || 'Cliente no especificado'}
+            </div>
+            {row.original.cliente_ciudad && (
+              <div className="text-xs text-muted-foreground">{row.original.cliente_ciudad}</div>
+            )}
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'total',
+        header: 'Total',
+        cell: ({ row }) => (
+          <span className="font-semibold text-emerald-600">
+            {formatearMoneda(row.original.total || 0)}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'estado',
+        header: 'Estado',
+        cell: ({ row }) => (
+          <Badge variant={estadoVariant(row.original.estado)}>
+            {row.original.estado || 'Sin estado'}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: 'empleado_nombre',
+        header: 'Vendedor',
+        cell: ({ row }) => row.original.empleado_nombre || 'No especificado',
+      },
+    ],
+    [selectedPedidos, todosSeleccionados, onSelectAll, onSelectPedido]
+  );
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-3 text-lg">Cargando pedidos...</span>
+      <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+        <LoadingState message="Cargando pedidos..." />
       </div>
     );
   }
 
   if (pedidos.length === 0) {
     return (
-      <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-        <div className="text-4xl mb-4">📋</div>
-        <div className="text-lg font-medium mb-2">No hay pedidos registrados</div>
-        <div className="text-sm">Los pedidos aparecerán aquí cuando se registren</div>
+      <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+        <EmptyState message="No hay pedidos registrados" />
       </div>
     );
   }
 
   return (
-    <div>
-      {/* Tabla para escritorio */}
-      <TablaEscritorio
-        pedidos={sortedPedidos}
-        selectedPedidos={selectedPedidos}
-        onSelectPedido={onSelectPedido}
-        onSelectAll={onSelectAll}
-        onRowDoubleClick={onRowDoubleClick}
-        sortField={sortField}
-        sortDirection={sortDirection}
-        onSort={handleSort}
-        mostrarPermisos={mostrarPermisos}
-        verificarPermisos={verificarPermisos}
-      />
+    <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
+      <ResumenPedidos pedidos={pedidos} selectedPedidos={selectedPedidos} />
 
-      {/* Tarjetas para móvil */}
-      <TarjetasMovil
-        pedidos={sortedPedidos}
-        selectedPedidos={selectedPedidos}
-        onSelectPedido={onSelectPedido}
-        onSelectAll={onSelectAll}
-        onRowDoubleClick={onRowDoubleClick}
-        mostrarPermisos={mostrarPermisos}
-        verificarPermisos={verificarPermisos}
-      />
-      
-      {/* Footer con estadísticas */}
-      <div className="bg-gray-50 px-4 py-3 border-t rounded-b-lg mt-4">
-        <div className="flex flex-col sm:flex-row justify-between items-center text-sm text-gray-600 gap-2">
-          <span>
-            {selectedPedidos.length > 0 && (
-              <span className="font-medium text-blue-600">
-                {selectedPedidos.length} de {pedidos.length} seleccionados
-              </span>
-            )}
-          </span>
-          <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
-            <span>
-              Total de pedidos: <span className="font-medium">{pedidos.length}</span>
-            </span>
-            <span>
-              Monto total: <span className="font-medium text-green-600">
-                {formatearMoneda(pedidos.reduce((acc, p) => acc + Number(p.total || 0), 0))}
-              </span>
-            </span>
-          </div>
-        </div>
+      <div className="hidden p-4 lg:block">
+        <DataTable
+          columns={columns}
+          data={pedidos}
+          enablePagination={false}
+          enableSorting
+          onRowDoubleClick={onRowDoubleClick}
+          getRowClassName={(pedido) =>
+            selectedPedidos.includes(pedido.id) ? 'bg-primary/5' : undefined
+          }
+          getRowId={(row) => String(row.id)}
+          emptyMessage="No hay pedidos registrados"
+        />
+      </div>
+
+      <div className="p-4 lg:hidden">
+        <TarjetasMoviles
+          pedidos={pedidos}
+          selectedPedidos={selectedPedidos}
+          onSelectPedido={onSelectPedido}
+          onSelectAll={onSelectAll}
+          onRowDoubleClick={onRowDoubleClick}
+          mostrarPermisos={mostrarPermisos}
+          verificarPermisos={verificarPermisos}
+        />
       </div>
     </div>
   );
 }
-
-export default React.memo(TablaPedidos);
