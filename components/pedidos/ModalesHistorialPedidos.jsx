@@ -1792,7 +1792,6 @@ export function ModalDetallePedido({
   cargandoCuentas = false
 }) {
   const [clienteExpandido, setClienteExpandido] = useState(false);
-  const [productosExpandidos, setProductosExpandidos] = useState(false);
   
   const { user } = useAuth();
   const { facturarPedido, loading: loadingFacturacion } = useFacturacion(); // ✅ USAR HOOK DE FACTURACIÓN CON LOADING
@@ -1878,11 +1877,11 @@ export function ModalDetallePedido({
         size="xl"
         closeOnOverlay
         closeOnEscape
-        panelClassName="w-full max-w-xs sm:max-w-2xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] p-0 sm:p-0 lg:p-0 flex flex-col"
+        panelClassName="w-full max-w-xs sm:max-w-2xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] p-0 sm:p-0 lg:p-0 flex flex-col overflow-hidden"
         contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4 lg:p-6"
         showHeader={false}
       >
-            <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">
                 Pedido #{pedido.id}
@@ -1925,109 +1924,69 @@ export function ModalDetallePedido({
               canEdit={canEdit}
             />
 
-            {/* Resto del código igual... */}
-            <div className="mb-4">
-              <div 
-                className="lg:hidden flex justify-between items-center bg-blue-50 p-3 rounded-lg cursor-pointer border-2 border-blue-200 mb-2"
-                onClick={() => setProductosExpandidos(!productosExpandidos)}
-              >
-                <div>
-                  <h3 className="text-lg font-semibold text-gray-800">Productos del Pedido</h3>
-                  <p className="text-sm text-gray-600">{productos.length} producto(s)</p>
-                </div>
-                <div className="text-blue-600">
-                  {productosExpandidos ? <MdExpandLess size={28} /> : <MdExpandMore size={28} />}
-                </div>
-              </div>
-
-              <div className="lg:hidden">
-                <ResumenTotales productos={productos} pedido={pedido} />
-              </div>
-
-              <h3 className="hidden lg:block text-xl font-semibold text-gray-800 mb-4">
+            <div className="mb-2">
+              <h3 className="text-base sm:text-xl font-semibold text-gray-800 mb-2 sm:mb-3">
                 Productos del Pedido
+                <span className="ml-1.5 text-sm font-normal text-gray-500">({productos.length})</span>
               </h3>
-              
-              <div className={`${productosExpandidos ? 'block' : 'hidden'} lg:block`}>
-                {canEdit && (
-                  <button
-                    onClick={handleAbrirModalAgregar}
-                    className="mb-4 bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center w-full sm:w-auto"
-                  >
-                    ➕ AGREGAR PRODUCTO
-                  </button>
-                )}
-              </div>
 
-              <div className={`lg:hidden transition-all duration-300 ease-in-out ${
-                productosExpandidos ? 'opacity-100' : 'max-h-0 opacity-0 overflow-hidden'
-              }`}>
-                <div className={`${
-                  productosExpandidos ? 'max-h-[50vh] overflow-y-auto' : 'max-h-0'
-                } border rounded-lg mb-3`}>
-                  <TablaProductos
-                    productos={productos}
-                    onEditarProducto={handleEditarProductoGerente}
-                    onEliminarProducto={handleEliminarProductoGerente}
-                    loading={loading}
-                    canEdit={canEdit}
-                  />
-                </div>
-              </div>
+              {canEdit && (
+                <button
+                  onClick={handleAbrirModalAgregar}
+                  className="mb-3 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors flex items-center justify-center w-full sm:w-auto"
+                >
+                  ➕ Agregar producto
+                </button>
+              )}
 
-              <div className="hidden lg:block">
-                <TablaProductos
-                  productos={productos}
-                  onEditarProducto={handleEditarProductoGerente}
-                  onEliminarProducto={handleEliminarProductoGerente}
-                  loading={loading}
-                  canEdit={canEdit}
-                />
-                <ResumenTotales productos={productos} pedido={pedido} />
-              </div>
+              <TablaProductos
+                productos={productos}
+                onEditarProducto={handleEditarProductoGerente}
+                onEliminarProducto={handleEliminarProductoGerente}
+                loading={loading}
+                canEdit={canEdit}
+              />
+
+              <ResumenTotales productos={productos} pedido={pedido} />
             </div>
             </div>
 
             <div
-              className="sticky bottom-0 z-10 -mx-3 mt-4 shrink-0 border-t bg-background px-3 py-3 sm:-mx-4 sm:px-4 lg:-mx-6 lg:px-6"
-              style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
+              className="shrink-0 border-t bg-background px-3 py-2 sm:-mx-4 sm:px-4 lg:-mx-6 lg:px-6"
+              style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
             >
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col sm:flex-row gap-3">
-                {esGerente && !isPedidoFacturado && !isPedidoAnulado && (
-                  <button 
-                    onClick={handleFacturar}
-                    className="bg-green-600 hover:bg-green-700 text-white text-sm sm:text-base font-semibold px-4 py-3 rounded-lg transition-colors flex items-center justify-center flex-1"
-                  >
-                    ✅ FACTURAR
-                  </button>
-                )}
-                
-                <BotonGenerarPDFUniversal 
-                  onGenerar={onGenerarPDF}
-                  loading={generandoPDF}
-                  texto="🖨️ IMPRIMIR"
-                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm sm:text-base font-semibold px-4 py-3 rounded-lg transition-colors flex items-center justify-center flex-1"
-                />
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                {esGerente && !isPedidoFacturado && !isPedidoAnulado && (
-                  <button 
-                    onClick={() => onCambiarEstado('Anulado')}
-                    className="bg-red-600 hover:bg-red-700 text-white text-sm sm:text-base font-semibold px-4 py-3 rounded-lg transition-colors flex items-center justify-center flex-1"
-                  >
-                    🚫 ANULAR
-                  </button>
-                )}
-                
-                <button 
-                  onClick={onClose}
-                  className="bg-gray-600 hover:bg-gray-700 text-white text-sm sm:text-base font-semibold px-4 py-3 rounded-lg transition-colors flex items-center justify-center flex-1"
+            <div className="grid grid-cols-2 gap-2">
+              {esGerente && !isPedidoFacturado && !isPedidoAnulado && (
+                <button
+                  onClick={handleFacturar}
+                  className="bg-green-600 hover:bg-green-700 text-white text-xs sm:text-sm font-medium px-2 py-2 rounded-md transition-colors flex items-center justify-center h-9 sm:h-10"
                 >
-                  CERRAR
+                  ✅ Facturar
                 </button>
-              </div>
+              )}
+
+              <BotonGenerarPDFUniversal
+                onGenerar={onGenerarPDF}
+                loading={generandoPDF}
+                texto="🖨️ Imprimir"
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-medium px-2 py-2 rounded-md transition-colors flex items-center justify-center h-9 sm:h-10"
+              />
+
+              {esGerente && !isPedidoFacturado && !isPedidoAnulado && (
+                <button
+                  onClick={() => onCambiarEstado('Anulado')}
+                  className="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-medium px-2 py-2 rounded-md transition-colors flex items-center justify-center h-9 sm:h-10"
+                >
+                  🚫 Anular
+                </button>
+              )}
+
+              <button
+                onClick={onClose}
+                className="bg-gray-600 hover:bg-gray-700 text-white text-xs sm:text-sm font-medium px-2 py-2 rounded-md transition-colors flex items-center justify-center h-9 sm:h-10"
+              >
+                Cerrar
+              </button>
             </div>
             </div>
       </ModalBase>
