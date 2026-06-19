@@ -1,6 +1,7 @@
 // components/pedidos/ModalesHistorialPedidos.jsx - Versión corregida con descuentos funcionando
-import { useState, useEffect } from 'react';
-import { MdDeleteForever, MdExpandMore, MdExpandLess, MdSearch } from 'react-icons/md';
+import { useState, useEffect, useRef } from 'react';
+import { MdDeleteForever, MdExpandMore, MdExpandLess } from 'react-icons/md';
+import ModalSeleccionProductos from '../shared/ModalSeleccionProductos';
 import toast from '@/components/shared/toast';
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
 import { usePedidos } from '../../hooks/pedidos/usePedidos';
@@ -521,76 +522,56 @@ export function ModalAgregarProductoPedido({
   onAgregarProducto,
   productosActuales = []
 }) {
-  const [productQuantity, setProductQuantity] = useState(0.5); // ← INICIAR EN 0.5
   const [agregandoProducto, setAgregandoProducto] = useState(false);
-  
+
   const {
     busqueda,
     setBusqueda,
     resultados,
     productoSeleccionado,
+    cantidad,
+    subtotal,
     loading,
     buscarProducto,
     seleccionarProducto,
-    limpiarSeleccion
+    actualizarCantidad,
+    deseleccionarProducto,
+    cerrarModal,
   } = useProductoSearch();
 
-  // Función para formatear cantidad
-  const formatearCantidad = (cantidad) => {
-    const cantidadNum = parseFloat(cantidad);
-    return cantidadNum % 1 === 0 ? cantidadNum.toString() : cantidadNum.toFixed(1);
-  };
+  useEffect(() => {
+    if (!mostrar) {
+      cerrarModal();
+    }
+  }, [mostrar, cerrarModal]);
 
-  // Manejar cambio de cantidad con decimales
-  const handleCantidadChange = (nuevaCantidad) => {
-    let cantidadFloat = parseFloat(nuevaCantidad) || 0.5;
-    
-    // Redondear a medios más cercano
-    cantidadFloat = Math.round(cantidadFloat * 2) / 2;
-    
-    // Aplicar límites
-    const cantidadValida = Math.max(0.5, Math.min(stockDisponible, cantidadFloat));
-    setProductQuantity(cantidadValida);
-  };
-
-  // Incrementar/decrementar en 0.5
-  const adjustQuantity = (delta) => {
-    if (agregandoProducto) return;
-    const nuevaCantidad = productQuantity + delta;
-    handleCantidadChange(nuevaCantidad);
-  };
-
-  const productoYaExiste = (productoId) => {
-    return productosActuales.some(prod => prod.producto_id === productoId);
-  };
-
-  const stockDisponible = productoSeleccionado?.stock_actual || 0;
-  const stockSuficiente = productQuantity <= stockDisponible;
-  const productoEsDuplicado = productoSeleccionado ? productoYaExiste(productoSeleccionado.id) : false;
+  const productoYaExiste = (productoId) =>
+    productosActuales.some((prod) => prod.producto_id === productoId);
 
   const handleAgregarProducto = async () => {
-    if (!productoSeleccionado || productQuantity < 0.5) {
+    if (!productoSeleccionado || cantidad < 0.5) {
       toast.error('Seleccione un producto y una cantidad válida');
       return;
     }
 
-    if (productoEsDuplicado) {
+    if (productoYaExiste(productoSeleccionado.id)) {
       toast.error(`El producto "${productoSeleccionado.nombre}" ya está en el pedido.`);
       return;
     }
 
-    if (!stockSuficiente) {
-      toast.error(`Stock insuficiente. Disponible: ${stockDisponible}, Solicitado: ${productQuantity}`);
+    if (cantidad > productoSeleccionado.stock_actual) {
+      toast.error(
+        `Stock insuficiente. Disponible: ${productoSeleccionado.stock_actual}, Solicitado: ${cantidad}`
+      );
       return;
     }
 
     setAgregandoProducto(true);
-    
+
     try {
-      const exito = await onAgregarProducto(productoSeleccionado, productQuantity);
+      const exito = await onAgregarProducto(productoSeleccionado, cantidad);
       if (exito) {
-        setProductQuantity(0.5);
-        limpiarSeleccion();
+        cerrarModal();
         onClose();
       }
     } catch (error) {
@@ -603,198 +584,33 @@ export function ModalAgregarProductoPedido({
 
   const handleClose = () => {
     if (agregandoProducto) return;
-    
-    setProductQuantity(0.5);
-    limpiarSeleccion();
+    cerrarModal();
     onClose();
   };
 
   if (!mostrar) return null;
 
-  const precio = Number(productoSeleccionado?.precio) || 0;
-  const subtotal = precio * productQuantity;
-  const botonDeshabilitado = productoEsDuplicado || !stockSuficiente || agregandoProducto;
-
   return (
-    <ModalBase
-      isOpen={mostrar}
-      onClose={handleClose}
-      title="Buscar Producto"
-      size="xl"
+    <ModalSeleccionProductos
+      resultados={resultados}
+      productoSeleccionado={productoSeleccionado}
+      cantidad={cantidad}
+      subtotal={subtotal}
+      busqueda={busqueda}
+      onBusquedaChange={setBusqueda}
+      onBuscar={buscarProducto}
+      onSeleccionar={seleccionarProducto}
+      onDeseleccionar={deseleccionarProducto}
+      onCantidadChange={actualizarCantidad}
+      onAgregar={handleAgregarProducto}
+      onCerrar={handleClose}
+      loading={loading}
+      agregando={agregandoProducto}
+      titulo="Agregar producto al pedido"
       zIndex={Z_INDEX.MODAL_NESTED}
-      panelClassName="w-full max-w-4xl max-h-[90vh] p-4 md:p-6"
-      showHeader={false}
-      loading={agregandoProducto}
-    >
-          <h2 className="text-xl font-bold mb-4 text-center">Buscar Producto</h2>
-          
-          <div className="flex items-center gap-2 mb-6">
-            <input 
-              type="text"
-              className="border p-2 flex-grow rounded"
-              placeholder="Buscar Producto"
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              disabled={agregandoProducto}
-            />
-            <button 
-              onClick={buscarProducto}
-              disabled={loading || agregandoProducto}
-              className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white p-2 rounded disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              <MdSearch size={24} />
-            </button>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="border rounded p-4 h-64 md:h-80 overflow-y-auto">
-              <h3 className="font-bold mb-2">Productos Encontrados</h3>
-              {loading ? (
-                <div className="flex justify-center items-center h-32">
-                  <LoadingSpinner size="lg" colorClass="border-blue-600" />
-                </div>
-              ) : resultados.length > 0 ? (
-                resultados.map((product, index) => {
-                  const yaExiste = productoYaExiste(product.id);
-                  return (
-                    <div 
-                      key={index}
-                      className={`p-2 border-b transition-colors ${
-                        agregandoProducto ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
-                      } ${
-                        productoSeleccionado?.id === product.id ? 'bg-blue-100' : 
-                        yaExiste ? 'bg-red-50 opacity-50' : 'hover:bg-gray-100'
-                      }`}
-                      onClick={() => !yaExiste && !agregandoProducto && seleccionarProducto(product)}
-                    >
-                      <div className="font-medium text-sm">
-                        {product.nombre}
-                        {yaExiste && <span className="text-red-600 ml-2">(Ya en pedido)</span>}
-                      </div>
-                      <div className="text-xs text-gray-600">
-                        Código: {product.id} | Stock: {formatearCantidad(product.stock_actual)}
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="text-gray-500 text-sm">No hay productos para mostrar</p>
-              )}
-            </div>
-            
-            <div className="border rounded p-4">
-              <h3 className="font-bold mb-4">Detalles del Producto</h3>
-              {productoSeleccionado ? (
-                <div className="space-y-3 text-sm">
-                  <p><strong>Código:</strong> {productoSeleccionado.id}</p>
-                  <p><strong>Nombre:</strong> {productoSeleccionado.nombre}</p>
-                  <p><strong>Unidad de Medida:</strong> {productoSeleccionado.unidad_medida}</p>
-                  <p><strong>Precio:</strong> ${precio.toFixed(2)}</p>
-                  <p><strong>Stock Disponible:</strong> 
-                    <span className={stockDisponible > 0 ? 'text-green-600' : 'text-red-600'}>
-                      {formatearCantidad(stockDisponible)}
-                    </span>
-                  </p>
-                  
-                  {productoEsDuplicado && (
-                    <div className="bg-red-100 border border-red-400 text-red-700 px-3 py-2 rounded">
-                      ⚠️ Este producto ya está en el pedido
-                    </div>
-                  )}
-                  
-                  {agregandoProducto && (
-                    <div className="bg-blue-50 border border-blue-200 text-blue-700 px-3 py-2 rounded">
-                      <div className="flex items-center">
-                        <LoadingSpinner size="sm" colorClass="border-blue-600" className="mr-2" />
-                        <span>Agregando producto al pedido...</span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  <div className="mt-4">
-                    <label className="block mb-1 font-medium">Cantidad:</label>
-                    <div className="flex items-center space-x-2">
-                      <button 
-                        type="button"
-                        disabled={productQuantity <= 0.5 || agregandoProducto}
-                        className="bg-gray-300 hover:bg-gray-400 disabled:bg-gray-200 disabled:cursor-not-allowed text-black w-8 h-8 rounded flex items-center justify-center transition-colors"
-                        onClick={() => adjustQuantity(-0.5)}
-                      >
-                        -
-                      </button>
-                      <input 
-                        type="number"
-                        disabled={agregandoProducto}
-                        className={`border p-2 w-20 rounded text-sm text-center disabled:bg-gray-100 disabled:cursor-not-allowed ${
-                          !stockSuficiente ? 'border-red-500 bg-red-50' : ''
-                        }`}
-                        value={productQuantity}
-                        onChange={(e) => handleCantidadChange(e.target.value)}
-                        min="0.5"
-                        step="0.5"
-                        max={stockDisponible}
-                      />
-                      <button 
-                        type="button"
-                        disabled={productQuantity >= stockDisponible || agregandoProducto}
-                        className="bg-gray-300 hover:bg-gray-400 disabled:bg-gray-200 disabled:cursor-not-allowed text-black w-8 h-8 rounded flex items-center justify-center transition-colors"
-                        onClick={() => adjustQuantity(0.5)}
-                      >
-                        +
-                      </button>
-                    </div>
-                    
-                    <p className="text-xs text-gray-500 mt-1">
-                      Cantidad: {formatearCantidad(productQuantity)} (mínimo 0.5)
-                    </p>
-                    
-                    {!stockSuficiente && (
-                      <p className="text-red-600 text-xs mt-1">
-                        ❌ Stock insuficiente (máximo: {formatearCantidad(stockDisponible)})
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div className="bg-gray-100 p-3 rounded">
-                    <p className="font-semibold">Subtotal (sin IVA): ${subtotal.toFixed(2)}</p>
-                  </div>
-                  
-                  <LoadingButton
-                    onClick={handleAgregarProducto}
-                    loading={agregandoProducto}
-                    loadingText="Agregando..."
-                    disabled={productoEsDuplicado || !stockSuficiente}
-                    className={`mt-4 px-4 py-2 rounded w-full transition-colors flex items-center justify-center gap-2 ${
-                      botonDeshabilitado
-                        ? 'bg-gray-400 cursor-not-allowed text-gray-700'
-                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                    }`}
-                  >
-                    {productoEsDuplicado 
-                        ? 'Producto ya agregado' 
-                        : !stockSuficiente 
-                          ? 'Stock insuficiente'
-                          : `Agregar ${formatearCantidad(productQuantity)} unidades`
-                    }
-                  </LoadingButton>
-                </div>
-              ) : (
-                <p className="text-gray-500 text-sm">Seleccione un producto de la lista</p>
-              )}
-            </div>
-          </div>
-          
-          <div className="flex justify-end mt-4">
-            <LoadingButton
-              onClick={handleClose}
-              loading={agregandoProducto}
-              loadingText="Procesando..."
-              className="bg-gray-500 hover:bg-gray-600 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-4 py-2 rounded transition-colors"
-            >
-              Cancelar
-            </LoadingButton>
-          </div>
-    </ModalBase>
+      isProductoDeshabilitado={(producto) => productoYaExiste(producto.id)}
+      getProductoDeshabilitadoLabel={() => '(Ya en pedido)'}
+    />
   );
 }
 
@@ -1792,9 +1608,19 @@ export function ModalDetallePedido({
   cargandoCuentas = false
 }) {
   const [clienteExpandido, setClienteExpandido] = useState(false);
-  
+  const [productosExpandidos, setProductosExpandidos] = useState(false);
+  const productosScrollRef = useRef(null);
+
   const { user } = useAuth();
-  const { facturarPedido, loading: loadingFacturacion } = useFacturacion(); // ✅ USAR HOOK DE FACTURACIÓN CON LOADING
+  const { facturarPedido, loading: loadingFacturacion } = useFacturacion();
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const syncExpansion = () => setProductosExpandidos(mq.matches);
+    syncExpansion();
+    mq.addEventListener('change', syncExpansion);
+    return () => mq.removeEventListener('change', syncExpansion);
+  }, []);
 
   const formatearFecha = (fecha) => {
     if (!fecha) return 'Fecha no disponible';
@@ -1817,6 +1643,18 @@ export function ModalDetallePedido({
   const toggleClienteExpansion = () => {
     setClienteExpandido(!clienteExpandido);
   };
+
+  const toggleProductosExpansion = () => {
+    if (productosExpandidos && productosScrollRef.current) {
+      productosScrollRef.current.scrollTop = 0;
+    }
+    setProductosExpandidos((prev) => !prev);
+  };
+
+  const totalPedidoPreview =
+    pedido?.total != null
+      ? `$${Number(pedido.total).toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : null;
 
   const handleFacturar = () => {
     setMostrarModalFacturacion(true);
@@ -1925,27 +1763,67 @@ export function ModalDetallePedido({
             />
 
             <div className="mb-2">
-              <h3 className="text-base sm:text-xl font-semibold text-gray-800 mb-2 sm:mb-3">
-                Productos del Pedido
-                <span className="ml-1.5 text-sm font-normal text-gray-500">({productos.length})</span>
-              </h3>
+              <button
+                type="button"
+                onClick={toggleProductosExpansion}
+                className="w-full flex items-center justify-between mb-2 rounded-lg p-2 -mx-2 hover:bg-gray-50 transition-colors lg:pointer-events-none lg:cursor-default lg:hover:bg-transparent"
+                aria-expanded={productosExpandidos}
+                aria-controls="pedido-productos-lista"
+              >
+                <div className="text-left min-w-0">
+                  <h3 className="text-base sm:text-xl font-semibold text-gray-800">
+                    Productos del Pedido
+                    <span className="ml-1.5 text-sm font-normal text-gray-500">({productos.length})</span>
+                  </h3>
+                  {!productosExpandidos && productos.length > 0 && (
+                    <p className="text-xs text-gray-500 mt-0.5 truncate lg:hidden">
+                      {productos.length} ítem{productos.length !== 1 ? 's' : ''}
+                      {totalPedidoPreview ? ` · ${totalPedidoPreview}` : ''}
+                      {' · Tocá para ver'}
+                    </p>
+                  )}
+                </div>
+                <div className="text-gray-600 shrink-0 ml-2 lg:hidden" aria-hidden="true">
+                  {productosExpandidos ? <MdExpandLess size={24} /> : <MdExpandMore size={24} />}
+                </div>
+              </button>
 
               {canEdit && (
                 <button
                   onClick={handleAbrirModalAgregar}
-                  className="mb-3 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors flex items-center justify-center w-full sm:w-auto"
+                  className={`mb-3 bg-green-500 hover:bg-green-600 text-white px-3 py-1.5 rounded-md text-xs sm:text-sm font-medium transition-colors items-center justify-center w-full sm:w-auto ${
+                    productosExpandidos ? 'flex' : 'hidden lg:flex'
+                  }`}
                 >
                   ➕ Agregar producto
                 </button>
               )}
 
-              <TablaProductos
-                productos={productos}
-                onEditarProducto={handleEditarProductoGerente}
-                onEliminarProducto={handleEliminarProductoGerente}
-                loading={loading}
-                canEdit={canEdit}
-              />
+              <div
+                id="pedido-productos-lista"
+                className={`transition-all duration-300 ease-in-out overflow-hidden lg:max-h-none lg:opacity-100 lg:overflow-visible ${
+                  productosExpandidos
+                    ? 'max-h-[min(45dvh,360px)] opacity-100'
+                    : 'max-h-0 opacity-0 lg:max-h-none lg:opacity-100'
+                }`}
+              >
+                <div
+                  ref={productosScrollRef}
+                  className={`min-h-0 p-2 pr-0.5 lg:p-0 border border-gray-200 rounded-lg bg-white lg:border-0 lg:rounded-none lg:bg-transparent ${
+                    productosExpandidos
+                      ? 'overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] max-h-[min(45dvh,360px)]'
+                      : 'overflow-hidden'
+                  } lg:overflow-visible lg:max-h-none`}
+                >
+                  <TablaProductos
+                    productos={productos}
+                    onEditarProducto={handleEditarProductoGerente}
+                    onEliminarProducto={handleEliminarProductoGerente}
+                    loading={loading}
+                    canEdit={canEdit}
+                  />
+                </div>
+              </div>
 
               <ResumenTotales productos={productos} pedido={pedido} />
             </div>
