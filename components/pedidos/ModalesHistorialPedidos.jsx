@@ -1715,11 +1715,11 @@ export function ModalDetallePedido({
         size="xl"
         closeOnOverlay
         closeOnEscape
-        panelClassName="w-full max-w-xs sm:max-w-2xl lg:max-w-4xl max-h-[95vh] sm:max-h-[90vh] p-0 sm:p-0 lg:p-0 flex flex-col overflow-hidden"
-        contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-3 sm:p-4 lg:p-6"
+        panelClassName="w-full max-w-sm sm:max-w-2xl lg:max-w-4xl max-h-[min(96dvh,96vh)] sm:max-h-[92dvh] lg:max-h-[90vh] p-0 sm:p-0 lg:p-0 flex flex-col overflow-hidden"
+        contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden p-2.5 sm:p-4 lg:p-6"
         showHeader={false}
       >
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain pr-0.5 [-webkit-overflow-scrolling:touch]">
+            <div className="min-h-0 flex-1 overflow-y-auto pr-0.5 pb-2 scroll-pb-4 [-webkit-overflow-scrolling:touch]">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">
                 Pedido #{pedido.id}
@@ -1762,7 +1762,7 @@ export function ModalDetallePedido({
               canEdit={canEdit}
             />
 
-            <div className="mb-2">
+            <div className="mb-1.5">
               <button
                 type="button"
                 onClick={toggleProductosExpansion}
@@ -1803,15 +1803,15 @@ export function ModalDetallePedido({
                 id="pedido-productos-lista"
                 className={`transition-all duration-300 ease-in-out overflow-hidden lg:max-h-none lg:opacity-100 lg:overflow-visible ${
                   productosExpandidos
-                    ? 'max-h-[min(45dvh,360px)] opacity-100'
+                    ? 'max-h-[min(52dvh,460px)] opacity-100'
                     : 'max-h-0 opacity-0 lg:max-h-none lg:opacity-100'
                 }`}
               >
                 <div
                   ref={productosScrollRef}
-                  className={`min-h-0 p-2 pr-0.5 lg:p-0 border border-gray-200 rounded-lg bg-white lg:border-0 lg:rounded-none lg:bg-transparent ${
+                  className={`min-h-0 p-2 pr-1 pb-4 scroll-pb-6 lg:p-0 border border-gray-200 rounded-lg bg-white lg:border-0 lg:rounded-none lg:bg-transparent ${
                     productosExpandidos
-                      ? 'overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] max-h-[min(45dvh,360px)]'
+                      ? 'overflow-y-auto overscroll-y-contain touch-pan-y [-webkit-overflow-scrolling:touch] max-h-[min(52dvh,460px)]'
                       : 'overflow-hidden'
                   } lg:overflow-visible lg:max-h-none`}
                 >
@@ -1822,6 +1822,7 @@ export function ModalDetallePedido({
                     loading={loading}
                     canEdit={canEdit}
                   />
+                  <div className="h-2 lg:hidden" aria-hidden="true" />
                 </div>
               </div>
 

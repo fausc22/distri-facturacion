@@ -134,6 +134,7 @@ export default function ProductoSelectorHybrid({ mostrarPreciosConIva = true }) 
           loading={loading}
           mostrarPreciosConIva={mostrarPreciosConIva}
           badgeHeader={badgeHeader}
+          expandirDetalleAlSeleccionar
           mensajeSinResultados={
             isPWA && !isOnline
               ? 'No se encontraron productos en datos offline.'

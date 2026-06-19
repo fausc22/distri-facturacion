@@ -151,12 +151,17 @@ export default function ModalSeleccionProductos({
   getProductoDeshabilitadoLabel = () => '',
   mensajeSinResultados = 'No se encontraron resultados.',
   zIndex = 50,
+  expandirDetalleAlSeleccionar = false,
 }) {
   const [detalleExpandido, setDetalleExpandido] = useState(false);
 
   useEffect(() => {
+    if (productoSeleccionado?.id) {
+      setDetalleExpandido(Boolean(expandirDetalleAlSeleccionar));
+      return;
+    }
     setDetalleExpandido(false);
-  }, [productoSeleccionado?.id]);
+  }, [productoSeleccionado?.id, expandirDetalleAlSeleccionar]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;

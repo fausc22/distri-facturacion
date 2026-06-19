@@ -104,6 +104,7 @@ export default function ProductoSelector({
           onCerrar={cerrarModal}
           loading={loading}
           mostrarPreciosConIva={mostrarPreciosConIva}
+          expandirDetalleAlSeleccionar
         />
       )}
 

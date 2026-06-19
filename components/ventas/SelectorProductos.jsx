@@ -68,6 +68,7 @@ export default function ProductoSelector() {
           onAgregar={handleAgregarProducto}
           onCerrar={cerrarModal}
           loading={loading}
+          expandirDetalleAlSeleccionar
         />
       )}
     </div>
