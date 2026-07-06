@@ -39,6 +39,12 @@ export const useListadosUIStore = create((set) => ({
   },
   setControlStock: (partial) =>
     set((s) => ({ controlStock: { ...s.controlStock, ...partial } })),
+
+  resumenCuenta: { cliente: null },
+  setResumenCuentaCliente: (cliente) =>
+    set({ resumenCuenta: { cliente } }),
+  clearResumenCuentaCliente: () =>
+    set({ resumenCuenta: { cliente: null } }),
 }));
 
 export default useListadosUIStore;

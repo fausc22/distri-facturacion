@@ -6,6 +6,7 @@ import LibroIvaVentas from '../../components/listados/LibroIvaVentas';
 import ListaPrecios from '../../components/listados/ListaPrecios';
 import ControlStock from '../../components/listados/ControlStock';
 import ListadoVendedores from '../../components/listados/ListadoVendedores';
+import ResumenCuenta from '../../components/listados/ResumenCuenta';
 import { useListadosUIStore } from '@/stores/listadosUIStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { FileText, ClipboardList, Package, Users } from 'lucide-react';
+import { FileText, ClipboardList, Package, Users, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TABS = [
@@ -24,6 +25,7 @@ const TABS = [
   { id: 'lista-precios', name: 'Lista de Precios', icon: ClipboardList },
   { id: 'control-stock', name: 'Control de Stock', icon: Package },
   { id: 'listado-vendedores', name: 'Listado Vendedores', icon: Users },
+  { id: 'resumen-cuenta', name: 'Resumen de Cuenta', icon: Receipt },
 ];
 
 function ListadosContent() {
@@ -93,6 +95,7 @@ function ListadosContent() {
             {tabActiva === 'lista-precios' && <ListaPrecios />}
             {tabActiva === 'control-stock' && <ControlStock />}
             {tabActiva === 'listado-vendedores' && <ListadoVendedores />}
+            {tabActiva === 'resumen-cuenta' && <ResumenCuenta />}
           </div>
 
           <div className="mt-6 flex justify-center sm:mt-8">
