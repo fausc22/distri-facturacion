@@ -14,8 +14,13 @@ export default function ProductoSelector({
   containerClassName = 'bg-primary text-primary-foreground p-6 rounded-lg flex-1 min-w-0',
   title = 'Productos',
 }) {
-  const sharedContext = useContextoCompartido();
+  const sharedContext = useContextoCompartido({ required: !contextAdapter });
   const activeContext = contextAdapter || sharedContext;
+
+  if (!activeContext) {
+    throw new Error('ProductoSelector requiere contextAdapter o PedidosProvider/NotasProvider');
+  }
+
   const addProducto = onAddProducto || activeContext.addProducto;
   const [mostrarModalFlete, setMostrarModalFlete] = useState(false);
 

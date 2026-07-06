@@ -29,8 +29,14 @@ export default function ClienteSelectorListaPrecios({
   containerClassName = 'bg-primary-dark text-white p-6 rounded-lg flex-1 min-w-0 md:min-w-[300px]',
   title = 'Cliente',
 }) {
-  const sharedContext = useContextoCompartido();
-  const { cliente, setCliente, clearCliente } = contextAdapter || sharedContext;
+  const sharedContext = useContextoCompartido({ required: !contextAdapter });
+  const contextSource = contextAdapter || sharedContext;
+
+  if (!contextSource) {
+    throw new Error('ClienteSelector requiere contextAdapter o PedidosProvider/NotasProvider');
+  }
+
+  const { cliente, setCliente, clearCliente } = contextSource;
   const {
     busqueda,
     setBusqueda,
