@@ -236,7 +236,7 @@ function RegistrarPedidoContent() {
                 className={estaEnModoOffline ? 'text-amber-100' : 'text-primary-foreground/80'}
               >
                 {estaEnModoOffline
-                  ? 'Trabajando sin conexión - Datos desde IndexedDB'
+                  ? 'Trabajando sin conexión - Datos desde catálogo local'
                   : 'Sistema de gestión de pedidos'}
               </CardDescription>
               {isPWA && (

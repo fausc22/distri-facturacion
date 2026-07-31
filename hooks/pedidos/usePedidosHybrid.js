@@ -419,10 +419,12 @@ export function usePedidosHybrid() {
       }
     } catch (error) {
       console.error('❌ [usePedidosHybrid] Error guardando pedido offline:', error);
-      toast.error('❌ Error al guardar pedido offline');
+      if (!error?.isQuotaExceeded) {
+        toast.error('❌ Error al guardar pedido offline');
+      }
       return { 
         success: false, 
-        error: 'Error crítico guardando offline' 
+        error: error?.message || 'Error crítico guardando offline' 
       };
     }
   };

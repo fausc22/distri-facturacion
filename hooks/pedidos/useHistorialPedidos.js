@@ -84,6 +84,17 @@ export function useHistorialPedidos(filtroEmpleado = null) {
     }
   }, [query.data?.pedidos, isPWA]);
 
+  // Si "últimos 30 días" no trae nada, ampliar a todo el historial
+  useEffect(() => {
+    if (offlineMode || !usarSoloRecientes) return;
+    if (!query.isSuccess) return;
+    if ((query.data?.total ?? 0) > 0) return;
+
+    console.log('📅 [useHistorialPedidos] Sin pedidos en últimos 30 días → historial completo');
+    toast.info('No hay pedidos recientes; mostrando historial completo');
+    setUsarSoloRecientes(false);
+  }, [offlineMode, usarSoloRecientes, query.isSuccess, query.data?.total]);
+
   const pedidosOriginales = offlineMode ? pedidosOffline : (query.data?.pedidos ?? []);
   const totalPedidos = offlineMode ? pedidosOffline.length : (query.data?.total ?? 0);
   const paginaActual = offlineMode

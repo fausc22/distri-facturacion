@@ -514,16 +514,24 @@ export function useOfflinePedidos() {
 
   // ✅ GUARDAR PEDIDO OFFLINE
   const savePedidoOffline = async (pedidoData) => {
-    const tempId = await offlineManager.savePedidoPendiente(pedidoData);
-    
-    if (tempId) {
-      loadPedidosPendientes();
-      toast.success('Pedido guardado offline');
-      return { success: true, tempId };
+    try {
+      const tempId = await offlineManager.savePedidoPendiente(pedidoData);
+      
+      if (tempId) {
+        loadPedidosPendientes();
+        toast.success('Pedido guardado offline');
+        return { success: true, tempId };
+      }
+      
+      toast.error('Error al guardar pedido offline');
+      return { success: false };
+    } catch (error) {
+      console.error('Error guardando pedido offline:', error);
+      if (!error?.isQuotaExceeded) {
+        toast.error(error?.message || 'Error al guardar pedido offline');
+      }
+      return { success: false };
     }
-    
-    toast.error('Error al guardar pedido offline');
-    return { success: false };
   };
 
   /**

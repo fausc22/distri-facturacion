@@ -28,6 +28,32 @@ const STORAGE_KEYS = {
   CATALOG_VERSION: 'vertimar_catalog_version'
 };
 
+const QUOTA_MSG = 'Almacenamiento local lleno. Liberá espacio o sincronizá catálogo/pedidos pendientes.';
+
+function isQuotaExceededError(error) {
+  if (!error) return false;
+  return (
+    error.name === 'QuotaExceededError' ||
+    error.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+    error.code === 22 ||
+    error.code === 1014
+  );
+}
+
+function setLocalStorageItem(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch (error) {
+    if (isQuotaExceededError(error)) {
+      const quotaError = new Error(QUOTA_MSG);
+      quotaError.name = 'QuotaExceededError';
+      quotaError.isQuotaExceeded = true;
+      throw quotaError;
+    }
+    throw error;
+  }
+}
+
 class OfflineManager {
   constructor() {
     this.maxRetries = 3;
@@ -50,11 +76,15 @@ class OfflineManager {
         version: this.generateVersion()
       };
       
-      localStorage.setItem(STORAGE_KEYS.CLIENTES, JSON.stringify(data));
+      setLocalStorageItem(STORAGE_KEYS.CLIENTES, JSON.stringify(data));
       console.log(`📱 ${clientes.length} clientes guardados offline`);
       return true;
     } catch (error) {
       console.error('❌ Error guardando clientes offline:', error);
+      if (error?.isQuotaExceeded || isQuotaExceededError(error)) {
+        toast.error(QUOTA_MSG);
+        throw error?.isQuotaExceeded ? error : Object.assign(new Error(QUOTA_MSG), { name: 'QuotaExceededError', isQuotaExceeded: true });
+      }
       return false;
     }
   }
@@ -85,11 +115,15 @@ class OfflineManager {
         version: this.generateVersion()
       };
       
-      localStorage.setItem(STORAGE_KEYS.PRODUCTOS, JSON.stringify(data));
+      setLocalStorageItem(STORAGE_KEYS.PRODUCTOS, JSON.stringify(data));
       console.log(`📱 ${productos.length} productos guardados offline`);
       return true;
     } catch (error) {
       console.error('❌ Error guardando productos offline:', error);
+      if (error?.isQuotaExceeded || isQuotaExceededError(error)) {
+        toast.error(QUOTA_MSG);
+        throw error?.isQuotaExceeded ? error : Object.assign(new Error(QUOTA_MSG), { name: 'QuotaExceededError', isQuotaExceeded: true });
+      }
       return false;
     }
   }
@@ -162,12 +196,16 @@ class OfflineManager {
       };
       
       pedidosPendientes.push(pedidoPendiente);
-      localStorage.setItem(STORAGE_KEYS.PEDIDOS_PENDIENTES, JSON.stringify(pedidosPendientes));
+      setLocalStorageItem(STORAGE_KEYS.PEDIDOS_PENDIENTES, JSON.stringify(pedidosPendientes));
       
       console.log(`📱 Pedido guardado offline con ID temporal: ${tempId}, hash: ${pedidoData.hash_pedido || 'sin hash'}`);
       return tempId;
     } catch (error) {
       console.error('❌ Error guardando pedido pendiente:', error);
+      if (error?.isQuotaExceeded || isQuotaExceededError(error)) {
+        toast.error(QUOTA_MSG);
+        throw error?.isQuotaExceeded ? error : Object.assign(new Error(QUOTA_MSG), { name: 'QuotaExceededError', isQuotaExceeded: true });
+      }
       return false;
     }
   }
@@ -203,10 +241,13 @@ class OfflineManager {
         maxDays
       };
 
-      localStorage.setItem(STORAGE_KEYS.PEDIDOS_CACHE, JSON.stringify(payload));
+      setLocalStorageItem(STORAGE_KEYS.PEDIDOS_CACHE, JSON.stringify(payload));
       return true;
     } catch (error) {
       console.error('❌ Error guardando cache de pedidos:', error);
+      if (error?.isQuotaExceeded || isQuotaExceededError(error)) {
+        toast.error(QUOTA_MSG);
+      }
       return false;
     }
   }
@@ -308,7 +349,7 @@ class OfflineManager {
     }
   }
 
-  // ✅ COLA DE EDICIONES OFFLINE EN PEDIDOS
+  // ✅ COLA DE EDICIONES OFFLINE EN PEDIDOS (legacy — sync rollbackeado; no invocar desde UI)
   queuePedidoEdit(editData) {
     try {
       if (!isClient()) return null;

@@ -112,6 +112,19 @@ function MyApp({ Component, pageProps }) {
     if (isPublicRoute || typeof window === 'undefined') return;
 
     const onControllerChange = () => {
+      const tieneBorradorPedido = Boolean(
+        localStorage.getItem('vertimar_pedido_estado_completo')
+      );
+
+      if (tieneBorradorPedido) {
+        console.log('🔄 Service Worker actualizado; hay borrador de pedido — sin auto-reload');
+        toast(
+          'Hay una actualización de la app. Terminá el pedido o usá "Actualizar PWA" cuando puedas.',
+          { duration: 5000, icon: '🔄' }
+        );
+        return;
+      }
+
       console.log('🔄 Service Worker actualizado, recargando...');
       window.location.reload();
     };

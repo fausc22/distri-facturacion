@@ -4,6 +4,13 @@ const baseConfig = {
   compress: true,
   // Dev y build no comparten carpeta: evita ENOENT de manifests si corrés ambos a la vez
   distDir: process.env.NODE_ENV === 'development' ? '.next-dev' : '.next',
+  // Evita fallos de webpack con ESM de Radix (__webpack_require__.t)
+  transpilePackages: [
+    '@radix-ui/react-slot',
+    '@radix-ui/react-dialog',
+    '@radix-ui/react-label',
+    '@radix-ui/react-select',
+  ],
 
   async headers() {
     return [
@@ -12,7 +19,7 @@ const baseConfig = {
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: 'no-cache, must-revalidate',
           },
           {
             key: 'Service-Worker-Allowed',
