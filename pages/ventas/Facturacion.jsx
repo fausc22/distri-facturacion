@@ -36,6 +36,7 @@ import { Paginacion } from '../../components/Paginacion';
 import { BotonAcciones } from '../../components/ventas/BotonAcciones';
 import { BotonFlotanteAcciones } from '../../components/ventas/BotonFlotanteAcciones';
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
+import { LoadingState } from '@/components/shared/StateViews';
 import PageBreadcrumbs from '@/components/shared/PageBreadcrumbs';
 
 // API Client
@@ -187,8 +188,7 @@ function HistorialVentasContent() {
 
   const handleRowDoubleClick = useCallback(async (venta) => {
     try {
-      await cargarProductosVenta(venta);
-      await cargarCuenta(venta);
+      await Promise.all([cargarProductosVenta(venta), cargarCuenta(venta)]);
       openModal('detalle');
     } catch (error) {
       toast.error('Error al cargar detalles de la venta');
@@ -208,12 +208,12 @@ function HistorialVentasContent() {
     limpiarComprobante();
     await verificarComprobanteExistente(selectedVenta.id);
     closeModal('detalle');
-    setTimeout(() => openModal('comprobante'), 300);
+    setTimeout(() => openModal('comprobante'), 200);
   }, [selectedVenta, limpiarComprobante, verificarComprobanteExistente]);
 
   const handleCloseModalComprobante = useCallback(() => {
     closeModal('comprobante');
-    setTimeout(() => openModal('detalle'), 300);
+    setTimeout(() => openModal('detalle'), 200);
   }, []);
 
   const handleUploadComprobante = useCallback(async () => {
@@ -222,7 +222,7 @@ function HistorialVentasContent() {
     if (exito) {
       setTimeout(() => {
         closeModal('comprobante');
-        setTimeout(() => openModal('detalle'), 300);
+        setTimeout(() => openModal('detalle'), 200);
       }, 1500);
     }
   }, [selectedVenta, uploadComprobante]);
@@ -234,8 +234,6 @@ function HistorialVentasContent() {
 
   const handleVerComprobanteDesdeDetalle = useCallback(async (ventaId, tipo) => {
     try {
-      console.log(`👀 Abriendo comprobante: ${tipo}/${ventaId}`);
-      
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       const url = `${apiUrl}/comprobantes/obtener/${tipo}/${ventaId}`;
       
@@ -252,7 +250,6 @@ function HistorialVentasContent() {
       return;
     }
 
-    console.log('🖨️ Generando PDF individual para venta:', selectedVenta.id);
     await generarPDFIndividualConModal(selectedVenta, productos);
   }, [selectedVenta, productos, generarPDFIndividualConModal]);
 
@@ -266,10 +263,6 @@ function HistorialVentasContent() {
       toast.error("Seleccione al menos una venta para imprimir");
       return;
     }
-
-    console.log('🖨️ Ventas seleccionadas para imprimir:', 
-      ventasSeleccionadas.map(v => ({ id: v.id, cliente: v.cliente_nombre }))
-    );
     
     const exito = await generarPDFsMultiplesConModal(ventasSeleccionadas);
     
@@ -288,20 +281,8 @@ function HistorialVentasContent() {
       toast.error("Seleccione al menos una venta para generar el ranking");
       return;
     }
-
-    console.log('📊 Generando ranking de ventas para:', 
-      ventasSeleccionadas.map(v => ({ 
-        id: v.id, 
-        cliente: v.cliente_nombre,
-        total: v.total 
-      }))
-    );
     
-    const exito = await generarRankingVentas(ventasSeleccionadas);
-    
-    if (exito) {
-      console.log('✅ Ranking de ventas generado exitosamente');
-    }
+    await generarRankingVentas(ventasSeleccionadas);
   }, [ventasAMostrar, selectedVentas, generarRankingVentas]);
 
   const handleConfirmarSalida = useCallback(() => {
@@ -372,11 +353,8 @@ function HistorialVentasContent() {
 
   const ejecutarSolicitudCAE = useCallback(async () => {
   const ventasSinCAE = ventasSinCAEConfirmadas;
-  const cantidadTipoX = ventasSeleccionadasCompletas.length - ventasSinCAE.length;
   if (ventasSinCAE.length === 0) return;
   setConfirmarCAEOpen(false);
-  
-  console.log(`📋 Solicitando CAE para ${ventasSinCAE.length} ventas (${cantidadTipoX} tipo X omitidas)...`);
   
   try {
     if (ventasSinCAE.length === 1) {
@@ -401,7 +379,6 @@ function HistorialVentasContent() {
   }
   }, [
     ventasSinCAEConfirmadas,
-    ventasSeleccionadasCompletas.length,
     solicitarCAE,
     solicitarCAEMultiple,
     cargarVentas,
@@ -413,8 +390,6 @@ function HistorialVentasContent() {
 
   const handleSolicitarCAEIndividual = useCallback(async (ventaId) => {
     if (solicitandoCAE) return;
-
-    console.log(`📋 Solicitando CAE para venta individual ${ventaId}...`);
 
     try {
       const resultado = await solicitarCAE(ventaId);
@@ -474,17 +449,14 @@ function HistorialVentasContent() {
   // Mostrar loading mientras se autentica
   if (authLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-100">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Verificando autenticación...</p>
-        </div>
+      <div className="flex min-h-screen items-center justify-center bg-muted/30">
+        <LoadingState message="Verificando autenticación..." />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100">
+    <div className="flex min-h-screen flex-col bg-muted/30">
       <Head>
         <title>VERTIMAR | HISTORIAL DE VENTAS</title>
         <meta name="description" content="Historial de ventas en el sistema VERTIMAR" />
@@ -492,10 +464,10 @@ function HistorialVentasContent() {
       </Head>
 
       <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-8">
-        <div className="bg-white shadow-lg rounded-lg p-6 w-full max-w-6xl mx-auto">
+        <div className="mx-auto w-full max-w-6xl rounded-lg border bg-card p-6 shadow-lg">
           <PageBreadcrumbs />
-          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-            <h1 className="text-3xl font-bold text-center text-gray-800">
+          <div className="mb-6 flex flex-col items-center justify-between gap-4 sm:flex-row">
+            <h1 className="text-center text-3xl font-bold text-foreground">
               HISTORIAL DE VENTAS
             </h1>
             <div className="flex gap-2 flex-wrap justify-center sm:justify-end">

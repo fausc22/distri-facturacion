@@ -228,7 +228,7 @@ function HistorialPedidosContent() {
       return;
     }
     closeModal('detalle');
-    setTimeout(() => openModal('agregarProducto'), 300);
+    setTimeout(() => openModal('agregarProducto'), 200);
   };
 
   const handleEditarProducto = async (producto) => {
@@ -247,7 +247,7 @@ function HistorialPedidosContent() {
       };
       closeModal('detalle');
       setProductoEditando(productoConStock);
-      setTimeout(() => openModal('editarProducto'), 100);
+      setTimeout(() => openModal('editarProducto'), 200);
     } catch {
       toast.error('Error al consultar stock del producto');
     }
@@ -260,24 +260,24 @@ function HistorialPedidosContent() {
     }
     setProductoEliminando(producto);
     closeModal('detalle');
-    setTimeout(() => openModal('eliminarProducto'), 300);
+    setTimeout(() => openModal('eliminarProducto'), 200);
   };
 
   const handleCloseModalAgregarProducto = () => {
     closeModal('agregarProducto');
-    setTimeout(() => openModal('detalle'), 300);
+    setTimeout(() => openModal('detalle'), 200);
   };
 
   const handleCloseModalEditarProducto = () => {
     closeModal('editarProducto');
     setProductoEditando(null);
-    setTimeout(() => openModal('detalle'), 100);
+    setTimeout(() => openModal('detalle'), 200);
   };
 
   const handleCloseModalEliminarProducto = () => {
     closeModal('eliminarProducto');
     setProductoEliminando(null);
-    setTimeout(() => openModal('detalle'), 300);
+    setTimeout(() => openModal('detalle'), 200);
   };
 
   const handleProductoChange = (productoModificado) => {

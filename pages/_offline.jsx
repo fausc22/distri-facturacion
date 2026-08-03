@@ -2,12 +2,26 @@
 // Página de respaldo cuando el usuario está offline y la ruta no está cacheada.
 // next-pwa la precachea automáticamente y la sirve como fallback.
 
+import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 
 export default function OfflinePage() {
+  const [isOnline, setIsOnline] = useState(false);
+
+  useEffect(() => {
+    const updateStatus = () => setIsOnline(navigator.onLine);
+    updateStatus();
+    window.addEventListener('online', updateStatus);
+    window.addEventListener('offline', updateStatus);
+    return () => {
+      window.removeEventListener('online', updateStatus);
+      window.removeEventListener('offline', updateStatus);
+    };
+  }, []);
+
   const handleRetry = () => {
-    if (navigator.onLine) {
+    if (isOnline) {
       window.location.reload();
     }
   };
@@ -56,9 +70,9 @@ export default function OfflinePage() {
         <button
           onClick={handleRetry}
           className="w-full py-3 px-6 bg-orange-600 hover:bg-orange-700 text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          disabled={!navigator.onLine}
+          disabled={!isOnline}
         >
-          {navigator.onLine ? '🔄 Reintentar' : 'Sin conexión'}
+          {isOnline ? '🔄 Reintentar' : 'Sin conexión'}
         </button>
 
         <Link

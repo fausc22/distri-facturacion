@@ -62,15 +62,6 @@ const withPWA = require('next-pwa')({
 
   cacheOnFrontEndNav: true,
 
-  additionalManifestEntries: [
-    { url: '/_offline', revision: null },
-    { url: '/ventas/RegistrarPedido', revision: null },
-    { url: '/ventas/HistorialPedidosOffline', revision: null },
-    { url: '/inicio', revision: null },
-    { url: '/login', revision: null },
-    { url: '/', revision: null },
-  ],
-
   runtimeCaching: [
     {
       urlPattern: /^https?:\/\/[^\/]+\/(ventas\/RegistrarPedido|ventas\/HistorialPedidosOffline|inicio|login|$)(\?.*)?$/,
@@ -168,7 +159,10 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      urlPattern: /^https?:\/\/[^\/]+\/(?!api).*/,
+      // Solo documentos navegados del mismo origen. Evita cachear como páginas
+      // respuestas del backend cuando NEXT_PUBLIC_API_URL apunta a otro host.
+      urlPattern: ({ request, url }) =>
+        request.mode === 'navigate' && url.origin === self.location.origin,
       handler: 'NetworkFirst',
       options: {
         cacheName: 'pages-cache',

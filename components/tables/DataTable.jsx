@@ -132,7 +132,7 @@ export function DataTable({
                 <tr
                   key={row.id}
                   className={cn(
-                    'border-b transition-colors hover:bg-muted/30',
+                    'border-b transition-colors hover:bg-muted/30 active:bg-primary/10',
                     (onRowClick || onRowDoubleClick) && 'cursor-pointer',
                     getRowClassName?.(row.original)
                   )}

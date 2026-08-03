@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import React, { useMemo } from 'react';
 import { DataTable } from '@/components/tables/DataTable';
 import { Badge } from '@/components/ui/badge';
 import { LoadingState, EmptyState } from '@/components/shared/StateViews';
@@ -91,7 +91,7 @@ function TarjetasMoviles({
             role="button"
             tabIndex={0}
             className={cn(
-              'touch-manipulation cursor-pointer rounded-lg border-2 p-4 transition-all select-none',
+              'touch-manipulation cursor-pointer rounded-lg border-2 p-4 transition-all select-none active:scale-[0.98] active:shadow-none',
               selectedPedidos.includes(pedido.id)
                 ? 'border-primary/40 bg-primary/5 shadow-md'
                 : 'border-border hover:border-muted-foreground/30 hover:shadow-sm',
@@ -151,7 +151,7 @@ function TarjetasMoviles({
   );
 }
 
-export default function TablaPedidos({
+const TablaPedidos = React.memo(function TablaPedidos({
   pedidos,
   selectedPedidos,
   onSelectPedido,
@@ -267,6 +267,7 @@ export default function TablaPedidos({
           data={pedidos}
           enablePagination={false}
           enableSorting
+          onRowClick={(pedido) => onSelectPedido(pedido.id)}
           onRowDoubleClick={onRowDoubleClick}
           getRowClassName={(pedido) =>
             selectedPedidos.includes(pedido.id) ? 'bg-primary/5' : undefined
@@ -289,4 +290,6 @@ export default function TablaPedidos({
       </div>
     </div>
   );
-}
+});
+
+export default TablaPedidos;
