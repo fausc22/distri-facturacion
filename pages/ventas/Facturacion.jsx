@@ -27,7 +27,10 @@ const ModalConfirmacionSalida = dynamic(
   { ssr: false }
 );
 const ModalCrearNota = dynamic(
-  () => import('../../components/notas/ModalCrearNota'),
+  () =>
+    import('../../components/notas/ModalCrearNota').then((m) => ({
+      default: m.ModalCrearNota,
+    })),
   { ssr: false }
 );
 import FiltrosHistorialVentas from '../../components/ventas/FiltrosHistorialVentas';
