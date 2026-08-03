@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   flexRender,
   getCoreRowModel,
@@ -12,6 +12,9 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState, ErrorState } from '@/components/shared/StateViews';
+
+/** Delay to distinguish single click (select) from double click (open detail). */
+const ROW_CLICK_DELAY_MS = 250;
 
 /**
  * DataTable unificada v2 sobre @tanstack/react-table.
@@ -48,6 +51,49 @@ export function DataTable({
 }) {
   const [sorting, setSorting] = useState([]);
   const [globalFilter, setGlobalFilter] = useState('');
+  const clickTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    return () => {
+      if (clickTimeoutRef.current) {
+        clearTimeout(clickTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const clearPendingClick = useCallback(() => {
+    if (clickTimeoutRef.current) {
+      clearTimeout(clickTimeoutRef.current);
+      clickTimeoutRef.current = null;
+    }
+  }, []);
+
+  const handleRowClick = useCallback(
+    (rowData) => {
+      if (!onRowClick) return;
+
+      // If double-click is also active, defer selection so dblclick can cancel it
+      if (onRowDoubleClick) {
+        clearPendingClick();
+        clickTimeoutRef.current = setTimeout(() => {
+          clickTimeoutRef.current = null;
+          onRowClick(rowData);
+        }, ROW_CLICK_DELAY_MS);
+        return;
+      }
+
+      onRowClick(rowData);
+    },
+    [onRowClick, onRowDoubleClick, clearPendingClick]
+  );
+
+  const handleRowDoubleClick = useCallback(
+    (rowData) => {
+      clearPendingClick();
+      onRowDoubleClick?.(rowData);
+    },
+    [onRowDoubleClick, clearPendingClick]
+  );
 
   const table = useReactTable({
     data: data ?? [],
@@ -136,9 +182,9 @@ export function DataTable({
                     (onRowClick || onRowDoubleClick) && 'cursor-pointer',
                     getRowClassName?.(row.original)
                   )}
-                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
+                  onClick={onRowClick ? () => handleRowClick(row.original) : undefined}
                   onDoubleClick={
-                    onRowDoubleClick ? () => onRowDoubleClick(row.original) : undefined
+                    onRowDoubleClick ? () => handleRowDoubleClick(row.original) : undefined
                   }
                 >
                   {row.getVisibleCells().map((cell) => (
