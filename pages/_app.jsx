@@ -59,7 +59,13 @@ function MyApp({ Component, pageProps }) {
     if (!isPWA) return;
 
     const PRECACHE_KEY = 'vertimar_precarga_completa';
-    const RUTAS_CRITICAS = ['/ventas/RegistrarPedido', '/inicio', '/login', '/'];
+    const RUTAS_CRITICAS = [
+      '/ventas/RegistrarPedido',
+      '/ventas/HistorialPedidosOffline',
+      '/inicio',
+      '/login',
+      '/',
+    ];
 
     const ejecutarPrecarga = async () => {
       if (!navigator.onLine) return;

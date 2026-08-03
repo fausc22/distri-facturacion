@@ -1,5 +1,5 @@
 {
-  "name": "VERTIMAR ERP ",
+  "name": "VERTIMAR ERP",
   "short_name": "VERTIMAR",
   "description": "Sistema ERP de VERTIMAR",
   "start_url": "/inicio",
@@ -14,7 +14,7 @@
       "type": "image/png"
     },
     {
-      "src": "/ms-icon-310x310.png",
+      "src": "/icon-512x512.png",
       "sizes": "512x512",
       "type": "image/png"
     }

@@ -154,15 +154,9 @@ export function ConnectionProvider({ children }) {
     } catch (error) {
       console.error(`❌ [ConnectionContext] Error en fetch: ${error.name} - ${error.message}`);
       
-      // Si el fetch falla pero navigator.onLine es true, confiar en él
-      // Esto cubre casos de CORS, timeout, etc.
-      if (typeof window !== 'undefined' && navigator.onLine) {
-        console.log('⚠️ [ConnectionContext] Fetch falló pero navigator.onLine = true');
-        console.log('✅ [ConnectionContext] Asumiendo conexión OK (fallback)');
-        return true;
-      }
-      
-      console.log('📴 [ConnectionContext] Sin conexión confirmada');
+      // navigator.onLine solo indica acceso a una red, no al backend. Si el
+      // health check falla, conservar modo offline para no perder pedidos.
+      console.log('📴 [ConnectionContext] Backend no disponible; se conserva modo offline');
       return false;
     }
   }, []);

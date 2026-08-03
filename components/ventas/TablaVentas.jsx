@@ -163,7 +163,7 @@ function TarjetasMovil({ ventas, selectedVentas, onSelectAll, onSelectVenta, onR
               role="button"
               tabIndex={0}
               className={cn(
-                'cursor-pointer rounded-lg border-2 p-4 transition-all select-none',
+                'touch-manipulation cursor-pointer rounded-lg border-2 p-4 transition-all select-none active:scale-[0.98] active:shadow-none',
                 isSelected
                   ? 'border-primary/40 bg-primary/5 shadow-md'
                   : 'border-border hover:border-muted-foreground/30 hover:shadow-sm'
