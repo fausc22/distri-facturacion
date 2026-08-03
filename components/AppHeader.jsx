@@ -25,6 +25,7 @@ function AppHeader() {
     // Rutas que siempre están disponibles (registrar pedido funciona offline)
     const alwaysAvailableRoutes = [
       '/ventas/RegistrarPedido',
+      '/ventas/HistorialPedidosOffline',
       '/inicio',
       '/login',
       '/'
@@ -201,8 +202,8 @@ function AppHeader() {
 
   // ✅ DETERMINAR TEMA SEGÚN CONECTIVIDAD - Usa ConnectionContext
   const getNavbarTheme = () => {
-    if (!isPWA) return 'bg-blue-500'; // Tema normal para web
-    return modoOffline ? 'bg-orange-500' : 'bg-blue-500'; // Naranja offline, azul online
+    if (!isPWA) return 'bg-brand';
+    return modoOffline ? 'bg-offline' : 'bg-brand';
   };
 
   // ✅ OBTENER ESTILO DE MENÚ SEGÚN DISPONIBILIDAD OFFLINE
@@ -590,10 +591,10 @@ function AppHeader() {
 
         {/* ✅ MENU MÓVIL CON NAVEGACIÓN OFFLINE */}
         {showMenu && (
-          <div className="sm:hidden bg-blue-500 py-2 px-4 flex flex-col items-center">
+          <div className="sm:hidden bg-brand py-2 px-4 flex flex-col items-center">
             {/* Información del usuario en móvil */}
             <div className={`w-full text-center mb-4 rounded p-3 ${
-              isOnlineDisplay ? 'bg-blue-600' : 'bg-orange-600'
+              isOnlineDisplay ? 'bg-brand/80' : 'bg-offline/90'
             }`}>
               <p className="font-medium text-white">{getUserName()}</p>
               <p className="text-blue-200 text-sm">{role}</p>

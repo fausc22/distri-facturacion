@@ -1,124 +1,25 @@
 // components/pedidos/SelectorClientesHybrid.jsx - Selector Híbrido PWA/Web
 import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
-import { MdSearch, MdDeleteForever, MdKeyboardArrowDown, MdKeyboardArrowUp, MdWifi, MdWifiOff, MdPersonAdd } from "react-icons/md";
+import { MdSearch, MdDeleteForever, MdWifi, MdWifiOff, MdPersonAdd } from "react-icons/md";
 import { usePedidosContext } from '../../context/PedidosContext';
 import { useClienteSearchHybrid } from '../../hooks/useBusquedaHybrid';
 import ModalCrearClienteRapido from './ModalCrearClienteRapido';
+import ModalSeleccionClientes, { PanelDetalleCliente } from './ModalSeleccionClientes';
 
-function ModalClientes({ resultados, onSeleccionar, onCerrar, loading, isPWA, isOnline, onVerMas, hasMore }) {
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-      <div className="bg-white rounded-lg p-4 max-w-md w-full">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-black">Seleccionar Cliente</h3>
-          {/* ✅ INDICADOR DE MODO */}
-          {isPWA && (
-            <div className="flex items-center gap-1 text-sm">
-              {isOnline ? (
-                <>
-                  <MdWifi className="text-green-600" size={16} />
-                  <span className="text-green-600">Online</span>
-                </>
-              ) : (
-                <>
-                  <MdWifiOff className="text-orange-600" size={16} />
-                  <span className="text-orange-600">Offline</span>
-                </>
-              )}
-            </div>
-          )}
-        </div>
-        
-        <ul className="max-h-60 overflow-y-auto">
-          {loading ? (
-            <li className="text-gray-500 text-center py-4">
-              <div className="flex items-center justify-center">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600 mr-2"></div>
-                Buscando...
-              </div>
-            </li>
-          ) : resultados.length > 0 ? (
-            resultados.map((cliente, idx) => (
-              <li
-                key={idx}
-                className="p-3 border-b hover:bg-gray-100 cursor-pointer text-black transition-colors"
-                onClick={() => onSeleccionar(cliente)}
-              >
-                <div className="font-medium">{cliente.nombre}</div>
-                {cliente.ciudad && (
-                  <div className="text-sm text-gray-600">{cliente.ciudad}</div>
-                )}
-                {cliente.telefono && (
-                  <div className="text-xs text-gray-500">{cliente.telefono}</div>
-                )}
-              </li>
-            ))
-          ) : (
-            <li className="text-gray-500 text-center py-4">
-              {isPWA && !isOnline 
-                ? "No se encontraron clientes en datos offline." 
-                : "No se encontraron resultados."
-              }
-            </li>
-          )}
-        </ul>
-        {hasMore && (
-          <button
-            onClick={onVerMas}
-            disabled={loading}
-            className="mt-3 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded transition-colors"
-          >
-            {loading ? 'Cargando...' : 'Ver más'}
-          </button>
-        )}
-        <button
-          onClick={onCerrar}
-          className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded transition-colors"
-        >
-          Cerrar
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function DetallesClienteListaPrecios({ cliente, isPWA, isOnline }) {
+function DetallesClienteListaPrecios({ cliente, onEditar, puedeEditar }) {
   const [expandido, setExpandido] = useState(false);
 
   if (!cliente) return null;
 
   return (
-    <div className="bg-blue-800 p-4 rounded mt-2 text-sm text-white">
-      <div
-        className="flex justify-between items-center cursor-pointer"
-        onClick={() => setExpandido(!expandido)}
-      >
-        <div className="flex items-center gap-2">
-          <p><strong>Cliente:</strong> {cliente.nombre || '-'}</p>
-          
-        </div>
-        {expandido ? (
-          <MdKeyboardArrowUp size={24} />
-        ) : (
-          <MdKeyboardArrowDown size={24} />
-        )}
-      </div>
-
-      {expandido && (
-        <div className="mt-2 space-y-1">
-          <p><strong>Dirección:</strong> {cliente.direccion || '-'}</p>
-          <p><strong>Ciudad:</strong> {cliente.ciudad || '-'}</p>
-          <p><strong>Provincia:</strong> {cliente.provincia || '-'}</p>
-          <p><strong>Teléfono:</strong> {cliente.telefono || '-'}</p>
-          <p><strong>Email:</strong> {cliente.email || '-'}</p>
-          <p><strong>CUIT:</strong> {cliente.cuit || '-'}</p>
-          <p><strong>Condición IVA:</strong> {cliente.condicion_iva || '-'}</p>
-          
-          
-        </div>
-      )}
-    </div>
+    <PanelDetalleCliente
+      cliente={cliente}
+      expandido={expandido}
+      onToggle={() => setExpandido(!expandido)}
+      onEditar={onEditar}
+      puedeEditar={puedeEditar}
+    />
   );
 }
 
@@ -141,6 +42,7 @@ export default function ClienteSelectorHybrid() {
   // ✅ ESTADO DE CONEXIÓN PARA PWA
   const [isOnline, setIsOnline] = useState(true);
   const [mostrarModalCrear, setMostrarModalCrear] = useState(false);
+  const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
 
   // ✅ MONITOREAR CONECTIVIDAD SOLO EN PWA
   useEffect(() => {
@@ -179,6 +81,12 @@ export default function ClienteSelectorHybrid() {
     }
     setCliente({ ...nuevoCliente, id: Number(id) });
     setMostrarModalCrear(false);
+    setMostrarModalEditar(false);
+  };
+
+  const handleEditarCliente = () => {
+    if (!cliente || !isOnline) return;
+    setMostrarModalEditar(true);
   };
 
   // ✅ FUNCIÓN PARA OBTENER PLACEHOLDER DINÁMICO
@@ -189,7 +97,7 @@ export default function ClienteSelectorHybrid() {
 
   // ✅ FUNCIÓN PARA OBTENER CLASE DEL CONTENEDOR
   const getContainerClass = () => {
-    const baseClass = "bg-blue-900 text-white p-6 rounded-lg flex-1 min-w-[300px]";
+    const baseClass = "bg-primary-dark text-white p-6 rounded-lg flex-1 min-w-0 md:min-w-[300px]";
     if (!isPWA) return baseClass;
     
     const borderClass = isOnline ? "border-l-4 border-green-500" : "border-l-4 border-orange-500";
@@ -288,12 +196,12 @@ export default function ClienteSelectorHybrid() {
 
       <DetallesClienteListaPrecios 
         cliente={cliente} 
-        isPWA={isPWA}
-        isOnline={isOnline}
+        onEditar={handleEditarCliente}
+        puedeEditar={!!cliente && isOnline}
       />
 
       {mostrarModal && (
-        <ModalClientes
+        <ModalSeleccionClientes
           resultados={resultados}
           onSeleccionar={handleSeleccionarCliente}
           onCerrar={() => setMostrarModal(false)}
@@ -310,6 +218,14 @@ export default function ClienteSelectorHybrid() {
         isOpen={mostrarModalCrear}
         onClose={() => setMostrarModalCrear(false)}
         onClienteCreado={handleClienteCreado}
+      />
+
+      <ModalCrearClienteRapido
+        isOpen={mostrarModalEditar}
+        onClose={() => setMostrarModalEditar(false)}
+        onClienteCreado={handleClienteCreado}
+        clienteEditar={cliente}
+        modo="editar"
       />
     </div>
   );

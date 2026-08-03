@@ -1,25 +1,37 @@
 import { useState, useEffect } from 'react';
+import { ChevronDown } from 'lucide-react';
 import { useReportesContext } from '../../context/ReportesContext';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 
 export function ReportesFiltros({ onFiltrosChange, empleados = [], ciudades = [] }) {
-  const { 
-    filtros, 
-    updateFiltros, 
-    limpiarFiltros, 
+  const {
+    filtros,
+    updateFiltros,
+    limpiarFiltros,
     setPeriodoPredefinido,
     periodosPredefinidos,
     mostrarFiltros,
     setMostrarFiltros,
-    validarFiltros,
     formatearPeriodo,
     diasEnPeriodo,
-    finanzasApi
+    finanzasApi,
   } = useReportesContext();
 
   const [filtrosLocales, setFiltrosLocales] = useState(filtros);
   const [cuentasDisponibles, setCuentasDisponibles] = useState([]);
 
-  // Sincronizar filtros locales con el context
   useEffect(() => {
     setFiltrosLocales(filtros);
   }, [filtros]);
@@ -29,20 +41,19 @@ export function ReportesFiltros({ onFiltrosChange, empleados = [], ciudades = []
       try {
         const response = await finanzasApi.obtenerBalancePorCuenta({
           desde: filtros.desde,
-          hasta: filtros.hasta
+          hasta: filtros.hasta,
         });
         if (response?.success && Array.isArray(response.data)) {
-          const cuentas = response.data.map(c => c.cuenta).filter(Boolean);
+          const cuentas = response.data.map((c) => c.cuenta).filter(Boolean);
           setCuentasDisponibles([...new Set(cuentas)]);
         }
-      } catch (error) {
+      } catch {
         // noop
       }
     };
     cargarCuentas();
   }, [finanzasApi, filtros.desde, filtros.hasta]);
 
-  // Aplicar filtros
   const aplicarFiltros = () => {
     const fechaDesde = new Date(filtrosLocales.desde);
     const fechaHasta = new Date(filtrosLocales.hasta);
@@ -50,350 +61,306 @@ export function ReportesFiltros({ onFiltrosChange, empleados = [], ciudades = []
       return;
     }
     updateFiltros(filtrosLocales);
-    if (onFiltrosChange) {
-      onFiltrosChange(filtrosLocales);
-    }
+    onFiltrosChange?.(filtrosLocales);
   };
 
-  // Manejar cambio en filtros locales
   const handleFiltroChange = (key, value) => {
-    const nuevosFiltros = { ...filtrosLocales, [key]: value };
-    setFiltrosLocales(nuevosFiltros);
-  };
-
-  // Aplicar período predefinido
-  const handlePeriodoPredefinido = (periodo) => {
-    setPeriodoPredefinido(periodo);
+    setFiltrosLocales((prev) => ({ ...prev, [key]: value }));
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      {/* Header de filtros */}
-      <div className="px-4 py-3 border-b border-gray-200">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center">
+    <Card>
+      <CardHeader className="border-b px-4 py-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-4">
             <button
+              type="button"
               onClick={() => setMostrarFiltros(!mostrarFiltros)}
-              className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-2 text-sm font-medium text-foreground hover:opacity-80"
             >
-              <svg 
-                className={`w-5 h-5 transition-transform ${mostrarFiltros ? 'rotate-180' : ''}`} 
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-              <span className="font-medium">Filtros y Período</span>
+              <ChevronDown
+                className={cn('h-4 w-4 transition-transform', mostrarFiltros && 'rotate-180')}
+              />
+              Filtros y Período
             </button>
-            
-            {/* Información del período actual */}
-            <div className="ml-4 hidden sm:block">
-              <span className="text-sm text-gray-500">
-                {formatearPeriodo} ({diasEnPeriodo} días)
-              </span>
-            </div>
+            <span className="hidden text-sm text-muted-foreground sm:inline">
+              {formatearPeriodo} ({diasEnPeriodo} días)
+            </span>
           </div>
-
-          {/* Botones de acción */}
           <div className="flex flex-wrap gap-2">
-            <button
-              onClick={limpiarFiltros}
-              className="px-3 py-1 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-            >
+            <Button type="button" variant="outline" size="sm" onClick={limpiarFiltros}>
               Limpiar
-            </button>
-            <button
-              onClick={aplicarFiltros}
-              className="px-4 py-1 text-sm bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
-            >
+            </Button>
+            <Button type="button" size="sm" onClick={aplicarFiltros}>
               Aplicar
-            </button>
+            </Button>
           </div>
         </div>
-      </div>
+      </CardHeader>
 
-      {/* Contenido de filtros */}
       {mostrarFiltros && (
-        <div className="p-4 space-y-4">
-          {/* Períodos predefinidos */}
+        <CardContent className="space-y-4 pt-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Períodos Rápidos
-            </label>
+            <Label className="mb-2 block">Períodos Rápidos</Label>
             <div className="flex flex-wrap gap-2">
               {periodosPredefinidos.map((periodo) => (
-                <button
+                <Button
                   key={periodo.key}
-                  onClick={() => handlePeriodoPredefinido(periodo.key)}
-                  className="px-3 py-1 text-sm border border-gray-300 rounded-md hover:bg-gray-50 hover:border-gray-400 transition-colors"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPeriodoPredefinido(periodo.key)}
                 >
                   {periodo.label}
-                </button>
+                </Button>
               ))}
             </div>
           </div>
 
-          {/* Filtros de fecha personalizados */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha Desde
-              </label>
-              <input
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="space-y-1">
+              <Label htmlFor="filtro-desde">Fecha Desde</Label>
+              <Input
+                id="filtro-desde"
                 type="date"
                 value={filtrosLocales.desde}
                 onChange={(e) => handleFiltroChange('desde', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Fecha Hasta
-              </label>
-              <input
+            <div className="space-y-1">
+              <Label htmlFor="filtro-hasta">Fecha Hasta</Label>
+              <Input
+                id="filtro-hasta"
                 type="date"
                 value={filtrosLocales.hasta}
                 onChange={(e) => handleFiltroChange('hasta', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Período
-              </label>
-              <select
+            <div className="space-y-1">
+              <Label>Período</Label>
+              <Select
                 value={filtrosLocales.periodo}
-                onChange={(e) => handleFiltroChange('periodo', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onValueChange={(value) => handleFiltroChange('periodo', value)}
               >
-                <option value="diario">Diario</option>
-                <option value="mensual">Mensual</option>
-                <option value="anual">Anual</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="diario">Diario</SelectItem>
+                  <SelectItem value="mensual">Mensual</SelectItem>
+                  <SelectItem value="anual">Anual</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* Filtros adicionales */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Filtro por empleado */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {empleados.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Empleado
-                </label>
-                <select
-                  value={filtrosLocales.empleado_id}
-                  onChange={(e) => handleFiltroChange('empleado_id', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              <div className="space-y-1">
+                <Label>Empleado</Label>
+                <Select
+                  value={filtrosLocales.empleado_id || 'todos'}
+                  onValueChange={(value) =>
+                    handleFiltroChange('empleado_id', value === 'todos' ? '' : value)
+                  }
                 >
-                  <option value="">Todos los empleados</option>
-                  {empleados.map((empleado) => (
-                    <option key={empleado.id} value={empleado.id}>
-                      {empleado.nombre}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todos los empleados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos los empleados</SelectItem>
+                    {empleados.map((empleado) => (
+                      <SelectItem key={empleado.id} value={String(empleado.id)}>
+                        {empleado.nombre}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
-            {/* Filtro por ciudad */}
             {ciudades.length > 0 && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Ciudad
-                </label>
-                <select
-                  value={filtrosLocales.ciudad}
-                  onChange={(e) => handleFiltroChange('ciudad', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              <div className="space-y-1">
+                <Label>Ciudad</Label>
+                <Select
+                  value={filtrosLocales.ciudad || 'todas'}
+                  onValueChange={(value) =>
+                    handleFiltroChange('ciudad', value === 'todas' ? '' : value)
+                  }
                 >
-                  <option value="">Todas las ciudades</option>
-                  {ciudades.map((ciudad, index) => (
-                    <option key={index} value={ciudad}>
-                      {ciudad}
-                    </option>
-                  ))}
-                </select>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Todas las ciudades" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todas">Todas las ciudades</SelectItem>
+                    {ciudades.map((ciudad, index) => (
+                      <SelectItem key={index} value={ciudad}>
+                        {ciudad}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             )}
 
-            {/* Límite de resultados */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Límite de Resultados
-              </label>
-              <select
-                value={filtrosLocales.limite}
-                onChange={(e) => handleFiltroChange('limite', parseInt(e.target.value))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            <div className="space-y-1">
+              <Label>Límite de Resultados</Label>
+              <Select
+                value={String(filtrosLocales.limite)}
+                onValueChange={(value) => handleFiltroChange('limite', parseInt(value, 10))}
               >
-                <option value={10}>10 resultados</option>
-                <option value={20}>20 resultados</option>
-                <option value={50}>50 resultados</option>
-                <option value={100}>100 resultados</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10 resultados</SelectItem>
+                  <SelectItem value="20">20 resultados</SelectItem>
+                  <SelectItem value="50">50 resultados</SelectItem>
+                  <SelectItem value="100">100 resultados</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* Segmentaciones avanzadas */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Cuenta
-              </label>
-              <select
-                value={filtrosLocales.cuenta_id || ''}
-                onChange={(e) => handleFiltroChange('cuenta_id', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="space-y-1">
+              <Label>Cuenta</Label>
+              <Select
+                value={filtrosLocales.cuenta_id || 'todas'}
+                onValueChange={(value) =>
+                  handleFiltroChange('cuenta_id', value === 'todas' ? '' : value)
+                }
               >
-                <option value="">Todas</option>
-                <option value="1">ARCA</option>
-                <option value="2">X</option>
-                {cuentasDisponibles.map((cuenta) => (
-                  <option key={cuenta} value={cuenta}>{cuenta}</option>
-                ))}
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas</SelectItem>
+                  <SelectItem value="1">ARCA</SelectItem>
+                  <SelectItem value="2">X</SelectItem>
+                  {cuentasDisponibles.map((cuenta) => (
+                    <SelectItem key={cuenta} value={cuenta}>
+                      {cuenta}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Tipo Fiscal
-              </label>
-              <select
-                value={filtrosLocales.tipo_fiscal || ''}
-                onChange={(e) => handleFiltroChange('tipo_fiscal', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            <div className="space-y-1">
+              <Label>Tipo Fiscal</Label>
+              <Select
+                value={filtrosLocales.tipo_fiscal || 'todos'}
+                onValueChange={(value) =>
+                  handleFiltroChange('tipo_fiscal', value === 'todos' ? '' : value)
+                }
               >
-                <option value="">Todos</option>
-                <option value="A">A</option>
-                <option value="B">B</option>
-                <option value="X">X</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Todos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todos">Todos</SelectItem>
+                  <SelectItem value="A">A</SelectItem>
+                  <SelectItem value="B">B</SelectItem>
+                  <SelectItem value="X">X</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Comparativo
-              </label>
-              <select
+            <div className="space-y-1">
+              <Label>Comparativo</Label>
+              <Select
                 value={filtrosLocales.comparativo || 'periodo_anterior'}
-                onChange={(e) => handleFiltroChange('comparativo', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onValueChange={(value) => handleFiltroChange('comparativo', value)}
               >
-                <option value="periodo_anterior">Vs período anterior</option>
-                <option value="anio_anterior">Vs mismo período año anterior</option>
-              </select>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="periodo_anterior">Vs período anterior</SelectItem>
+                  <SelectItem value="anio_anterior">Vs mismo período año anterior</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          {/* Información adicional del período móvil */}
-          <div className="sm:hidden">
-            <div className="text-xs text-gray-500 bg-gray-50 p-2 rounded">
-              <strong>Período seleccionado:</strong> {formatearPeriodo}
-              <br />
-              <strong>Duración:</strong> {diasEnPeriodo} días
-            </div>
+          <div className="rounded-md bg-muted/50 p-2 text-xs text-muted-foreground sm:hidden">
+            <strong>Período:</strong> {formatearPeriodo}
+            <br />
+            <strong>Duración:</strong> {diasEnPeriodo} días
           </div>
-        </div>
+        </CardContent>
       )}
-    </div>
+    </Card>
   );
 }
 
-// Componente de filtros compacto para móvil
 export function FiltrosCompactos({ onPeriodoChange }) {
   const { setPeriodoPredefinido, periodosPredefinidos } = useReportesContext();
 
   const handlePeriodoClick = (periodo) => {
     setPeriodoPredefinido(periodo);
-    if (onPeriodoChange) {
-      onPeriodoChange(periodo);
-    }
+    onPeriodoChange?.(periodo);
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3">
-      <div className="flex items-center space-x-2 overflow-x-auto">
-        <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
-          Período:
-        </span>
-        <div className="flex space-x-2">
+    <Card className="p-3">
+      <div className="flex items-center gap-2 overflow-x-auto">
+        <span className="whitespace-nowrap text-sm font-medium">Período:</span>
+        <div className="flex gap-2">
           {periodosPredefinidos.slice(0, 4).map((periodo) => (
-            <button
+            <Button
               key={periodo.key}
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="whitespace-nowrap text-xs"
               onClick={() => handlePeriodoClick(periodo.key)}
-              className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors whitespace-nowrap"
             >
               {periodo.label.replace('Último ', '').replace('Última ', '')}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
-    </div>
+    </Card>
   );
 }
 
-// Componente de indicadores de filtros activos
 export function IndicadoresFiltros() {
   const { filtros, limpiarFiltros, formatearPeriodo } = useReportesContext();
 
-  const getFiltrosActivos = () => {
-    const activos = [];
-    
-    if (filtros.empleado_id) {
-      activos.push({ key: 'empleado', label: 'Empleado específico' });
-    }
-    
-    if (filtros.ciudad) {
-      activos.push({ key: 'ciudad', label: `Ciudad: ${filtros.ciudad}` });
-    }
-
-    if (filtros.cuenta_id) {
-      const cuentaLabel = filtros.cuenta_id === '1' ? 'ARCA' : filtros.cuenta_id === '2' ? 'X' : filtros.cuenta_id;
-      activos.push({ key: 'cuenta', label: `Cuenta: ${cuentaLabel}` });
-    }
-
-    if (filtros.tipo_fiscal) {
-      activos.push({ key: 'tipo_fiscal', label: `Tipo: ${filtros.tipo_fiscal}` });
-    }
-    
-    return activos;
-  };
-
-  const filtrosActivos = getFiltrosActivos();
-
-  if (filtrosActivos.length === 0) {
-    return null;
+  const filtrosActivos = [];
+  if (filtros.empleado_id) filtrosActivos.push({ key: 'empleado', label: 'Empleado específico' });
+  if (filtros.ciudad) filtrosActivos.push({ key: 'ciudad', label: `Ciudad: ${filtros.ciudad}` });
+  if (filtros.cuenta_id) {
+    const cuentaLabel =
+      filtros.cuenta_id === '1' ? 'ARCA' : filtros.cuenta_id === '2' ? 'X' : filtros.cuenta_id;
+    filtrosActivos.push({ key: 'cuenta', label: `Cuenta: ${cuentaLabel}` });
+  }
+  if (filtros.tipo_fiscal) {
+    filtrosActivos.push({ key: 'tipo_fiscal', label: `Tipo: ${filtros.tipo_fiscal}` });
   }
 
+  if (filtrosActivos.length === 0) return null;
+
   return (
-    <div className="flex flex-wrap items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-      <span className="text-sm font-medium text-blue-800">
-        Filtros activos:
-      </span>
-      
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
+      <span className="text-sm font-medium text-blue-800">Filtros activos:</span>
       {filtrosActivos.map((filtro) => (
-        <span
-          key={filtro.key}
-          className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800"
-        >
+        <Badge key={filtro.key} variant="info">
           {filtro.label}
-        </span>
+        </Badge>
       ))}
-      
-      <span className="text-xs text-blue-600">
-        {formatearPeriodo}
-      </span>
-      
-      <button
+      <span className="text-xs text-blue-600">{formatearPeriodo}</span>
+      <Button
+        type="button"
+        variant="link"
+        size="sm"
+        className="h-auto p-0 text-xs text-blue-600"
         onClick={limpiarFiltros}
-        className="ml-2 text-xs text-blue-600 hover:text-blue-800 underline"
       >
         Limpiar todos
-      </button>
+      </Button>
     </div>
   );
 }

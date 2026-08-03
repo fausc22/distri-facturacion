@@ -1,8 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
+import { RefreshCw, FileDown } from 'lucide-react';
 import { useReportesContext } from '../../context/ReportesContext';
 import { MetricsCard, FinancialMetricsCard, MetricsGrid } from '../charts/MetricsCard';
 import { axiosAuth } from '../../utils/apiClient';
-import { toast } from 'react-hot-toast';
+import toast from '@/components/shared/toast';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { PanelCard } from '@/components/shared/PanelCard';
+import { DataTable } from '@/components/tables/DataTable';
+import { ErrorState, LoadingState, EmptyState } from '@/components/shared/StateViews';
 
 export function DashboardReportes() {
   const {
@@ -23,6 +29,126 @@ export function DashboardReportes() {
   const [loadingTopProductos, setLoadingTopProductos] = useState(false);
   const [evolucionVentas, setEvolucionVentas] = useState(null);
   const [loadingEvolucion, setLoadingEvolucion] = useState(false);
+
+  const evolucionColumns = useMemo(
+    () => [
+      { accessorKey: 'periodo', header: 'Período' },
+      { accessorKey: 'total_ventas', header: 'Ventas' },
+      {
+        accessorKey: 'ingresos_totales',
+        header: 'Ingresos',
+        cell: ({ row }) => formatCurrency(row.original.ingresos_totales),
+      },
+      {
+        accessorKey: 'ganancia_estimada',
+        header: 'Ganancia',
+        cell: ({ row }) => formatCurrency(row.original.ganancia_estimada),
+      },
+      {
+        accessorKey: 'factura_promedio',
+        header: 'Factura Prom.',
+        cell: ({ row }) => formatCurrency(row.original.factura_promedio),
+      },
+    ],
+    [formatCurrency]
+  );
+
+  const topProductosColumns = useMemo(
+    () => [
+      { accessorKey: 'producto_nombre', header: 'Producto' },
+      {
+        accessorKey: 'categoria',
+        header: 'Categoría',
+        cell: ({ row }) => (
+          <Badge variant="secondary">{row.original.categoria || 'Sin categoría'}</Badge>
+        ),
+      },
+      {
+        accessorKey: 'precio_promedio',
+        header: 'Precio Promedio',
+        cell: ({ row }) => formatCurrency(row.original.precio_promedio),
+      },
+      { accessorKey: 'cantidad_vendida', header: 'Cantidad' },
+      {
+        accessorKey: 'ingresos_producto',
+        header: 'Ingresos',
+        cell: ({ row }) => formatCurrency(row.original.ingresos_producto),
+      },
+      {
+        accessorKey: 'ganancia_total',
+        header: 'Ganancia',
+        cell: ({ row }) => formatCurrency(row.original.ganancia_total),
+      },
+    ],
+    [formatCurrency]
+  );
+
+  const empleadosColumns = useMemo(
+    () => [
+      {
+        accessorKey: 'empleado_nombre',
+        header: 'Empleado',
+        cell: ({ row }) => (
+          <div>
+            <div className="font-medium">{row.original.empleado_nombre}</div>
+            <div className="text-xs text-muted-foreground">ID: {row.original.empleado_id}</div>
+          </div>
+        ),
+      },
+      {
+        accessorKey: 'total_ventas',
+        header: 'Ventas',
+        cell: ({ row }) => <Badge variant="info">{row.original.total_ventas} ventas</Badge>,
+      },
+      {
+        accessorKey: 'ingresos_generados',
+        header: 'Total Vendido',
+        cell: ({ row }) => formatCurrency(row.original.ingresos_generados),
+      },
+      {
+        accessorKey: 'ganancia_generada',
+        header: 'Ganancia',
+        cell: ({ row }) => formatCurrency(row.original.ganancia_generada),
+      },
+      {
+        accessorKey: 'factura_promedio',
+        header: 'Factura Promedio',
+        cell: ({ row }) => formatCurrency(row.original.factura_promedio),
+      },
+      { accessorKey: 'clientes_atendidos', header: 'Clientes' },
+      {
+        id: 'eficiencia',
+        header: 'Eficiencia %',
+        cell: ({ row }) => {
+          const emp = row.original;
+          const eficiencia =
+            emp.clientes_atendidos > 0 ? (emp.total_ventas / emp.clientes_atendidos) * 100 : 0;
+          const variant =
+            eficiencia >= 150 ? 'success' : eficiencia >= 100 ? 'warning' : 'destructive';
+          return <Badge variant={variant}>{eficiencia.toFixed(1)}%</Badge>;
+        },
+      },
+    ],
+    [formatCurrency]
+  );
+
+  const clientesColumns = useMemo(
+    () => [
+      { accessorKey: 'nombre', header: 'Cliente' },
+      { accessorKey: 'cantidad_ventas', header: 'Ventas' },
+      {
+        accessorKey: 'monto_total',
+        header: 'Monto',
+        cell: ({ row }) => formatCurrency(row.original.monto_total),
+      },
+      {
+        accessorKey: 'ticket_promedio',
+        header: 'Ticket',
+        cell: ({ row }) => formatCurrency(row.original.ticket_promedio),
+      },
+    ],
+    [formatCurrency]
+  );
 
   useEffect(() => {
     if (!dashboardData) {
@@ -112,23 +238,7 @@ export function DashboardReportes() {
   };
 
   if (error && !dashboardData) {
-    return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-        <div className="text-red-600 mb-2">
-          <svg className="mx-auto h-12 w-12" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-          </svg>
-        </div>
-        <h3 className="text-lg font-medium text-red-800 mb-2">Error cargando dashboard</h3>
-        <p className="text-red-600 mb-4">{error}</p>
-        <button
-          onClick={() => cargarDashboard()}
-          className="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 transition-colors"
-        >
-          Reintentar
-        </button>
-      </div>
-    );
+    return <ErrorState message={error} onRetry={() => cargarDashboard()} />;
   }
 
   const resumen = dashboardData?.resumen?.data;
@@ -142,45 +252,24 @@ export function DashboardReportes() {
       {/* Header del Dashboard */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Dashboard Financiero</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="text-2xl font-bold">Dashboard Financiero</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             Última actualización: {lastUpdateFormatted}
           </p>
         </div>
-        
-        {/* ✅ BOTONES DE ACCIÓN */}
-        <div className="mt-3 sm:mt-0 flex flex-col sm:flex-row gap-2">
-          <button
-            onClick={() => cargarDashboard()}
-            disabled={isAnyLoading}
-            className="flex items-center justify-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <svg 
-              className={`w-4 h-4 ${isAnyLoading ? 'animate-spin' : ''}`} 
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-            </svg>
-            <span>{isAnyLoading ? 'Actualizando...' : 'Actualizar'}</span>
-          </button>
-
-          <button
+        <div className="mt-3 flex flex-col gap-2 sm:mt-0 sm:flex-row">
+          <Button onClick={() => cargarDashboard()} disabled={isAnyLoading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isAnyLoading ? 'animate-spin' : ''}`} />
+            {isAnyLoading ? 'Actualizando...' : 'Actualizar'}
+          </Button>
+          <Button
+            variant="danger"
             onClick={generarReportePDF}
             disabled={isAnyLoading || generandoPDF}
-            className="flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            <svg 
-              className={`w-4 h-4 ${generandoPDF ? 'animate-pulse' : ''}`}
-              fill="none" 
-              stroke="currentColor" 
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            <span>{generandoPDF ? 'Generando PDF...' : 'GENERAR REPORTE PDF'}</span>
-          </button>
+            <FileDown className={`mr-2 h-4 w-4 ${generandoPDF ? 'animate-pulse' : ''}`} />
+            {generandoPDF ? 'Generando PDF...' : 'Generar reporte PDF'}
+          </Button>
         </div>
       </div>
 
@@ -238,285 +327,117 @@ export function DashboardReportes() {
         />
       </MetricsGrid>
 
-      {/* ✅ RESUMEN DEL PERÍODO - REEMPLAZA EVOLUCIÓN */}
-      <div className="bg-white rounded-lg p-6 border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Resumen del Período</h3>
-        
+      <PanelCard title="Resumen del Período">
         {loadingEvolucion ? (
-          <div className="animate-pulse space-y-4">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="h-16 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        ) : evolucionVentas && evolucionVentas.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Período</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ventas</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ingresos</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ganancia</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Factura Prom.</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {evolucionVentas.slice(0, 10).map((periodo, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {periodo.periodo}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                      {periodo.total_ventas}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-green-600">
-                      {formatCurrency(periodo.ingresos_totales)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-blue-600">
-                      {formatCurrency(periodo.ganancia_estimada)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                      {formatCurrency(periodo.factura_promedio)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <LoadingState message="Cargando evolución..." />
+        ) : evolucionVentas?.length > 0 ? (
+          <DataTable
+            columns={evolucionColumns}
+            data={evolucionVentas.slice(0, 10)}
+            enablePagination={false}
+          />
         ) : (
-          <div className="text-center py-8">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-            </svg>
-            <p className="mt-2 text-sm text-gray-500">No hay datos del período para mostrar</p>
-          </div>
+          <EmptyState message="No hay datos del período para mostrar" />
         )}
-      </div>
+      </PanelCard>
 
-      {/* ✅ TOP 5 PRODUCTOS - TABLA INFORMATIVA */}
-      <div className="bg-white rounded-lg p-6 border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Top 5 Productos por Ganancia</h3>
-        
+      <PanelCard title="Top 5 Productos por Ganancia">
         {loadingTopProductos ? (
-          <div className="animate-pulse space-y-3">
-            {[...Array(5)].map((_, i) => (
-              <div key={i} className="h-12 bg-gray-200 rounded"></div>
-            ))}
-          </div>
-        ) : topProductosTabla && topProductosTabla.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Producto</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Categoría</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Precio Promedio</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Cantidad</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ingresos</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ganancia</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {topProductosTabla.slice(0, 5).map((producto, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">
-                        {producto.producto_nombre}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">
-                        {producto.categoria || 'Sin categoría'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                      {formatCurrency(producto.precio_promedio)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                      {parseInt(producto.cantidad_vendida || 0)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-green-600">
-                      {formatCurrency(producto.ingresos_producto)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-blue-600">
-                      {formatCurrency(producto.ganancia_total)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <LoadingState message="Cargando productos..." />
+        ) : topProductosTabla?.length > 0 ? (
+          <DataTable
+            columns={topProductosColumns}
+            data={topProductosTabla.slice(0, 5)}
+            enablePagination={false}
+          />
         ) : (
-          <div className="text-center py-8">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-            </svg>
-            <p className="mt-2 text-sm text-gray-500">No hay productos vendidos en el período seleccionado</p>
-          </div>
+          <EmptyState message="No hay productos vendidos en el período seleccionado" />
         )}
-      </div>
+      </PanelCard>
 
-      {/* ✅ PERFORMANCE DE EMPLEADOS - TABLA DETALLADA */}
-      <div className="bg-white rounded-lg p-6 border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Performance de Empleados</h3>
-        
-        {empleados && empleados.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Empleado</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ventas Realizadas</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Vendido</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Ganancia Generada</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Factura Promedio</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Clientes Atendidos</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Eficiencia %</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {empleados.map((empleado, index) => {
-                  const eficiencia = empleado.clientes_atendidos > 0 ? 
-                    (empleado.total_ventas / empleado.clientes_atendidos * 100) : 0;
-                  
-                  return (
-                    <tr key={index} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {empleado.empleado_nombre}
-                          </div>
-                          <div className="text-xs text-blue-600">
-                            ID: {empleado.empleado_id}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                        <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
-                          {empleado.total_ventas} ventas
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-green-600">
-                        {formatCurrency(empleado.ingresos_generados)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-blue-600">
-                        {formatCurrency(empleado.ganancia_generada)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                        {formatCurrency(empleado.factura_promedio)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900">
-                        {empleado.clientes_atendidos || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
-                        <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          eficiencia >= 150 
-                            ? 'bg-green-100 text-green-800'
-                            : eficiencia >= 100
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
-                        }`}>
-                          {eficiencia.toFixed(1)}%
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-            
-            {/* ✅ INFORMACIÓN PARA BONOS Y COMISIONES */}
-            <div className="mt-4 p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-lg">
-              <h4 className="text-md font-semibold text-gray-900 mb-2">📊 Información para Bonos y Comisiones</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                <div className="bg-white p-3 rounded-lg shadow-sm">
-                  <div className="text-gray-600">Total Ganancia Generada</div>
-                  <div className="text-lg font-bold text-green-600">
-                    {formatCurrency(empleados.reduce((sum, emp) => sum + parseFloat(emp.ganancia_generada || 0), 0))}
+      <PanelCard title="Performance de Empleados">
+        {empleados?.length > 0 ? (
+          <>
+            <DataTable columns={empleadosColumns} data={empleados} pageSize={10} />
+            <div className="mt-4 rounded-lg bg-gradient-to-r from-green-50 to-blue-50 p-4">
+              <h4 className="mb-2 text-md font-semibold">Información para Bonos y Comisiones</h4>
+              <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-3">
+                <div className="rounded-lg bg-background p-3 shadow-sm">
+                  <div className="text-muted-foreground">Total Ganancia Generada</div>
+                  <div className="text-lg font-bold text-emerald-600">
+                    {formatCurrency(
+                      empleados.reduce((sum, emp) => sum + parseFloat(emp.ganancia_generada || 0), 0)
+                    )}
                   </div>
                 </div>
-                <div className="bg-white p-3 rounded-lg shadow-sm">
-                  <div className="text-gray-600">Promedio por Venta</div>
+                <div className="rounded-lg bg-background p-3 shadow-sm">
+                  <div className="text-muted-foreground">Promedio por Venta</div>
                   <div className="text-lg font-bold text-blue-600">
-                    {formatCurrency(empleados.reduce((sum, emp) => sum + parseFloat(emp.factura_promedio || 0), 0) / empleados.length)}
+                    {formatCurrency(
+                      empleados.reduce((sum, emp) => sum + parseFloat(emp.factura_promedio || 0), 0) /
+                        empleados.length
+                    )}
                   </div>
                 </div>
-                <div className="bg-white p-3 rounded-lg shadow-sm">
-                  <div className="text-gray-600">Eficiencia Promedio</div>
+                <div className="rounded-lg bg-background p-3 shadow-sm">
+                  <div className="text-muted-foreground">Eficiencia Promedio</div>
                   <div className="text-lg font-bold text-purple-600">
-                    {(empleados.reduce((sum, emp) => {
-                      const eff = emp.clientes_atendidos > 0 ? (emp.total_ventas / emp.clientes_atendidos * 100) : 0;
-                      return sum + eff;
-                    }, 0) / empleados.length).toFixed(1)}%
+                    {(
+                      empleados.reduce((sum, emp) => {
+                        const eff =
+                          emp.clientes_atendidos > 0
+                            ? (emp.total_ventas / emp.clientes_atendidos) * 100
+                            : 0;
+                        return sum + eff;
+                      }, 0) / empleados.length
+                    ).toFixed(1)}
+                    %
                   </div>
                 </div>
               </div>
             </div>
-          </div>
+          </>
         ) : (
-          <div className="text-center py-8">
-            <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z" />
-            </svg>
-            <p className="mt-2 text-sm text-gray-500">No hay datos de empleados en el período seleccionado</p>
-          </div>
+          <EmptyState message="No hay datos de empleados en el período seleccionado" />
         )}
-      </div>
+      </PanelCard>
 
-      {/* Clientes y cuentas */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg p-6 border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Mejores Clientes</h3>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <PanelCard title="Mejores Clientes">
           {mejoresClientes.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Cliente</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Ventas</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Monto</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Ticket</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {mejoresClientes.slice(0, 8).map((cliente, index) => (
-                    <tr key={index}>
-                      <td className="px-4 py-2 text-sm text-gray-900">{cliente.nombre}</td>
-                      <td className="px-4 py-2 text-sm text-right text-gray-900">{cliente.cantidad_ventas}</td>
-                      <td className="px-4 py-2 text-sm text-right text-green-600">{formatCurrency(cliente.monto_total)}</td>
-                      <td className="px-4 py-2 text-sm text-right text-blue-600">{formatCurrency(cliente.ticket_promedio)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <DataTable
+              columns={clientesColumns}
+              data={mejoresClientes.slice(0, 8)}
+              enablePagination={false}
+            />
           ) : (
-            <p className="text-sm text-gray-500">Sin datos de clientes para el período.</p>
+            <EmptyState message="Sin datos de clientes para el período." />
           )}
-        </div>
+        </PanelCard>
 
-        <div className="bg-white rounded-lg p-6 border border-gray-200">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Facturación por Cuenta</h3>
+        <PanelCard title="Facturación por Cuenta">
           {cuentas.length > 0 ? (
             <div className="space-y-3">
               {cuentas.map((cuenta, index) => (
-                <div key={index} className="flex items-center justify-between p-3 rounded-md bg-gray-50">
-                  <div className="font-medium text-gray-800">{cuenta.nombre}</div>
-                  <div className="font-semibold text-indigo-600">{formatCurrency(cuenta.facturacion_neta)}</div>
+                <div
+                  key={index}
+                  className="flex items-center justify-between rounded-md bg-muted/40 p-3"
+                >
+                  <div className="font-medium">{cuenta.nombre}</div>
+                  <div className="font-semibold text-primary">
+                    {formatCurrency(cuenta.facturacion_neta)}
+                  </div>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">Sin datos por cuenta para el período.</p>
+            <EmptyState message="Sin datos por cuenta para el período." />
           )}
-        </div>
+        </PanelCard>
       </div>
 
-      {/* ✅ MÉTRICAS OPERATIVAS ÚTILES - REEMPLAZA MÉTRICAS ADICIONALES */}
-      <div className="bg-white rounded-lg p-6 border border-gray-200">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Métricas Operativas del Negocio</h3>
-        
-        <MetricsGrid columns={4}>
+      <PanelCard title="Métricas Operativas del Negocio">
+        <MetricsGrid>
           <MetricsCard
             title="Rentabilidad del Negocio"
             value={formatPercentage(resumen?.balance?.rentabilidad || 0)}
@@ -548,7 +469,7 @@ export function DashboardReportes() {
             }
           />
         </MetricsGrid>
-      </div>
+      </PanelCard>
 
       
       

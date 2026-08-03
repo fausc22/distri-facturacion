@@ -1,197 +1,163 @@
-import { MdRemoveRedEye, MdPrint } from "react-icons/md";
+import { useMemo } from 'react';
+import { MdRemoveRedEye } from 'react-icons/md';
+import { DataTable } from '@/components/tables/DataTable';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { LoadingState } from '@/components/shared/StateViews';
 
-// Formateadores
-const formatCurrency = (value) => {
-  return new Intl.NumberFormat('es-AR', {
-    style: 'currency',
-    currency: 'ARS'
-  }).format(value);
-};
+const formatCurrency = (value) =>
+  new Intl.NumberFormat('es-AR', { style: 'currency', currency: 'ARS' }).format(value);
 
 const formatDate = (dateString) => {
   if (!dateString) return '';
-  const date = new Date(dateString);
-  return date.toLocaleDateString('es-AR', {
+  return new Date(dateString).toLocaleDateString('es-AR', {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
-    minute: '2-digit'
+    minute: '2-digit',
   });
 };
 
+const obtenerIdParaDetalle = (ingreso) =>
+  ingreso.tipo === 'Venta' ? ingreso.referencia : ingreso.id;
+
 function ResumenIngresos({ totalIngresos }) {
   return (
-    <div className="bg-gray-800 text-white p-4">
-      <div className="flex flex-col md:flex-row justify-between">
+    <div className="bg-primary p-4 text-primary-foreground">
+      <div className="flex flex-col justify-between md:flex-row">
         <h2 className="text-xl font-semibold">Resumen de Ingresos</h2>
         <div className="mt-2 md:mt-0">
           <span className="mr-2">Total:</span>
-          <span className="font-bold text-lg">{formatCurrency(totalIngresos)}</span>
+          <span className="text-lg font-bold">{formatCurrency(totalIngresos)}</span>
         </div>
       </div>
     </div>
   );
 }
 
-function TablaEscritorio({ ingresos, onVerDetalle, onImprimir }) {
-  const obtenerIdParaDetalle = (ingreso) => {
-    return ingreso.tipo === 'Venta' ? ingreso.referencia : ingreso.id;
-  };
-
-  return (
-    <div className="hidden md:block overflow-x-auto">
-      <table className="w-full">
-        <thead className="bg-gray-100">
-          <tr>
-            <th className="p-3 text-left">Fecha</th>
-            <th className="p-3 text-left">Tipo</th>
-            <th className="p-3 text-left">Referencia</th>
-            <th className="p-3 text-left">Descripción/Origen</th>
-            <th className="p-3 text-left">Cuenta</th>
-            <th className="p-3 text-right">Monto</th>
-            <th className="p-3 text-center">Acciones</th>
-          </tr>
-        </thead>
-        <tbody>
-          {ingresos.length > 0 ? (
-            ingresos.map((ingreso, index) => (
-              <tr key={index} className="border-b hover:bg-gray-50">
-                <td className="p-3">{formatDate(ingreso.fecha)}</td>
-                <td className="p-3">
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    ingreso.tipo === 'Venta' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {ingreso.tipo}
-                  </span>
-                </td>
-                <td className="p-3">{ingreso.referencia || '-'}</td>
-                <td className="p-3">{ingreso.descripcion || ingreso.origen || '-'}</td>
-                <td className="p-3">{ingreso.cuenta || '-'}</td>
-                <td className="p-3 text-right font-semibold text-green-600">
-                  {formatCurrency(ingreso.monto)}
-                </td>
-                <td className="p-3 text-center">
-                  <div className="flex justify-center space-x-2">
-                    <button 
-                      onClick={() => onVerDetalle(obtenerIdParaDetalle(ingreso), ingreso.tipo)}
-                      className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded transition-colors"
-                      title="Ver Detalle"
-                    >
-                      <MdRemoveRedEye size={20} />
-                    </button>
-                    
-                  </div>
-                </td>
-              </tr>
-            ))
-          ) : (
-            <tr>
-              <td colSpan="7" className="p-4 text-center text-gray-500">
-                No hay ingresos registrados
-              </td>
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function TarjetasMoviles({ ingresos, onVerDetalle, onImprimir }) {
-  const obtenerIdParaDetalle = (ingreso) => {
-    return ingreso.tipo === 'Venta' ? ingreso.referencia : ingreso.id;
-  };
-
+function TarjetasMoviles({ ingresos, onVerDetalle }) {
   return (
     <div className="md:hidden">
       {ingresos.length > 0 ? (
         <div className="divide-y">
           {ingresos.map((ingreso, index) => (
-            <div key={index} className="p-4 hover:bg-gray-50">
-              <div className="flex justify-between items-start mb-2">
-                <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                  ingreso.tipo === 'Venta' 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-blue-100 text-blue-800'
-                }`}>
+            <div key={index} className="p-4 hover:bg-muted/30">
+              <div className="mb-2 flex items-start justify-between">
+                <Badge variant={ingreso.tipo === 'Venta' ? 'success' : 'info'}>
                   {ingreso.tipo}
-                </span>
-                <span className="text-right font-semibold text-green-600">
+                </Badge>
+                <span className="font-semibold text-emerald-600">
                   {formatCurrency(ingreso.monto)}
                 </span>
               </div>
-              
               <div className="mb-2 space-y-1">
-                <p className="text-gray-500 text-sm">{formatDate(ingreso.fecha)}</p>
+                <p className="text-sm text-muted-foreground">{formatDate(ingreso.fecha)}</p>
                 <p className="font-medium">{ingreso.descripcion || ingreso.origen || '-'}</p>
                 <p className="text-sm">Cuenta: {ingreso.cuenta || '-'}</p>
-                {ingreso.referencia && (
-                  <p className="text-sm">Ref: {ingreso.referencia}</p>
-                )}
+                {ingreso.referencia && <p className="text-sm">Ref: {ingreso.referencia}</p>}
               </div>
-              
-              <div className="flex justify-end space-x-2">
-                <button 
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  variant="outline"
                   onClick={() => onVerDetalle(obtenerIdParaDetalle(ingreso), ingreso.tipo)}
-                  className="bg-blue-500 hover:bg-blue-600 text-white p-1 rounded transition-colors"
-                  title="Ver Detalle"
                 >
-                  <MdRemoveRedEye size={20} />
-                </button>
-                
+                  <MdRemoveRedEye size={18} />
+                </Button>
               </div>
             </div>
           ))}
         </div>
       ) : (
-        <div className="p-4 text-center text-gray-500">
-          No hay ingresos registrados
-        </div>
+        <div className="p-4 text-center text-muted-foreground">No hay ingresos registrados</div>
       )}
     </div>
   );
 }
 
-function LoadingState() {
-  return (
-    <div className="p-8 text-center">
-      <div className="flex justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-      <p className="mt-2 text-gray-500">Cargando ingresos...</p>
-    </div>
-  );
-}
-
-export default function TablaIngresos({ 
-  ingresos, 
+export default function TablaIngresos({
+  ingresos,
   totalIngresos,
   loading = false,
-  onVerDetalle, 
-  onImprimir 
+  onVerDetalle,
 }) {
+  const columns = useMemo(
+    () => [
+      {
+        accessorKey: 'fecha',
+        header: 'Fecha',
+        cell: ({ row }) => formatDate(row.original.fecha),
+      },
+      {
+        accessorKey: 'tipo',
+        header: 'Tipo',
+        cell: ({ row }) => (
+          <Badge variant={row.original.tipo === 'Venta' ? 'success' : 'info'}>
+            {row.original.tipo}
+          </Badge>
+        ),
+      },
+      {
+        accessorKey: 'referencia',
+        header: 'Referencia',
+        cell: ({ row }) => row.original.referencia || '-',
+      },
+      {
+        id: 'descripcion',
+        header: 'Descripción/Origen',
+        cell: ({ row }) => row.original.descripcion || row.original.origen || '-',
+      },
+      {
+        accessorKey: 'cuenta',
+        header: 'Cuenta',
+        cell: ({ row }) => row.original.cuenta || '-',
+      },
+      {
+        accessorKey: 'monto',
+        header: 'Monto',
+        cell: ({ row }) => (
+          <span className="font-semibold text-emerald-600">
+            {formatCurrency(row.original.monto)}
+          </span>
+        ),
+      },
+      {
+        id: 'acciones',
+        header: 'Acciones',
+        cell: ({ row }) => (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              onVerDetalle(obtenerIdParaDetalle(row.original), row.original.tipo)
+            }
+          >
+            <MdRemoveRedEye size={18} />
+          </Button>
+        ),
+      },
+    ],
+    [onVerDetalle]
+  );
+
   return (
-    <div className="bg-white rounded-lg shadow overflow-hidden">
+    <div className="overflow-hidden rounded-lg border bg-card shadow-sm">
       <ResumenIngresos totalIngresos={totalIngresos} />
-      
+
       {loading ? (
-        <LoadingState />
+        <LoadingState message="Cargando ingresos..." />
       ) : (
         <>
-          <TablaEscritorio
-            ingresos={ingresos}
-            onVerDetalle={onVerDetalle}
-            onImprimir={onImprimir}
-          />
-          
-          <TarjetasMoviles
-            ingresos={ingresos}
-            onVerDetalle={onVerDetalle}
-            onImprimir={onImprimir}
-          />
+          <div className="hidden p-4 md:block">
+            <DataTable
+              columns={columns}
+              data={ingresos}
+              enablePagination={false}
+              emptyMessage="No hay ingresos registrados"
+            />
+          </div>
+          <TarjetasMoviles ingresos={ingresos} onVerDetalle={onVerDetalle} />
         </>
       )}
     </div>

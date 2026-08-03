@@ -15,7 +15,13 @@
 
 # next.js
 /.next/
+/.next-dev/
 /out/
+
+# next-pwa (generados en build, no commitear)
+/public/sw.js
+/public/workbox-*.js
+/public/fallback-*.js
 
 # production
 /build

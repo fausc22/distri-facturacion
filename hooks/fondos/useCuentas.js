@@ -1,54 +1,36 @@
-
 import { useState } from 'react';
-import axios from 'axios';
-import { toast } from 'react-hot-toast';
-import { useFondos } from '../../context/FondosContext';
+import toast from '@/components/shared/toast';
+import { useFondosUIStore } from '@/stores/fondosUIStore';
+import { useFondosCuentasQuery, useCrearCuentaMutation } from '@/hooks/queries/finanzasQueries';
+import { useInvalidateFinanzas } from '@/hooks/queries/useInvalidateQueries';
 
-
-import { axiosAuth, fetchAuth } from '../../utils/apiClient';
-  
 export function useCuentas() {
-  const { cuentas, setCuentas, setLoading } = useFondos();
+  const { setLoading } = useFondosUIStore();
+  const { invalidateFondos } = useInvalidateFinanzas();
   const [formData, setFormData] = useState({ nombre: '', saldo: 0 });
 
-  const cargarCuentas = async () => {
-    setLoading({ cuentas: true });
-    try {
-      const response = await axiosAuth.get(`/finanzas/obtener-cuentas`);
-      if (response.data.success) {
-        setCuentas(response.data.data);
-      } else {
-        toast.error("Error al cargar las cuentas");
-      }
-    } catch (error) {
-      console.error("Error al obtener cuentas:", error);
-      toast.error("No se pudieron cargar las cuentas");
-    } finally {
-      setLoading({ cuentas: false });
-    }
-  };
+  const query = useFondosCuentasQuery();
+  const crearMutation = useCrearCuentaMutation();
+
+  const cuentas = query.data ?? [];
+  const totalSaldos = cuentas.reduce((acc, cuenta) => acc + parseFloat(cuenta.saldo || 0), 0);
+
+  const cargarCuentas = () => query.refetch();
 
   const crearCuenta = async () => {
     if (!formData.nombre.trim()) {
-      toast.error("El nombre de la cuenta es obligatorio");
+      toast.error('El nombre de la cuenta es obligatorio');
       return false;
     }
-
     setLoading({ operacion: true });
     try {
-      const response = await axiosAuth.post(`/finanzas/cuentas`, formData);
-      if (response.data.success) {
-        toast.success("Cuenta creada exitosamente");
-        await cargarCuentas();
-        resetForm();
-        return true;
-      } else {
-        toast.error(response.data.message || "Error al crear la cuenta");
-        return false;
-      }
+      await crearMutation.mutateAsync(formData);
+      toast.success('Cuenta creada exitosamente');
+      invalidateFondos();
+      resetForm();
+      return true;
     } catch (error) {
-      console.error("Error al crear cuenta:", error);
-      toast.error("No se pudo crear la cuenta");
+      toast.error(error.message || 'No se pudo crear la cuenta');
       return false;
     } finally {
       setLoading({ operacion: false });
@@ -57,26 +39,22 @@ export function useCuentas() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: name === 'saldo' ? parseFloat(value) || 0 : value
+      [name]: name === 'saldo' ? parseFloat(value) || 0 : value,
     }));
   };
 
-  const resetForm = () => {
-    setFormData({ nombre: '', saldo: 0 });
-  };
-
-  // Calcular total de saldos
-  const totalSaldos = cuentas.reduce((acc, cuenta) => acc + parseFloat(cuenta.saldo), 0);
+  const resetForm = () => setFormData({ nombre: '', saldo: 0 });
 
   return {
     cuentas,
     formData,
     totalSaldos,
+    loading: query.isLoading,
     cargarCuentas,
     crearCuenta,
     handleInputChange,
-    resetForm
+    resetForm,
   };
 }

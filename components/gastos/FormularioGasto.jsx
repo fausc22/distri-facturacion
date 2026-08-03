@@ -1,94 +1,100 @@
-import { useFormularioGasto } from '../../hooks/gastos/useFormularioGasto';
+import { useFormularioGasto } from '@/hooks/gastos/useFormularioGasto';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import FormFieldError from '@/components/shared/FormFieldError';
+import { gastoSchema } from '@/lib/formSchemas';
+import { useZodForm } from '@/hooks/forms/useZodForm';
+import { useEffect } from 'react';
 
-function CampoDescripcion({ formData, opcionesDescripcion, onChange }) {
+function CampoDescripcion({ value, opcionesDescripcion, onChange, error }) {
   return (
     <div className="mb-6">
-      <label htmlFor="descripcion" className="block text-sm font-medium text-gray-700 mb-2">
-        Descripción <span className="text-red-500">*</span>
-      </label>
+      <Label htmlFor="descripcion">
+        Descripción <span className="text-destructive">*</span>
+      </Label>
       <select
         id="descripcion"
         name="descripcion"
-        value={formData.descripcion}
+        value={value}
         onChange={onChange}
-        className="bg-gray-50 border border-gray-300 text-gray-900 rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5"
+        className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         required
       >
         <option value="">Seleccione un tipo de gasto</option>
-        {opcionesDescripcion.map((opcion, index) => (
-          <option key={index} value={opcion}>{opcion}</option>
+        {opcionesDescripcion.map((opcion) => (
+          <option key={opcion} value={opcion}>
+            {opcion}
+          </option>
         ))}
       </select>
+      <FormFieldError message={error} />
     </div>
   );
 }
 
-function CampoMonto({ formData, onChange }) {
+function CampoMonto({ value, onChange, error }) {
   return (
     <div className="mb-6">
-      <label htmlFor="monto" className="block text-sm font-medium text-gray-700 mb-2">
-        Monto ($) <span className="text-red-500">*</span>
-      </label>
-      <div className="flex">
-        <span className="inline-flex items-center px-3 text-gray-900 bg-gray-200 border border-r-0 border-gray-300 rounded-l-md">
+      <Label htmlFor="monto">
+        Monto ($) <span className="text-destructive">*</span>
+      </Label>
+      <div className="mt-2 flex">
+        <span className="inline-flex items-center rounded-l-md border border-r-0 border-input bg-muted px-3 text-sm">
           $
         </span>
-        <input
+        <Input
           type="text"
           id="monto"
           name="monto"
-          value={formData.monto}
+          value={value}
           onChange={onChange}
-          className="rounded-none rounded-r-lg bg-gray-50 border border-gray-300 text-gray-900 focus:ring-blue-500 focus:border-blue-500 block flex-1 min-w-0 w-full p-2.5"
-          placeholder="0.00"
+          className="rounded-l-none"
+          placeholder="0,00"
           required
         />
       </div>
+      <FormFieldError message={error} />
     </div>
   );
 }
 
-function CampoFormaPago({ formData, opcionesFormaPago, onChange }) {
+function CampoFormaPago({ value, opcionesFormaPago, onChange, error }) {
   return (
     <div className="mb-6">
-      <label htmlFor="formaPago" className="block text-sm font-medium text-gray-700 mb-2">
-        Forma de Pago <span className="text-red-500">*</span>
-      </label>
-      <div className="flex flex-wrap gap-4">
-        {opcionesFormaPago.map((opcion, index) => (
-          <div key={index} className="flex items-center">
+      <Label>
+        Forma de Pago <span className="text-destructive">*</span>
+      </Label>
+      <div className="mt-2 flex flex-wrap gap-4">
+        {opcionesFormaPago.map((opcion) => (
+          <label key={opcion} className="flex items-center text-sm">
             <input
               type="radio"
-              id={`formaPago_${index}`}
               name="formaPago"
               value={opcion}
-              checked={formData.formaPago === opcion}
+              checked={value === opcion}
               onChange={onChange}
-              className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500"
+              className="mr-2 h-4 w-4"
             />
-            <label htmlFor={`formaPago_${index}`} className="ml-2 text-sm font-medium text-gray-900">
-              {opcion}
-            </label>
-          </div>
+            {opcion}
+          </label>
         ))}
       </div>
+      <FormFieldError message={error} />
     </div>
   );
 }
 
-function CampoObservaciones({ formData, onChange }) {
+function CampoObservaciones({ value, onChange }) {
   return (
     <div className="mb-6">
-      <label htmlFor="observaciones" className="block text-sm font-medium text-gray-700 mb-2">
-        Observaciones
-      </label>
+      <Label htmlFor="observaciones">Observaciones</Label>
       <textarea
         id="observaciones"
         name="observaciones"
-        value={formData.observaciones}
+        value={value}
         onChange={onChange}
-        rows="3"
-        className="block p-2.5 w-full text-gray-900 bg-gray-50 rounded-lg border border-gray-300 focus:ring-blue-500 focus:border-blue-500"
+        rows={3}
+        className="mt-2 flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
         placeholder="Ingrese cualquier observación o detalle adicional"
       />
     </div>
@@ -96,36 +102,58 @@ function CampoObservaciones({ formData, onChange }) {
 }
 
 export default function FormularioGasto() {
-  const {
-    formData,
-    opcionesDescripcion,
-    opcionesFormaPago,
-    handleInputChange
-  } = useFormularioGasto();
+  const { formData, opcionesDescripcion, opcionesFormaPago, handleInputChange } =
+    useFormularioGasto();
+  const { register, watch, trigger, formState } = useZodForm({
+    schema: gastoSchema,
+    defaultValues: {
+      descripcion: formData.descripcion || '',
+      monto: formData.monto || '',
+      formaPago: formData.formaPago || '',
+      observaciones: formData.observaciones || '',
+    },
+  });
+
+  const descripcionValue = watch('descripcion');
+  const montoValue = watch('monto');
+  const formaPagoValue = watch('formaPago');
+  const observacionesValue = watch('observaciones');
+
+  useEffect(() => {
+    handleInputChange({ target: { name: 'descripcion', value: descripcionValue } });
+    handleInputChange({ target: { name: 'monto', value: montoValue } });
+    handleInputChange({ target: { name: 'formaPago', value: formaPagoValue } });
+    handleInputChange({ target: { name: 'observaciones', value: observacionesValue } });
+    trigger();
+  }, [
+    descripcionValue,
+    montoValue,
+    formaPagoValue,
+    observacionesValue,
+    handleInputChange,
+    trigger,
+  ]);
 
   return (
-    <div className="p-6">
+    <div>
       <CampoDescripcion
-        formData={formData}
+        value={descripcionValue}
         opcionesDescripcion={opcionesDescripcion}
-        onChange={handleInputChange}
+        onChange={register('descripcion').onChange}
+        error={formState.errors.descripcion?.message}
       />
-      
       <CampoMonto
-        formData={formData}
-        onChange={handleInputChange}
+        value={montoValue}
+        onChange={register('monto').onChange}
+        error={formState.errors.monto?.message}
       />
-      
       <CampoFormaPago
-        formData={formData}
+        value={formaPagoValue}
         opcionesFormaPago={opcionesFormaPago}
-        onChange={handleInputChange}
+        onChange={register('formaPago').onChange}
+        error={formState.errors.formaPago?.message}
       />
-      
-      <CampoObservaciones
-        formData={formData}
-        onChange={handleInputChange}
-      />
+      <CampoObservaciones value={observacionesValue} onChange={register('observaciones').onChange} />
     </div>
   );
 }

@@ -1,13 +1,14 @@
-// hooks/useProductoSearchHybrid.js - Hook híbrido para búsqueda de productos PWA/Web
 import { useState, useEffect } from 'react';
 import { useOfflineCatalog } from './useOfflineCatalog';
 import { getAppMode } from '../utils/offlineManager';
+
+const CANTIDAD_INICIAL = 0.5;
 
 export function useProductoSearchHybrid() {
   const [busqueda, setBusqueda] = useState('');
   const [resultados, setResultados] = useState([]);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
-  const [cantidad, setCantidad] = useState(1);
+  const [cantidad, setCantidad] = useState(CANTIDAD_INICIAL);
   const [subtotal, setSubtotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [mostrarModal, setMostrarModal] = useState(false);
@@ -15,80 +16,80 @@ export function useProductoSearchHybrid() {
 
   const appMode = getAppMode();
   const isPWA = appMode === 'pwa';
-
-  // Hook del catálogo offline
   const { buscarProductos } = useOfflineCatalog();
 
-  // ✅ MONITOREAR CONECTIVIDAD SOLO EN PWA
   useEffect(() => {
-    if (isPWA) {
-      const handleOnline = () => setIsOnline(true);
-      const handleOffline = () => setIsOnline(false);
-      
-      setIsOnline(navigator.onLine);
-      
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('offline', handleOffline);
-      
-      return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-      };
-    }
+    if (!isPWA) return undefined;
+
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    setIsOnline(navigator.onLine);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, [isPWA]);
 
-  // ✅ BÚSQUEDA HÍBRIDA DE PRODUCTOS
+  const resetCantidad = () => {
+    setCantidad(CANTIDAD_INICIAL);
+    setSubtotal(0);
+  };
+
+  const deseleccionarProducto = () => {
+    setProductoSeleccionado(null);
+    resetCantidad();
+  };
+
+  const cerrarModal = () => {
+    deseleccionarProducto();
+    setBusqueda('');
+    setResultados([]);
+    setMostrarModal(false);
+  };
+
   const buscarProducto = async () => {
     if (!busqueda.trim()) return;
 
     setLoading(true);
     try {
-      console.log(`🔍 Buscando productos en modo ${appMode}:`, busqueda);
-      
-      const resultados = await buscarProductos(busqueda);
-      
-      setResultados(resultados);
+      const encontrados = await buscarProductos(busqueda);
+      deseleccionarProducto();
+      setResultados(encontrados);
       setMostrarModal(true);
-      
-      console.log(`✅ Productos encontrados: ${resultados.length}`);
     } catch (error) {
-      console.error('❌ Error buscando productos:', error);
+      console.error('Error buscando productos:', error);
       setResultados([]);
     } finally {
       setLoading(false);
     }
   };
 
+  const seleccionarProducto = (producto) => {
+    if (productoSeleccionado?.id === producto.id) {
+      deseleccionarProducto();
+      return;
+    }
 
-
-  
-
-
-    const seleccionarProducto = (producto) => {
-      setProductoSeleccionado(producto);
-      setCantidad(1.0); // ← CAMBIAR a 1.0 para asegurar decimal
-      setSubtotal(parseFloat(Number(producto.precio).toFixed(2)));
-    };
-
-    const actualizarCantidad = (nuevaCantidad) => {
-      // ✅ PERMITIR 0.5 COMO MÍNIMO EN LUGAR DE 1
-      const cantidadValida = Math.max(0.5, parseFloat(nuevaCantidad));
-      setCantidad(cantidadValida);
-      if (productoSeleccionado) {
-        setSubtotal(parseFloat((productoSeleccionado.precio * cantidadValida).toFixed(2)));
-      }
-    };
-
-  const limpiarSeleccion = () => {
-    setProductoSeleccionado(null);
-    setCantidad(1);
-    setSubtotal(0);
-    setBusqueda('');
-    setMostrarModal(false);
+    setProductoSeleccionado(producto);
+    setCantidad(CANTIDAD_INICIAL);
+    setSubtotal(parseFloat((Number(producto.precio) * CANTIDAD_INICIAL).toFixed(2)));
   };
 
+  const actualizarCantidad = (nuevaCantidad) => {
+    const cantidadValida = Math.max(CANTIDAD_INICIAL, parseFloat(nuevaCantidad) || CANTIDAD_INICIAL);
+    setCantidad(cantidadValida);
+    if (productoSeleccionado) {
+      setSubtotal(parseFloat((productoSeleccionado.precio * cantidadValida).toFixed(2)));
+    }
+  };
+
+  const limpiarSeleccion = cerrarModal;
+
   return {
-    // Estados
     busqueda,
     setBusqueda,
     resultados,
@@ -100,11 +101,11 @@ export function useProductoSearchHybrid() {
     setMostrarModal,
     isPWA,
     isOnline,
-    
-    // Funciones
     buscarProducto,
     seleccionarProducto,
     actualizarCantidad,
-    limpiarSeleccion
+    deseleccionarProducto,
+    cerrarModal,
+    limpiarSeleccion,
   };
 }

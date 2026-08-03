@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { toast } from 'react-hot-toast';
+import { useCallback } from 'react';
+import toast from '@/components/shared/toast';
 import { useControlStock } from '../../context/ControlStockContext';
 import { useGenerarPDFControlStock } from '../../hooks/listados/useGenerarPDFControlStock';
 import { BotonGenerarPDFUniversal, ModalPDFUniversal } from '../../components/shared/ModalPDFUniversal';
@@ -7,14 +7,14 @@ import SelectorCategoriasStock from './SelectorCategoriasStock';
 import SelectorProductosStock from './SelectorProductosStock';
 import ListaProductosStock from './ListaProductosStock';
 import FiltroStock from './FiltroStock';
+import { PanelCard } from '@/components/shared/PanelCard';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { useListadosUIStore } from '@/stores/listadosUIStore';
+import { cn } from '@/lib/utils';
 
 export default function ControlStock() {
-  const { 
-    productos, 
-    filtroTipo, 
-    cantidadFiltro,
-    clearProductos 
-  } = useControlStock();
+  const { productos, filtroTipo, cantidadFiltro, clearProductos } = useControlStock();
 
   const {
     loading,
@@ -27,12 +27,24 @@ export default function ControlStock() {
     generarPdfPorSeleccion,
     descargarPDF,
     compartirPDF,
-    cerrarModalPDF
+    cerrarModalPDF,
   } = useGenerarPDFControlStock();
 
-  const [modoGeneracion, setModoGeneracion] = useState('seleccion'); // 'seleccion' o 'filtro'
-  const [modoSeleccion, setModoSeleccion] = useState('categorias'); // 'categorias' o 'manual'
-  const [categoriasSeleccionadas, setCategoriasSeleccionadas] = useState([]);
+  const { controlStock, setControlStock } = useListadosUIStore();
+  const { modoGeneracion, modoSeleccion, categoriasSeleccionadas } = controlStock;
+
+  const setModoGeneracion = useCallback(
+    (modo) => setControlStock({ modoGeneracion: modo }),
+    [setControlStock]
+  );
+  const setModoSeleccion = useCallback(
+    (modo) => setControlStock({ modoSeleccion: modo }),
+    [setControlStock]
+  );
+  const setCategoriasSeleccionadas = useCallback(
+    (categorias) => setControlStock({ categoriasSeleccionadas: categorias }),
+    [setControlStock]
+  );
 
   const handleGenerarPDF = () => {
     if (modoGeneracion === 'filtro') {
@@ -46,92 +58,68 @@ export default function ControlStock() {
     }
   };
 
+  const ModeButton = ({ active, onClick, children }) => (
+    <Button
+      type="button"
+      variant={active ? 'primary' : 'outline'}
+      className={cn('flex-1', active && 'shadow-sm')}
+      onClick={onClick}
+    >
+      {children}
+    </Button>
+  );
+
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="border border-gray-300 rounded-lg p-4 sm:p-6 bg-gray-50">
-        <h2 className="text-xl font-semibold mb-4 text-gray-700 border-b pb-2">
-          CONTROL DE STOCK
-        </h2>
-        <p className="text-sm text-gray-600 mb-4">
-          Genera un listado de productos con su stock actual. Puedes seleccionar productos manualmente o usar filtros automáticos.
-        </p>
-
-        {/* Selector de modo de generación */}
-        <div className="mb-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Modo de Generación
-          </label>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              onClick={() => setModoGeneracion('seleccion')}
-              className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
-                modoGeneracion === 'seleccion'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
+      <PanelCard
+        title="CONTROL DE STOCK"
+        description="Genera un listado de productos con su stock actual. Puedes seleccionar productos manualmente o usar filtros automáticos."
+      >
+        <div className="mb-6 space-y-2">
+          <Label>Modo de Generación</Label>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <ModeButton active={modoGeneracion === 'seleccion'} onClick={() => setModoGeneracion('seleccion')}>
               Selección Manual
-            </button>
-            <button
-              onClick={() => setModoGeneracion('filtro')}
-              className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
-                modoGeneracion === 'filtro'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
-            >
+            </ModeButton>
+            <ModeButton active={modoGeneracion === 'filtro'} onClick={() => setModoGeneracion('filtro')}>
               Filtro Automático
-            </button>
+            </ModeButton>
           </div>
         </div>
 
-        {/* Contenido según el modo */}
         {modoGeneracion === 'seleccion' ? (
           <div className="space-y-4">
-            {/* Selector de método de selección manual */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Método de Selección
-              </label>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <button
+            <div className="space-y-2">
+              <Label>Método de Selección</Label>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                <ModeButton
+                  active={modoSeleccion === 'categorias'}
                   onClick={() => {
                     setModoSeleccion('categorias');
                     setCategoriasSeleccionadas([]);
                     clearProductos();
                   }}
-                  className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
-                    modoSeleccion === 'categorias'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
                 >
                   Por Categorías
-                </button>
-                <button
+                </ModeButton>
+                <ModeButton
+                  active={modoSeleccion === 'manual'}
                   onClick={() => {
                     setModoSeleccion('manual');
                     setCategoriasSeleccionadas([]);
                     clearProductos();
                   }}
-                  className={`flex-1 px-4 py-2 rounded-md font-medium transition-colors ${
-                    modoSeleccion === 'manual'
-                      ? 'bg-green-600 text-white'
-                      : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                  }`}
                 >
                   Búsqueda Individual
-                </button>
+                </ModeButton>
               </div>
             </div>
 
-            {/* Contenido según el método de selección */}
             {modoSeleccion === 'categorias' ? (
               <SelectorCategoriasStock onCategoriasChange={setCategoriasSeleccionadas} />
             ) : (
               <div className="space-y-4">
                 <SelectorProductosStock />
-                {/* Solo mostrar lista cuando se busca manualmente */}
                 <ListaProductosStock />
               </div>
             )}
@@ -140,8 +128,7 @@ export default function ControlStock() {
           <FiltroStock />
         )}
 
-        {/* Botón para generar PDF */}
-        <div className="mt-6 flex flex-col sm:flex-row gap-3">
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <BotonGenerarPDFUniversal
             onGenerar={handleGenerarPDF}
             loading={loading}
@@ -151,25 +138,22 @@ export default function ControlStock() {
                 : 'Generar PDF Control de Stock'
             }
             disabled={
-              modoGeneracion === 'filtro' ? false :
-              modoSeleccion === 'categorias' 
-                ? categoriasSeleccionadas.length === 0 || productos.length === 0
-                : productos.length === 0
+              modoGeneracion === 'filtro'
+                ? false
+                : modoSeleccion === 'categorias'
+                  ? categoriasSeleccionadas.length === 0 || productos.length === 0
+                  : productos.length === 0
             }
-            className="bg-purple-600 hover:bg-purple-700 px-6 py-2 rounded text-white font-semibold"
+            className="bg-primary px-6 py-2 font-semibold text-primary-foreground"
           />
           {modoGeneracion === 'seleccion' && modoSeleccion === 'manual' && productos.length > 0 && (
-            <button
-              onClick={clearProductos}
-              className="bg-gray-500 hover:bg-gray-600 px-6 py-2 rounded text-white font-semibold"
-            >
+            <Button variant="outline" onClick={clearProductos}>
               Limpiar Lista
-            </button>
+            </Button>
           )}
         </div>
-      </div>
+      </PanelCard>
 
-      {/* Modal PDF para Control de Stock */}
       <ModalPDFUniversal
         mostrar={mostrarModalPDF}
         pdfURL={pdfURL}
@@ -184,4 +168,3 @@ export default function ControlStock() {
     </div>
   );
 }
-

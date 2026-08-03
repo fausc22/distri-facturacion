@@ -1,76 +1,8 @@
 import { MdSearch } from 'react-icons/md';
-import { useState } from 'react';
-import { axiosAuth } from '../../utils/apiClient';
+import { toast } from 'react-hot-toast';
 import { useControlStock } from '../../context/ControlStockContext';
 import { useProductoSearch } from '../../hooks/useBusquedaProductos';
-import { formatearStock } from '../../utils/formatearStock';
-
-function ModalProductos({ 
-  resultados, 
-  productoSeleccionado,
-  onSeleccionar, 
-  onAgregar,
-  onCerrar, 
-  loading 
-}) {
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-      <div className="bg-white rounded-lg p-4 max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold mb-4 text-black">Seleccionar Producto</h3>
-        <ul className="max-h-60 overflow-y-auto">
-          {loading ? (
-            <li className="text-gray-500 text-center">Buscando...</li>
-          ) : resultados.length > 0 ? (
-            resultados.map((producto, idx) => (
-              <li
-                key={idx}
-                className={`p-2 border-b cursor-pointer text-black ${
-                  producto.stock_actual > 0 
-                    ? 'hover:bg-gray-100' 
-                    : 'bg-red-50 text-red-600'
-                }`}
-                onClick={() => onSeleccionar(producto)}
-              >
-                <div className="flex justify-between items-center">
-                  <span>{producto.nombre}</span>
-                  <span className={`text-sm ${
-                    producto.stock_actual > 0 ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    Stock: {formatearStock(producto.stock_actual)}
-                  </span>
-                </div>
-              </li>
-            ))
-          ) : (
-            <li className="text-gray-500">No se encontraron resultados.</li>
-          )}
-        </ul>
-
-        {productoSeleccionado && (
-          <div className="mt-4 p-3 bg-gray-50 rounded">
-            <p className="font-semibold">{productoSeleccionado.nombre}</p>
-            <p className="text-sm text-gray-600">
-              Stock actual: <span className="font-medium">{formatearStock(productoSeleccionado.stock_actual)}</span>
-            </p>
-            <button
-              onClick={onAgregar}
-              className="mt-3 w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
-            >
-              Agregar a Lista
-            </button>
-          </div>
-        )}
-
-        <button
-          onClick={onCerrar}
-          className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded w-full"
-        >
-          Cerrar
-        </button>
-      </div>
-    </div>
-  );
-}
+import ModalSeleccionProductos from '../shared/ModalSeleccionProductos';
 
 export default function SelectorProductosStock() {
   const { addProducto } = useControlStock();
@@ -81,27 +13,27 @@ export default function SelectorProductosStock() {
     productoSeleccionado,
     loading,
     mostrarModal,
-    setMostrarModal,
     buscarProducto,
     seleccionarProducto,
-    limpiarSeleccion
+    deseleccionarProducto,
+    cerrarModal,
   } = useProductoSearch();
 
   const handleAgregarProducto = () => {
     if (!productoSeleccionado) return;
-    
-    // Formatear producto para agregar al contexto
+
     const productoFormateado = {
       id: productoSeleccionado.id,
       nombre: productoSeleccionado.nombre,
       unidad_medida: productoSeleccionado.unidad_medida || 'Unidad',
       stock_actual: parseFloat(productoSeleccionado.stock_actual) || 0,
       categoria_id: productoSeleccionado.categoria_id || null,
-      categoria_nombre: productoSeleccionado.categoria_nombre || 'Sin Categoría'
+      categoria_nombre: productoSeleccionado.categoria_nombre || 'Sin Categoría',
     };
-    
+
     addProducto(productoFormateado);
-    limpiarSeleccion();
+    deseleccionarProducto();
+    toast.success('Producto agregado a la lista');
   };
 
   return (
@@ -115,6 +47,7 @@ export default function SelectorProductosStock() {
           className="flex-1 p-2 rounded text-black"
           value={busqueda}
           onChange={(e) => setBusqueda(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && buscarProducto()}
         />
         <button
           onClick={buscarProducto}
@@ -127,16 +60,23 @@ export default function SelectorProductosStock() {
       </div>
 
       {mostrarModal && (
-        <ModalProductos
+        <ModalSeleccionProductos
           resultados={resultados}
           productoSeleccionado={productoSeleccionado}
+          busqueda={busqueda}
+          onBusquedaChange={setBusqueda}
+          onBuscar={buscarProducto}
           onSeleccionar={seleccionarProducto}
+          onDeseleccionar={deseleccionarProducto}
           onAgregar={handleAgregarProducto}
-          onCerrar={() => setMostrarModal(false)}
+          onCerrar={cerrarModal}
           loading={loading}
+          mostrarCantidad={false}
+          mostrarPreciosConIva={false}
+          textoAgregar="Agregar a lista"
+          titulo="Seleccionar Producto"
         />
       )}
     </div>
   );
 }
-

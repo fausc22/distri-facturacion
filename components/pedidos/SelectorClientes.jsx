@@ -1,89 +1,42 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
-import { MdSearch, MdDeleteForever, MdKeyboardArrowDown, MdKeyboardArrowUp, MdPersonAdd} from "react-icons/md";
+import { MdSearch, MdDeleteForever, MdPersonAdd } from "react-icons/md";
 import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
 import { useClienteSearch } from '../../hooks/useBusquedaClientes';
 import ModalCrearClienteRapido from './ModalCrearClienteRapido';
+import ModalSeleccionClientes, { PanelDetalleCliente } from './ModalSeleccionClientes';
 
-function ModalClientes({ resultados, onSeleccionar, onCerrar, loading, onVerMas, hasMore }) {
-  return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-      <div className="bg-white rounded-lg p-4 max-w-md w-full">
-        <h3 className="text-lg font-semibold mb-4 text-black">Seleccionar Cliente</h3>
-        <ul className="max-h-60 overflow-y-auto">
-          {loading ? (
-            <li className="text-gray-500 text-center">Buscando...</li>
-          ) : resultados.length > 0 ? (
-            resultados.map((cliente, idx) => (
-              <li
-                key={idx}
-                className="p-2 border-b hover:bg-gray-100 cursor-pointer text-black"
-                onClick={() => onSeleccionar(cliente)}
-              >
-                {cliente.nombre}
-              </li>
-            ))
-          ) : (
-            <li className="text-gray-500">No se encontraron resultados.</li>
-          )}
-        </ul>
-        {hasMore && (
-          <button
-            onClick={onVerMas}
-            disabled={loading}
-            className="mt-3 w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded"
-          >
-            {loading ? 'Cargando...' : 'Ver más'}
-          </button>
-        )}
-        <button
-          onClick={onCerrar}
-          className="mt-4 bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-        >
-          Cerrar
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function DetallesClienteListaPrecios({ cliente }) {
+function DetallesClienteListaPrecios({ cliente, onEditar, puedeEditar }) {
   const [expandido, setExpandido] = useState(false);
 
   if (!cliente) return null;
 
   return (
-    <div className="bg-blue-800 p-4 rounded mt-2 text-sm text-white">
-      <div
-        className="flex justify-between items-center cursor-pointer"
-        onClick={() => setExpandido(!expandido)}
-      >
-        <p><strong>Cliente:</strong> {cliente.nombre || '-'}</p>
-        {expandido ? (
-          <MdKeyboardArrowUp size={24} />
-        ) : (
-          <MdKeyboardArrowDown size={24} />
-        )}
-      </div>
-
-      {expandido && (
-        <div className="mt-2 space-y-1">
-          <p><strong>Dirección:</strong> {cliente.direccion || '-'}</p>
-          <p><strong>Ciudad:</strong> {cliente.ciudad || '-'}</p>
-          <p><strong>Provincia:</strong> {cliente.provincia || '-'}</p>
-          <p><strong>Teléfono:</strong> {cliente.telefono || '-'}</p>
-          <p><strong>Email:</strong> {cliente.email || '-'}</p>
-          <p><strong>CUIT:</strong> {cliente.cuit || '-'}</p>
-          <p><strong>Condición IVA:</strong> {cliente.condicion_iva || '-'}</p>
-        </div>
-      )}
-    </div>
+    <PanelDetalleCliente
+      cliente={cliente}
+      expandido={expandido}
+      onToggle={() => setExpandido(!expandido)}
+      onEditar={onEditar}
+      puedeEditar={puedeEditar}
+      className="bg-primary-dark p-4 rounded mt-2 text-sm text-white"
+    />
   );
 }
 
-export default function ClienteSelectorListaPrecios() {
-  // ✅ Usar hook compartido que detecta automáticamente el contexto
-  const { cliente, setCliente, clearCliente } = useContextoCompartido();
+export default function ClienteSelectorListaPrecios({
+  contextAdapter,
+  allowCreate = true,
+  containerClassName = 'bg-primary-dark text-white p-6 rounded-lg flex-1 min-w-0 md:min-w-[300px]',
+  title = 'Cliente',
+}) {
+  const sharedContext = useContextoCompartido({ required: !contextAdapter });
+  const contextSource = contextAdapter || sharedContext;
+
+  if (!contextSource) {
+    throw new Error('ClienteSelector requiere contextAdapter o PedidosProvider/NotasProvider');
+  }
+
+  const { cliente, setCliente, clearCliente } = contextSource;
   const {
     busqueda,
     setBusqueda,
@@ -98,6 +51,7 @@ export default function ClienteSelectorListaPrecios() {
   } = useClienteSearch();
 
   const [mostrarModalCrear, setMostrarModalCrear] = useState(false);
+  const [mostrarModalEditar, setMostrarModalEditar] = useState(false);
 
   const handleSeleccionarCliente = (clienteSeleccionado) => {
     setCliente(clienteSeleccionado);
@@ -112,17 +66,23 @@ export default function ClienteSelectorListaPrecios() {
 
   const handleClienteCreado = (nuevoCliente) => {
     const id = nuevoCliente?.id ?? nuevoCliente?.ID;
-    if (!nuevoCliente || id == null) {
+    if (!allowCreate || !nuevoCliente || id == null) {
       toast.error('No se pudo obtener el cliente creado. Buscá el cliente por nombre.');
       return;
     }
     setCliente({ ...nuevoCliente, id: Number(id) });
     setMostrarModalCrear(false);
+    setMostrarModalEditar(false);
+  };
+
+  const handleEditarCliente = () => {
+    if (!cliente) return;
+    setMostrarModalEditar(true);
   };
 
   return (
-    <div className="bg-blue-900 text-white p-6 rounded-lg flex-1 min-w-[300px]">
-      <h2 className="text-2xl font-semibold mb-4 text-center">Cliente</h2>
+    <div className={containerClassName}>
+      <h2 className="text-2xl font-semibold mb-4 text-center">{title}</h2>
 
       <div className="space-y-4">
         <div className="flex items-center gap-2">
@@ -154,7 +114,7 @@ export default function ClienteSelectorListaPrecios() {
         </div>
 
         {/* Botón para crear nuevo cliente */}
-        {!cliente && (
+        {!cliente && allowCreate && (
           <button
             onClick={() => setMostrarModalCrear(true)}
             className="w-full py-2 px-4 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
@@ -165,10 +125,14 @@ export default function ClienteSelectorListaPrecios() {
         )}
       </div>
 
-      <DetallesClienteListaPrecios cliente={cliente} />
+      <DetallesClienteListaPrecios
+        cliente={cliente}
+        onEditar={handleEditarCliente}
+        puedeEditar={!!cliente}
+      />
 
       {mostrarModal && (
-        <ModalClientes
+        <ModalSeleccionClientes
           resultados={resultados}
           onSeleccionar={handleSeleccionarCliente}
           onCerrar={() => setMostrarModal(false)}
@@ -178,12 +142,23 @@ export default function ClienteSelectorListaPrecios() {
         />
       )}
 
-      {/* Modal para crear cliente */}
-      <ModalCrearClienteRapido
-        isOpen={mostrarModalCrear}
-        onClose={() => setMostrarModalCrear(false)}
-        onClienteCreado={handleClienteCreado}
-      />
+      {allowCreate && (
+        <ModalCrearClienteRapido
+          isOpen={mostrarModalCrear}
+          onClose={() => setMostrarModalCrear(false)}
+          onClienteCreado={handleClienteCreado}
+        />
+      )}
+
+      {cliente && (
+        <ModalCrearClienteRapido
+          isOpen={mostrarModalEditar}
+          onClose={() => setMostrarModalEditar(false)}
+          onClienteCreado={handleClienteCreado}
+          clienteEditar={cliente}
+          modo="editar"
+        />
+      )}
     </div>
   );
 }

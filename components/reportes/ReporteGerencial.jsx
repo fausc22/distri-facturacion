@@ -1,6 +1,12 @@
 import { useMemo } from 'react';
+import { FileDown } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import { useReporteGerencial } from '../../hooks/useReporteGerencial';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { PanelCard } from '@/components/shared/PanelCard';
+import { LoadingState, EmptyState, ErrorState } from '@/components/shared/StateViews';
+import { cn } from '@/lib/utils';
 
 /* ---------- Helpers de formato ---------- */
 const formatMoney = (valor) => {
@@ -38,156 +44,21 @@ const formatearFecha = (fecha) => {
 
 /* ---------- Subcomponentes ---------- */
 
-function SelectorPeriodo({
-  modo, setModo,
-  seleccionMes, setSeleccionMes,
-  seleccionRango, setSeleccionRango,
-  meses, aniosDisponibles,
-  etiquetaPeriodo,
-  onRecargar, loading
-}) {
-  return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-      <div className="px-4 py-3 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <div className="text-sm text-gray-500">Periodo del reporte</div>
-          <div className="text-base font-semibold text-gray-900">{etiquetaPeriodo}</div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setModo('mes')}
-            className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-              modo === 'mes'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            Mes especifico
-          </button>
-          <button
-            type="button"
-            onClick={() => setModo('rango')}
-            className={`px-3 py-1.5 text-sm rounded-md border transition-colors ${
-              modo === 'rango'
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            Rango de meses
-          </button>
-          <button
-            type="button"
-            onClick={onRecargar}
-            disabled={loading}
-            className="px-3 py-1.5 text-sm rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-          >
-            {loading ? 'Cargando...' : 'Recargar'}
-          </button>
-        </div>
-      </div>
-
-      <div className="p-4">
-        {modo === 'mes' ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Mes</label>
-              <select
-                value={seleccionMes.mes}
-                onChange={(e) => setSeleccionMes({ ...seleccionMes, mes: parseInt(e.target.value, 10) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {meses.map(m => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
-              <select
-                value={seleccionMes.anio}
-                onChange={(e) => setSeleccionMes({ ...seleccionMes, anio: parseInt(e.target.value, 10) })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {aniosDisponibles.map(y => (
-                  <option key={y} value={y}>{y}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="text-xs uppercase font-semibold text-gray-500 tracking-wide">
-              Filtro especial: rango entre meses
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Desde - mes</label>
-                  <select
-                    value={seleccionRango.desdeMes}
-                    onChange={(e) => setSeleccionRango({ ...seleccionRango, desdeMes: parseInt(e.target.value, 10) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {meses.map(m => (<option key={m.value} value={m.value}>{m.label}</option>))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
-                  <select
-                    value={seleccionRango.desdeAnio}
-                    onChange={(e) => setSeleccionRango({ ...seleccionRango, desdeAnio: parseInt(e.target.value, 10) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {aniosDisponibles.map(y => (<option key={y} value={y}>{y}</option>))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Hasta - mes</label>
-                  <select
-                    value={seleccionRango.hastaMes}
-                    onChange={(e) => setSeleccionRango({ ...seleccionRango, hastaMes: parseInt(e.target.value, 10) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {meses.map(m => (<option key={m.value} value={m.value}>{m.label}</option>))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Año</label>
-                  <select
-                    value={seleccionRango.hastaAnio}
-                    onChange={(e) => setSeleccionRango({ ...seleccionRango, hastaAnio: parseInt(e.target.value, 10) })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    {aniosDisponibles.map(y => (<option key={y} value={y}>{y}</option>))}
-                  </select>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
 function CardResumen({ titulo, valor, subtitulo, color = 'gray' }) {
   const colorMap = {
-    green: 'bg-green-50 border-green-200 text-green-800',
-    blue:  'bg-blue-50 border-blue-200 text-blue-800',
-    amber: 'bg-amber-50 border-amber-200 text-amber-800',
-    gray:  'bg-gray-50 border-gray-200 text-gray-800'
+    green: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    blue: 'border-blue-200 bg-blue-50 text-blue-800',
+    amber: 'border-amber-200 bg-amber-50 text-amber-800',
+    gray: 'border-border bg-muted/30 text-foreground',
   };
   return (
-    <div className={`rounded-lg border p-4 ${colorMap[color] || colorMap.gray}`}>
-      <div className="text-xs uppercase tracking-wide font-semibold opacity-70">{titulo}</div>
+    <Card className={cn('p-4', colorMap[color] || colorMap.gray)}>
+      <div className="text-xs font-semibold uppercase tracking-wide opacity-70">{titulo}</div>
       <div className="mt-1 text-xl font-bold">{valor}</div>
       {subtitulo && (
-        <div className="mt-1 text-xs opacity-70 truncate" title={subtitulo}>{subtitulo}</div>
+        <div className="mt-1 truncate text-xs opacity-70" title={subtitulo}>{subtitulo}</div>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -246,18 +117,13 @@ function ResumenEjecutivo({ datos }) {
 
 function TablaWrapper({ titulo, children, vacio }) {
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-      <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-        <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wide">{titulo}</h3>
-      </div>
+    <PanelCard title={titulo}>
       {vacio ? (
-        <div className="p-6 text-center text-sm text-gray-500 italic">Sin datos para el periodo seleccionado</div>
+        <EmptyState message="Sin datos para el periodo seleccionado" />
       ) : (
-        <div className="overflow-x-auto">
-          {children}
-        </div>
+        <div className="overflow-x-auto">{children}</div>
       )}
-    </div>
+    </PanelCard>
   );
 }
 
@@ -402,13 +268,7 @@ function TablaVendedores({ datos }) {
 }
 
 function SkeletonTabla() {
-  return (
-    <div className="bg-white rounded-lg border border-gray-200 p-6 animate-pulse space-y-3">
-      {[...Array(5)].map((_, i) => (
-        <div key={i} className="h-6 bg-gray-100 rounded" />
-      ))}
-    </div>
-  );
+  return <LoadingState message="Cargando reporte gerencial..." />;
 }
 
 /* ---------- Componente principal ---------- */
@@ -418,13 +278,10 @@ export function ReporteGerencial() {
   const esGerente = user?.rol === 'GERENTE';
 
   const {
-    modo, setModo,
-    seleccionMes, setSeleccionMes,
-    seleccionRango, setSeleccionRango,
     rango,
     datos, loading, error,
     generandoPDF, descargarPDF, recargar,
-    aniosDisponibles, meses, etiquetaPeriodo
+    etiquetaPeriodo
   } = useReporteGerencial();
 
   const sinDatos = useMemo(() => {
@@ -442,55 +299,34 @@ export function ReporteGerencial() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Reporte Gerencial</h2>
-          <p className="text-sm text-gray-500 mt-1">
+          <h2 className="text-2xl font-bold">Reporte Gerencial</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
             Datos clave del periodo: {etiquetaPeriodo}
           </p>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             Rango efectivo: {rango.desde} al {rango.hasta}
           </p>
         </div>
 
         <div className="flex flex-wrap gap-2">
           {esGerente && (
-            <button
+            <Button
+              variant="danger"
               onClick={descargarPDF}
               disabled={generandoPDF || loading || !datos}
-              className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <svg className={`w-4 h-4 ${generandoPDF ? 'animate-pulse' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <span>{generandoPDF ? 'Generando PDF...' : 'Descargar PDF gerencial'}</span>
-            </button>
+              <FileDown className={`mr-2 h-4 w-4 ${generandoPDF ? 'animate-pulse' : ''}`} />
+              {generandoPDF ? 'Generando PDF...' : 'Descargar PDF gerencial'}
+            </Button>
           )}
         </div>
       </div>
 
-      {/* Selector de periodo */}
-      <SelectorPeriodo
-        modo={modo} setModo={setModo}
-        seleccionMes={seleccionMes} setSeleccionMes={setSeleccionMes}
-        seleccionRango={seleccionRango} setSeleccionRango={setSeleccionRango}
-        meses={meses} aniosDisponibles={aniosDisponibles}
-        etiquetaPeriodo={etiquetaPeriodo}
-        onRecargar={recargar}
-        loading={loading}
-      />
-
       {/* Error */}
-      {error && !loading && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
-          {error}
-        </div>
-      )}
+      {error && !loading && <ErrorState message={error} onRetry={recargar} />}
 
-      {/* Estado vacio */}
       {!loading && datos && sinDatos && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 text-center">
-          <div className="text-amber-800 font-semibold">No hay ventas registradas para este periodo</div>
-          <div className="text-sm text-amber-700 mt-1">Probá con otro mes u otro rango.</div>
-        </div>
+        <EmptyState message="No hay ventas registradas para este periodo. Probá con otro mes u otro rango." />
       )}
 
       {/* Resumen ejecutivo */}

@@ -13,7 +13,6 @@ export function useEditarPedido() {
   const { user } = useAuth();
   const { modoOffline } = useConnectionContext();
   const isPWA = getAppMode() === 'pwa';
-  const getBaseVersion = () => selectedPedido?.updated_at || selectedPedido?.fecha || null;
 
   // Cargar productos de un pedido específico
   const cargarProductosPedido = async (pedido) => {
@@ -111,39 +110,6 @@ export function useEditarPedido() {
     };
 
     try {
-      if (modoOffline && isPWA) {
-        const newProduct = {
-          producto_id: producto.id,
-          producto_nombre: producto.nombre,
-          producto_um: producto.unidad_medida || 'Unidad',
-          cantidad,
-          precio,
-          iva: ivaCalculado,
-          subtotal: subtotalSinIva,
-          descuento_porcentaje: 0,
-          stock_actual: stockDisponible
-        };
-
-        const productosActualizados = offlineManager.addProductoToPedidoCache(selectedPedido.id, newProduct);
-        const productoAgregado = productosActualizados[productosActualizados.length - 1];
-        setProductos(productosActualizados);
-        offlineManager.queuePedidoEdit({
-          type: 'ADD_ITEM',
-          pedidoId: selectedPedido.id,
-          baseVersion: getBaseVersion(),
-          payload: {
-            localItemId: productoAgregado.id,
-            product: {
-              ...newProduct,
-              id: productoAgregado.id
-            }
-          }
-        });
-
-        toast.success(`Producto agregado offline: ${cantidad} x ${producto.nombre}`);
-        return true;
-      }
-
       const response = await axiosAuth.post(`/pedidos/agregar-producto/${selectedPedido.id}`, newProduct);
       
       if (response.data.success) {
@@ -189,24 +155,6 @@ export function useEditarPedido() {
     }
 
     try {
-      if (modoOffline && isPWA) {
-        if (String(producto.id).startsWith('off_')) {
-          offlineManager.removePendingAddItem(selectedPedido.id, producto.id);
-        } else {
-          offlineManager.queuePedidoEdit({
-            type: 'DELETE_ITEM',
-            pedidoId: selectedPedido.id,
-            baseVersion: getBaseVersion(),
-            payload: { itemId: producto.id }
-          });
-        }
-
-        const productosActualizados = offlineManager.deleteProductoFromPedidoCache(selectedPedido.id, producto.id);
-        setProductos(productosActualizados);
-        toast.success(`Producto eliminado offline: ${producto.producto_nombre}`);
-        return true;
-      }
-
       const response = await axiosAuth.delete(`/pedidos/eliminar-producto/${producto.id}`);
       
       if (response.data.success) {
@@ -282,61 +230,6 @@ export function useEditarPedido() {
     };
 
     try {
-      if (modoOffline && isPWA) {
-        const productoActualizado = {
-          ...producto,
-          cantidad,
-          precio: parseFloat(precioNetoUnitario.toFixed(6)),
-          iva: ivaCalculado,
-          subtotal: parseFloat(subtotalConDescuento.toFixed(2)),
-          descuento_porcentaje: descuentoPorcentaje,
-          producto_nombre: producto.producto_nombre || producto.nombre,
-          precio_incluye_iva: precioIncluyeIva,
-          precio_unitario_final_manual:
-            precioIncluyeIva && Number.isFinite(precioFinalManual)
-              ? parseFloat(precioFinalManual.toFixed(2))
-              : null
-        };
-
-        const productosActualizados = offlineManager.updateProductoInPedidoCache(
-          selectedPedido.id,
-          producto.id,
-          productoActualizado
-        );
-        setProductos(productosActualizados);
-
-        const changes = {
-          cantidad,
-          precio: parseFloat(precioNetoUnitario.toFixed(6)),
-          iva: ivaCalculado,
-          subtotal: parseFloat(subtotalConDescuento.toFixed(2)),
-          descuento_porcentaje: descuentoPorcentaje,
-          producto_nombre: producto.producto_nombre || producto.nombre,
-          precio_incluye_iva: precioIncluyeIva,
-          precio_unitario_final_manual:
-            precioIncluyeIva && Number.isFinite(precioFinalManual)
-              ? parseFloat(precioFinalManual.toFixed(2))
-              : null
-        };
-
-        if (String(producto.id).startsWith('off_')) {
-          offlineManager.updatePendingAddItem(selectedPedido.id, producto.id, changes);
-        } else {
-          offlineManager.queuePedidoEdit({
-            type: 'UPDATE_ITEM',
-            pedidoId: selectedPedido.id,
-            baseVersion: getBaseVersion(),
-            payload: {
-              itemId: producto.id,
-              changes
-            }
-          });
-        }
-
-        toast.success(`Producto actualizado offline: ${producto.producto_nombre}`);
-        return true;
-      }
-
       console.log('🔄 Enviando datos de actualización:', updatedProduct);
       
       const response = await axiosAuth.put(
@@ -390,21 +283,6 @@ export function useEditarPedido() {
     }
 
     try {
-      if (modoOffline && isPWA) {
-        offlineManager.updatePedidoInCache(selectedPedido.id, (pedido) => ({
-          ...pedido,
-          observaciones: nuevasObservaciones || 'sin observaciones'
-        }));
-        setSelectedPedido(prev => ({ ...prev, observaciones: nuevasObservaciones || 'sin observaciones' }));
-        offlineManager.queuePedidoEdit({
-          type: 'UPDATE_OBSERVACIONES',
-          pedidoId: selectedPedido.id,
-          baseVersion: getBaseVersion(),
-          payload: { observaciones: nuevasObservaciones || 'sin observaciones' }
-        });
-        return true;
-      }
-
       const response = await axiosAuth.put(`/pedidos/actualizar-observaciones/${selectedPedido.id}`, {
         observaciones: nuevasObservaciones || 'sin observaciones'
       });

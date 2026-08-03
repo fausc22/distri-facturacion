@@ -44,12 +44,13 @@ export default function OfflinePage() {
         </h1>
 
         <p className="text-gray-600 mb-6">
-          No se pudo cargar esta página. Si ya abriste la app antes con internet,
-          probá recargar cuando tengas señal.
+          No se pudo cargar esta página. Podés seguir trabajando con los módulos
+          offline y sincronizar cuando vuelva la conexión.
         </p>
 
         <p className="text-sm text-gray-500 mb-6">
-          Consejo: abrí la app una vez con WiFi o datos antes de usarla sin conexión.
+          Consejo: cargá catálogo y rutas críticas con internet al menos una vez
+          antes de salir a campo.
         </p>
 
         <button
@@ -71,6 +72,12 @@ export default function OfflinePage() {
           className="mt-2 block text-orange-600 hover:text-orange-700 font-medium text-sm"
         >
           Ir al historial offline
+        </Link>
+        <Link
+          href="/ventas/RegistrarPedido"
+          className="mt-2 block text-orange-600 hover:text-orange-700 font-medium text-sm"
+        >
+          Registrar pedido offline
         </Link>
       </div>
     </div>

@@ -29,6 +29,24 @@ function MyApp({ Component, pageProps }) {
     router.pathname.startsWith(route)
   );
 
+  // ✅ En desarrollo, desregistrar SW y limpiar caches de builds/PWA previos
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    if (typeof window === 'undefined') return;
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => registration.unregister());
+      });
+    }
+
+    if ('caches' in window) {
+      caches.keys().then((keys) => {
+        keys.forEach((key) => caches.delete(key));
+      });
+    }
+  }, []);
+
   // ✅ PRECARGA CRÍTICA PARA PWA OFFLINE
   // router.prefetch() descarga los chunks JS de cada ruta - esencial para que funcione offline
   useEffect(() => {
@@ -94,6 +112,19 @@ function MyApp({ Component, pageProps }) {
     if (isPublicRoute || typeof window === 'undefined') return;
 
     const onControllerChange = () => {
+      const tieneBorradorPedido = Boolean(
+        localStorage.getItem('vertimar_pedido_estado_completo')
+      );
+
+      if (tieneBorradorPedido) {
+        console.log('🔄 Service Worker actualizado; hay borrador de pedido — sin auto-reload');
+        toast(
+          'Hay una actualización de la app. Terminá el pedido o usá "Actualizar PWA" cuando puedas.',
+          { duration: 5000, icon: '🔄' }
+        );
+        return;
+      }
+
       console.log('🔄 Service Worker actualizado, recargando...');
       window.location.reload();
     };
