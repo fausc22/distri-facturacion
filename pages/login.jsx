@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import toast, { Toaster } from 'react-hot-toast';
 import Head from 'next/head';
 import { useAuthContext } from '../components/AuthProvider';
+import { checkBackendConnectivity, connectivityErrorMessage } from '../utils/connectivity';
 
 // ===== HELPER PARA SSR =====
 const isClient = () => typeof window !== 'undefined';
@@ -119,12 +120,12 @@ export default function Login() {
     setLoading(true);
     
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/health`);
+      const result = await checkBackendConnectivity(10000);
       
-      if (response.ok) {
+      if (result.ok) {
         toast.success('✅ Conexión exitosa con el servidor');
       } else {
-        toast.error('❌ El servidor responde pero hay un error');
+        toast.error(`❌ ${connectivityErrorMessage(result.status)}`);
       }
     } catch (error) {
       toast.error('❌ Error de conexión: No se puede conectar al servidor');

@@ -5,15 +5,16 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { getAppMode } from '../utils/offlineManager';
+import {
+  checkBackendConnectivity,
+  connectivityErrorMessage,
+} from '../utils/connectivity';
 
 const ConnectionContext = createContext(null);
 
 // Constantes
-const HEALTH_TIMEOUT = 15000; // 15 segundos para conexiones lentas (datos móviles)
+const PING_TIMEOUT = 15000; // 15 segundos para conexiones lentas (datos móviles)
 const STORAGE_KEY = 'vertimar_modo_offline_forzado';
-
-// URL de health hardcodeada como fallback
-const HEALTH_URL_FALLBACK = 'https://api.vertimar.online/health';
 
 /**
  * ConnectionProvider - Proveedor centralizado del estado de conexión
@@ -94,71 +95,22 @@ export function ConnectionProvider({ children }) {
   }, []);
 
   /**
-   * Verificar conexión real con el backend usando /health
+   * Verificar conexión real con el backend usando /ping
    * @returns {Promise<boolean>} true si hay conexión real
    */
   const verificarConexionHealth = useCallback(async () => {
-    console.log('🔍 [ConnectionContext] === VERIFICANDO CONEXIÓN ===');
-    
-    // Verificar navigator.onLine primero
-    if (typeof window !== 'undefined' && !navigator.onLine) {
-      console.log('📴 [ConnectionContext] navigator.onLine = false');
-      return false;
-    }
-
-    // Determinar URL del health endpoint
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-    const healthUrl = apiUrl ? `${apiUrl}/health` : HEALTH_URL_FALLBACK;
-    
-    console.log(`🔍 [ConnectionContext] Verificando: ${healthUrl}`);
-    console.log(`🔍 [ConnectionContext] API URL env: ${apiUrl || 'NO DEFINIDA'}`);
-
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), HEALTH_TIMEOUT);
-      
-      // Agregar timestamp para evitar cache
-      const urlWithTimestamp = `${healthUrl}?_t=${Date.now()}`;
-      
-      const response = await fetch(urlWithTimestamp, {
-        method: 'GET',
-        signal: controller.signal,
-        cache: 'no-store',
-        mode: 'cors',
-        credentials: 'omit',
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        }
-      });
-
-      clearTimeout(timeoutId);
-      
-      console.log(`📡 [ConnectionContext] Respuesta: ${response.status} ${response.ok ? 'OK' : 'FAIL'}`);
-
-      if (response.ok) {
-        console.log('✅ [ConnectionContext] Conexión verificada con health endpoint');
-        return true;
-      }
-      
-      // Cualquier respuesta HTTP (incluso errores) significa que hay conectividad
-      if (response.status >= 400 && response.status < 600) {
-        console.log(`⚠️ [ConnectionContext] Backend respondió con error ${response.status} pero hay conectividad`);
-        return true;
-      }
-
-      return false;
-      
-    } catch (error) {
-      console.error(`❌ [ConnectionContext] Error en fetch: ${error.name} - ${error.message}`);
-      
-      // navigator.onLine solo indica acceso a una red, no al backend. Si el
-      // health check falla, conservar modo offline para no perder pedidos.
-      console.log('📴 [ConnectionContext] Backend no disponible; se conserva modo offline');
-      return false;
-    }
+    console.log('🔍 [ConnectionContext] === VERIFICANDO CONEXIÓN (/ping) ===');
+    const result = await checkBackendConnectivity(PING_TIMEOUT);
+    console.log('📡 [ConnectionContext] Resultado:', {
+      ok: result.ok,
+      status: result.status,
+      browserOnline: result.browserOnline,
+      httpStatus: result.httpStatus,
+      url: result.url,
+      errorName: result.errorName,
+      errorMessage: result.errorMessage,
+    });
+    return result.ok;
   }, []);
 
   /**
@@ -173,11 +125,11 @@ export function ConnectionProvider({ children }) {
     setReconectando(true);
 
     try {
-      console.log('🔄 [ConnectionContext] Llamando a verificarConexionHealth()...');
-      const hayConexion = await verificarConexionHealth();
-      console.log(`🔄 [ConnectionContext] Resultado de verificación: ${hayConexion}`);
+      console.log('🔄 [ConnectionContext] Llamando a checkBackendConnectivity()...');
+      const result = await checkBackendConnectivity(PING_TIMEOUT);
+      console.log(`🔄 [ConnectionContext] Resultado de verificación: ${result.ok} (${result.status})`);
 
-      if (hayConexion) {
+      if (result.ok) {
         console.log('✅ [ConnectionContext] RECONEXIÓN EXITOSA');
         
         // Desactivar modo offline
@@ -198,9 +150,9 @@ export function ConnectionProvider({ children }) {
 
         return true;
       } else {
-        console.log('❌ [ConnectionContext] RECONEXIÓN FALLIDA - verificarConexionHealth retornó false');
+        console.log('❌ [ConnectionContext] RECONEXIÓN FALLIDA -', result.status);
         
-        toast.error('No se pudo reconectar. Verifique su conexión a internet.', {
+        toast.error(connectivityErrorMessage(result.status), {
           duration: 5000,
           icon: '❌'
         });
@@ -222,7 +174,7 @@ export function ConnectionProvider({ children }) {
       setReconectando(false);
       console.log('🔄 [ConnectionContext] Estado reconectando = false');
     }
-  }, [verificarConexionHealth]);
+  }, []);
 
   /**
    * Forzar modo offline manualmente (para testing o casos especiales)

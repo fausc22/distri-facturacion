@@ -193,32 +193,6 @@ export function ModalDescuentos({
 }
 
 
-// ✅ FUNCIÓN PARA DETERMINAR TIPO FISCAL SEGÚN CONDICIÓN IVA
-const determinarTipoFiscal = (condicionIva) => {
-  if (!condicionIva || typeof condicionIva !== 'string') {
-    return 'C'; // Por defecto Consumidor Final
-  }
-
-  const condicion = condicionIva.trim();
-  
-  // Mapeo exacto de condiciones IVA a tipos fiscales
-  switch (condicion) {
-    case 'Responsable Inscripto':
-      return 'A';
-    case 'Responsable No Inscripto':
-    case 'Monotributo':
-      return 'B';
-    case 'Consumidor Final':
-    case 'Exento':
-      return 'C';
-    default:
-      return 'C'; // Por defecto
-  }
-};
-
-// ✅ MODAL DE FACTURACIÓN CORREGIDO
-
-
 // ✅ RESTO DE COMPONENTES SIN CAMBIOS (InformacionCliente, etc.)
 import ModalEditarClientePedido from './ModalEditarClientePedido';
 

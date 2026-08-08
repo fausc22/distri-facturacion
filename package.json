@@ -10,6 +10,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "node utils/connectivity.test.js && node utils/syncPedidoHelpers.test.js",
+    "test:connectivity": "node utils/connectivity.test.js",
+    "test:sync-helpers": "node utils/syncPedidoHelpers.test.js",
     "clean": "rm -rf .next .next-dev node_modules",
     "reinstall": "rm -rf node_modules package-lock.json && npm install"
   },

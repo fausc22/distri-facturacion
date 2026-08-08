@@ -6,32 +6,13 @@ import { getAppMode, offlineManager } from '../../utils/offlineManager';
 import { useOfflineCatalog } from '../useOfflineCatalog';
 import { generarHashPedido } from '../../utils/pedidoHash';
 
+import { isBackendReachable } from '../../utils/connectivity';
+
 /**
- * Verificar conexión real con el backend
+ * Verificar conexión real con el backend (/ping unificado)
  */
 async function verificarConexionReal(timeout = 5000) {
-  if (typeof window === 'undefined' || !navigator.onLine) {
-    return false;
-  }
-
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL;
-  if (!apiUrl) return false;
-
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-    const response = await fetch(`${apiUrl}/health`, {
-      method: 'GET',
-      signal: controller.signal,
-      cache: 'no-cache'
-    });
-
-    clearTimeout(timeoutId);
-    return response.ok;
-  } catch {
-    return false;
-  }
+  return isBackendReachable(timeout);
 }
 
 export function usePedidosHybrid() {

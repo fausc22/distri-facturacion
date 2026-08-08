@@ -64,7 +64,18 @@ const withPWA = require('next-pwa')({
 
   runtimeCaching: [
     {
-      urlPattern: /^https?:\/\/[^\/]+\/(ventas\/RegistrarPedido|ventas\/HistorialPedidosOffline|inicio|login|$)(\?.*)?$/,
+      // Páginas críticas: SOLO mismo origen (nunca interceptar backend cross-origin)
+      urlPattern: ({ url }) => {
+        if (url.origin !== self.location.origin) return false;
+        const normalized = url.pathname.replace(/\/+$/, '') || '/';
+        return [
+          '/',
+          '/inicio',
+          '/login',
+          '/ventas/RegistrarPedido',
+          '/ventas/HistorialPedidosOffline',
+        ].includes(normalized);
+      },
       handler: 'StaleWhileRevalidate',
       options: {
         cacheName: 'critical-pages',
@@ -78,7 +89,9 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      urlPattern: /^https?:\/\/[^\/]+\/_next\/static\/chunks\/.*/,
+      urlPattern: ({ url }) =>
+        url.origin === self.location.origin &&
+        url.pathname.startsWith('/_next/static/chunks/'),
       handler: 'CacheFirst',
       options: {
         cacheName: 'js-chunks',
@@ -89,7 +102,9 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      urlPattern: /^https?:\/\/[^\/]+\/_next\/static\/.*/,
+      urlPattern: ({ url }) =>
+        url.origin === self.location.origin &&
+        url.pathname.startsWith('/_next/static/'),
       handler: 'CacheFirst',
       options: {
         cacheName: 'static-assets',
@@ -100,7 +115,9 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      urlPattern: /^https?:\/\/[^\/]+\/_next\/static\/chunks\/pages\/(ventas|components).*\.js$/,
+      urlPattern: ({ url }) =>
+        url.origin === self.location.origin &&
+        /\/_next\/static\/chunks\/pages\/(ventas|components).*\.js$/.test(url.pathname),
       handler: 'CacheFirst',
       options: {
         cacheName: 'pedidos-components',
@@ -111,7 +128,11 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      urlPattern: /^https?:\/\/[^\/]+\/(manifest\.json|favicon\.ico|.*\.png)$/,
+      urlPattern: ({ url }) =>
+        url.origin === self.location.origin &&
+        (url.pathname === '/manifest.json' ||
+          url.pathname === '/favicon.ico' ||
+          url.pathname.endsWith('.png')),
       handler: 'CacheFirst',
       options: {
         cacheName: 'pwa-assets',
@@ -144,7 +165,10 @@ const withPWA = require('next-pwa')({
       },
     },
     {
-      urlPattern: /^https?:\/\/[^\/]+\/api\/.*/,
+      // Solo /api/* del mismo origen (Next API routes si existieran).
+      // NUNCA /ping, /health, /auth ni escrituras del backend cross-origin.
+      urlPattern: ({ url }) =>
+        url.origin === self.location.origin && url.pathname.startsWith('/api/'),
       handler: 'NetworkFirst',
       options: {
         cacheName: 'api-cache',
@@ -161,8 +185,12 @@ const withPWA = require('next-pwa')({
     {
       // Solo documentos navegados del mismo origen. Evita cachear como páginas
       // respuestas del backend cuando NEXT_PUBLIC_API_URL apunta a otro host.
+      // Excluye explícitamente conectividad (/ping, /health) aunque fueran same-origin.
       urlPattern: ({ request, url }) =>
-        request.mode === 'navigate' && url.origin === self.location.origin,
+        request.mode === 'navigate' &&
+        url.origin === self.location.origin &&
+        url.pathname !== '/ping' &&
+        url.pathname !== '/health',
       handler: 'NetworkFirst',
       options: {
         cacheName: 'pages-cache',

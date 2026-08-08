@@ -58,7 +58,11 @@ function MyApp({ Component, pageProps }) {
 
     if (!isPWA) return;
 
-    const PRECACHE_KEY = 'vertimar_precarga_completa';
+    const PRECACHE_KEY = 'vertimar_precarga_completa_v3';
+    const PRECACHE_LEGACY_KEYS = [
+      'vertimar_precarga_completa',
+      'vertimar_precarga_completa_v2',
+    ];
     const RUTAS_CRITICAS = [
       '/ventas/RegistrarPedido',
       '/ventas/HistorialPedidosOffline',
@@ -95,6 +99,13 @@ function MyApp({ Component, pageProps }) {
         }
 
         const primeraVez = !localStorage.getItem(PRECACHE_KEY);
+        PRECACHE_LEGACY_KEYS.forEach((key) => {
+          try {
+            localStorage.removeItem(key);
+          } catch (_) {
+            // noop
+          }
+        });
         localStorage.setItem(PRECACHE_KEY, Date.now().toString());
         console.log('✅ [PWA] Precarga completa - App lista para offline');
         if (primeraVez) {
@@ -121,11 +132,23 @@ function MyApp({ Component, pageProps }) {
       const tieneBorradorPedido = Boolean(
         localStorage.getItem('vertimar_pedido_estado_completo')
       );
+      const tienePedidosPendientes = (() => {
+        try {
+          const raw = localStorage.getItem('vertimar_pedidos_pendientes');
+          const parsed = raw ? JSON.parse(raw) : [];
+          return Array.isArray(parsed) && parsed.length > 0;
+        } catch (_) {
+          return false;
+        }
+      })();
 
-      if (tieneBorradorPedido) {
-        console.log('🔄 Service Worker actualizado; hay borrador de pedido — sin auto-reload');
+      // Nunca auto-reload si hay borrador o cola offline: preservar datos locales
+      if (tieneBorradorPedido || tienePedidosPendientes) {
+        console.log(
+          '🔄 Service Worker actualizado; hay borrador/cola offline — sin auto-reload'
+        );
         toast(
-          'Hay una actualización de la app. Terminá el pedido o usá "Actualizar PWA" cuando puedas.',
+          'Hay una actualización de la app. Terminá el pedido o sincronizá pendientes, luego usá "Actualizar PWA".',
           { duration: 5000, icon: '🔄' }
         );
         return;
