@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import useAuth from '../../hooks/useAuth';
 import { ReportesProvider } from '../../context/ReportesContext';
 import { VentasAnalytics } from '../../components/reportes/VentasAnalytics';
@@ -7,6 +8,7 @@ import { FinancialBalance } from '../../components/reportes/FinancialBalance';
 import { ProductAnalytics } from '../../components/reportes/ProductAnalytics';
 import { GeographicAnalytics } from '../../components/reportes/GeographicAnalytics';
 import { ReporteGerencial } from '../../components/reportes/ReporteGerencial';
+import { ResultadoNeto } from '../../components/reportes/ResultadoNeto';
 import { SelectorPeriodoReportes } from '../../components/reportes/SelectorPeriodoReportes';
 import { useReportesUIStore } from '@/stores/reportesUIStore';
 import { usePeriodoReportes } from '../../hooks/usePeriodoReportes';
@@ -26,12 +28,14 @@ import {
   DollarSign,
   Package,
   MapPin,
+  Scale,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TABS = [
   { id: 'gerencial', name: 'Reporte Gerencial', icon: FileText, component: ReporteGerencial },
   { id: 'ventas', name: 'Análisis de Ventas', icon: TrendingUp, component: VentasAnalytics },
+  { id: 'resultado', name: 'Resultado Neto', icon: Scale, component: ResultadoNeto },
   { id: 'financiero', name: 'Balance Financiero', icon: DollarSign, component: FinancialBalance },
   { id: 'productos', name: 'Análisis de Productos', icon: Package, component: ProductAnalytics },
   { id: 'geografico', name: 'Análisis Geográfico', icon: MapPin, component: GeographicAnalytics },
@@ -49,10 +53,18 @@ function BarraPeriodoCompartida({ onRecargar, loading }) {
 }
 
 function ReportesContent() {
+  const { user } = useAuth();
+  const router = useRouter();
   const { tabActiva, setTabActiva } = useReportesUIStore();
   const { rango, etiquetaPeriodo } = usePeriodoReportes();
   const [isMobile, setIsMobile] = useState(false);
   const [recargarKey, setRecargarKey] = useState(0);
+
+  useEffect(() => {
+    if (user && user.rol !== 'GERENTE') {
+      router.push('/inicio');
+    }
+  }, [user, router]);
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -61,10 +73,30 @@ function ReportesContent() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  const tabActual = TABS.find((tab) => tab.id === tabActiva);
+  const tabActual = TABS.find((tab) => tab.id === tabActiva) || TABS[0];
   const ComponenteActivo = tabActual?.component;
 
   const handleRecargar = () => setRecargarKey((k) => k + 1);
+
+  if (!user || user.rol !== 'GERENTE') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4">
+        <Card className="max-w-md p-8 text-center shadow-lg">
+          <CardHeader>
+            <CardTitle>Acceso Restringido</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-6 text-muted-foreground">
+              Solo los gerentes pueden acceder a los reportes financieros.
+            </p>
+            <Button type="button" onClick={() => router.push('/inicio')}>
+              Volver al Inicio
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-2 sm:p-4">
@@ -80,7 +112,7 @@ function ReportesContent() {
             {isMobile && <Badge variant="info">Vista móvil</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">
-            Misma base de datos facturada para todos los apartados · {etiquetaPeriodo}
+            Ventas facturadas, egresos (compras/gastos) y movimientos de caja · {etiquetaPeriodo}
           </p>
           <p className="text-xs text-muted-foreground">
             Rango: {rango.desde} al {rango.hasta}
@@ -159,8 +191,6 @@ function ReportesContent() {
 }
 
 export default function ReportesFinancieros() {
-  useAuth();
-
   return (
     <ReportesProvider>
       <ReportesContent />

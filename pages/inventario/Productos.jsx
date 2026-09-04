@@ -1,5 +1,7 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
+import toast from '@/components/shared/toast';
 import useAuth from '../../hooks/useAuth';
 import { useProductos } from '../../hooks/useProductos';
 import { useProductosListado } from '../../hooks/useProductosListado';
@@ -10,9 +12,19 @@ import ModalProducto from '../../components/productos/ModalProducto';
 import ModalBase from '../../components/common/ModalBase';
 import { formatearCantidad } from '../../utils/formatearCantidad';
 import { formatearMoneda } from '../../utils/formatearMoneda';
+import { isStockBajoListado } from '../../constants/stockThresholds';
 
 export default function GestionProductos() {
-  useAuth();
+  const { user } = useAuth();
+  const router = useRouter();
+  const esGerente = user?.rol === 'GERENTE';
+
+  useEffect(() => {
+    if (user && user.rol !== 'GERENTE') {
+      toast.error('Solo los gerentes pueden gestionar productos.');
+      router.push('/inicio');
+    }
+  }, [user, router]);
 
   const { eliminarProducto } = useProductos();
   const {
@@ -54,7 +66,7 @@ export default function GestionProductos() {
     });
   }, [cargarProductos, filtros]);
 
-  const handleKeyPress = useCallback((e) => {
+  const handleKeyDown = useCallback((e) => {
     if (e.key === 'Enter') handleBuscar();
   }, [handleBuscar]);
 
@@ -164,6 +176,10 @@ export default function GestionProductos() {
     { key: 'acciones', label: 'Acciones', sortable: false }
   ];
 
+  if (!user || user.rol !== 'GERENTE') {
+    return null;
+  }
+
   if (loading && productos.length === 0) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -199,7 +215,7 @@ export default function GestionProductos() {
                   type="text"
                   value={searchTermInput}
                   onChange={(e) => setSearchTermInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyDown}
                   placeholder="Buscar por nombre, categoría, ID..."
                   className="w-full min-h-[44px] py-2.5 pl-10 pr-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base touch-manipulation"
                   disabled={loading}
@@ -255,11 +271,19 @@ export default function GestionProductos() {
             <button
               type="button"
               onClick={handleNuevoProducto}
-              className="min-h-[44px] min-w-[44px] px-4 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 active:bg-green-800 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base font-medium whitespace-nowrap touch-manipulation"
+              disabled={!esGerente}
+              title={!esGerente ? 'Solo gerente' : undefined}
+              className="min-h-[44px] min-w-[44px] px-4 py-2.5 bg-green-600 text-white rounded-md hover:bg-green-700 active:bg-green-800 transition-colors flex items-center justify-center gap-2 text-sm sm:text-base font-medium whitespace-nowrap touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-green-600"
             >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
+              {!esGerente ? (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              ) : (
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+              )}
               <span className="hidden sm:inline">Nuevo Producto</span>
               <span className="sm:hidden">Nuevo</span>
             </button>
@@ -298,8 +322,27 @@ export default function GestionProductos() {
                 onSort={handleSort}
               />
               <tbody className="bg-white divide-y divide-gray-200">
-                {productosPaginados.map((producto) => {
-                  const stockBajo = producto.stock_actual < 10;
+                {productosPaginados.length === 0 && !loading ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-12 text-center">
+                      <p className="text-gray-500 font-medium">No se encontraron productos</p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Probá con otros filtros o creá un producto nuevo.
+                      </p>
+                      {esGerente && (
+                        <button
+                          type="button"
+                          onClick={handleNuevoProducto}
+                          className="mt-4 min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 touch-manipulation"
+                        >
+                          Crear producto
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ) : (
+                  productosPaginados.map((producto) => {
+                  const stockBajo = isStockBajoListado(producto.stock_actual);
 
                   return (
                     <tr key={producto.id} className="hover:bg-gray-50">
@@ -336,7 +379,9 @@ export default function GestionProductos() {
                           <button
                             type="button"
                             onClick={() => handleEliminarProducto(producto)}
-                            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 active:bg-red-200 px-3 py-2 rounded-md transition-colors flex-1 touch-manipulation"
+                            disabled={!esGerente}
+                            title={!esGerente ? 'Solo gerente' : undefined}
+                            className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 active:bg-red-200 px-3 py-2 rounded-md transition-colors flex-1 touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-50 disabled:hover:text-red-600"
                           >
                             Eliminar
                           </button>
@@ -344,15 +389,33 @@ export default function GestionProductos() {
                       </td>
                     </tr>
                   );
-                })}
+                })
+                )}
               </tbody>
             </table>
           </div>
 
           {/* Vista móvil — Fase 5: touch targets */}
           <div className="lg:hidden touch-manipulation">
-            {productosPaginados.map((producto) => {
-              const stockBajo = producto.stock_actual < 10;
+            {productosPaginados.length === 0 && !loading ? (
+              <div className="p-8 text-center">
+                <p className="text-gray-500 font-medium">No se encontraron productos</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Probá con otros filtros o creá un producto nuevo.
+                </p>
+                {esGerente && (
+                  <button
+                    type="button"
+                    onClick={handleNuevoProducto}
+                    className="mt-4 min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 touch-manipulation"
+                  >
+                    Crear producto
+                  </button>
+                )}
+              </div>
+            ) : (
+              productosPaginados.map((producto) => {
+              const stockBajo = isStockBajoListado(producto.stock_actual);
 
               return (
                 <div key={producto.id} className="border-b border-gray-200 p-4 hover:bg-gray-50 active:bg-gray-100">
@@ -376,7 +439,9 @@ export default function GestionProductos() {
                       <button
                         type="button"
                         onClick={() => handleEliminarProducto(producto)}
-                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 active:bg-red-200 px-4 py-2 rounded-md text-sm transition-colors touch-manipulation"
+                        disabled={!esGerente}
+                        title={!esGerente ? 'Solo gerente' : undefined}
+                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center text-red-600 hover:text-red-900 bg-red-50 hover:bg-red-100 active:bg-red-200 px-4 py-2 rounded-md text-sm transition-colors touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-red-50 disabled:hover:text-red-600"
                       >
                         Eliminar
                       </button>
@@ -404,7 +469,8 @@ export default function GestionProductos() {
                   </div>
                 </div>
               );
-            })}
+            })
+            )}
           </div>
 
           {/* Paginación — Fase 2: startIndex para evitar NaN; paginación en servidor */}

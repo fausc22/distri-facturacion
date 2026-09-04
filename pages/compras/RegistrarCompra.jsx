@@ -1,7 +1,10 @@
 import Head from 'next/head';
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
 import toast from '@/components/shared/toast';
 import useAuth from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { PanelCard } from '@/components/shared/PanelCard';
 import { CompraProvider, useCompra } from '@/context/ComprasContext';
 import { useComprasUIStore } from '@/stores/comprasUIStore';
@@ -14,11 +17,17 @@ import { BotonAccionesCompra } from '@/components/compra/BotonAccionesCompra';
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
 
 function RegistrarCompraContent() {
+  const { user } = useAuth();
+  const router = useRouter();
   const { proveedor, productos, total, clearCompra } = useCompra();
   const { registrarCompra, loading } = useRegistrarCompra();
   const { modales, openModal, closeModal } = useComprasUIStore();
 
-  useAuth();
+  useEffect(() => {
+    if (user && user.rol !== 'GERENTE') {
+      router.push('/inicio');
+    }
+  }, [user, router]);
 
   const handleConfirmarCompra = () => {
     if (!proveedor) {
@@ -58,6 +67,26 @@ function RegistrarCompraContent() {
       window.location.href = '/';
     }
   };
+
+  if (!user || user.rol !== 'GERENTE') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4">
+        <Card className="max-w-md p-8 text-center shadow-lg">
+          <CardHeader>
+            <CardTitle>Acceso Restringido</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-6 text-muted-foreground">
+              Solo los gerentes pueden registrar compras.
+            </p>
+            <Button type="button" onClick={() => router.push('/inicio')}>
+              Volver al Inicio
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/30 p-4">

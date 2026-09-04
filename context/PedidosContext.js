@@ -1,8 +1,60 @@
 // context/PedidosContext.js
-import { createContext, useContext, useReducer } from 'react';
+import { createContext, useContext, useReducer, useEffect, useRef, useState, useCallback } from 'react';
 import { roundFacturacion } from '../utils/rounding';
 
 export const PedidosContext = createContext();
+
+const DRAFT_TTL_MS = 24 * 60 * 60 * 1000;
+
+const loadDraftFromStorage = (draftKey) => {
+  if (!draftKey || typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(draftKey);
+    if (!raw) return null;
+    const draft = JSON.parse(raw);
+    if (!draft?.savedAt || Date.now() - draft.savedAt > DRAFT_TTL_MS) {
+      localStorage.removeItem(draftKey);
+      return null;
+    }
+    if (!Array.isArray(draft.productos)) return null;
+    return draft;
+  } catch {
+    return null;
+  }
+};
+
+const saveDraftToStorage = (draftKey, state) => {
+  if (!draftKey || typeof window === 'undefined') return;
+  const hasContent =
+    Boolean(state.cliente) ||
+    state.productos.length > 0 ||
+    Boolean(state.observaciones?.trim());
+
+  if (!hasContent) {
+    localStorage.removeItem(draftKey);
+    return;
+  }
+
+  try {
+    localStorage.setItem(
+      draftKey,
+      JSON.stringify({
+        v: 1,
+        savedAt: Date.now(),
+        cliente: state.cliente,
+        productos: state.productos,
+        observaciones: state.observaciones
+      })
+    );
+  } catch (error) {
+    console.warn('No se pudo guardar borrador de pedido:', error);
+  }
+};
+
+const removeDraftFromStorage = (draftKey) => {
+  if (!draftKey || typeof window === 'undefined') return;
+  localStorage.removeItem(draftKey);
+};
 
 const normalizarFlagsPrecioProducto = (producto = {}) => ({
   ...producto,
@@ -144,38 +196,68 @@ function pedidosReducer(state, action) {
         };
       }
     
-    // ✅ NUEVA ACCIÓN PARA MÚLTIPLES PRODUCTOS
-    case 'ADD_MULTIPLE_PRODUCTOS':
-      const nuevosProductos = action.payload.map(producto => {
-        const productoNormalizado = normalizarFlagsPrecioProducto(producto);
-        const {
-          porcentajeIva,
-          precioNetoUnitario,
-          subtotalConDescuento,
-          ivaCalculado
-        } = calcularTotalesProducto({
-          producto: productoNormalizado,
-          cantidad: producto.cantidad,
-          descuentoPorcentaje: parseFloat(producto.descuento_porcentaje || 0)
-        });
+    case 'ADD_MULTIPLE_PRODUCTOS': {
+      let productosActualizados = [...state.productos];
 
-        return normalizarFlagsPrecioProducto({
-          id: producto.id,
-          nombre: producto.nombre,
-          unidad_medida: producto.unidad_medida || 'Unidad',
-          cantidad: producto.cantidad,
-          precio: precioNetoUnitario,
-          porcentaje_iva: porcentajeIva,
-          iva_calculado: ivaCalculado,
-          subtotal: subtotalConDescuento,
-          descuento_porcentaje: producto.descuento_porcentaje || 0 // ✅ INICIALIZAR DESCUENTO
-        });
-      });
+      for (const producto of action.payload) {
+        const productoNormalizado = normalizarFlagsPrecioProducto(producto);
+        const cantidadNueva = parseFloat(producto.cantidad) || 0.5;
+        const productoExistenteIndex = productosActualizados.findIndex((p) => p.id === producto.id);
+
+        if (productoExistenteIndex !== -1) {
+          const productoExistente = productosActualizados[productoExistenteIndex];
+          const nuevaCantidadTotal = parseFloat(productoExistente.cantidad) + cantidadNueva;
+          const descuentoPorcentaje = productoExistente.descuento_porcentaje || 0;
+          const {
+            precioNetoUnitario,
+            subtotalConDescuento,
+            ivaCalculado
+          } = calcularTotalesProducto({
+            producto: productoExistente,
+            cantidad: nuevaCantidadTotal,
+            descuentoPorcentaje
+          });
+
+          productosActualizados[productoExistenteIndex] = {
+            ...productoExistente,
+            cantidad: nuevaCantidadTotal,
+            precio: precioNetoUnitario,
+            subtotal: subtotalConDescuento,
+            iva_calculado: ivaCalculado
+          };
+        } else {
+          const {
+            porcentajeIva,
+            precioNetoUnitario,
+            subtotalConDescuento,
+            ivaCalculado
+          } = calcularTotalesProducto({
+            producto: productoNormalizado,
+            cantidad: cantidadNueva,
+            descuentoPorcentaje: parseFloat(producto.descuento_porcentaje || 0)
+          });
+
+          productosActualizados.push(
+            normalizarFlagsPrecioProducto({
+              id: producto.id,
+              nombre: producto.nombre,
+              unidad_medida: producto.unidad_medida || 'Unidad',
+              cantidad: cantidadNueva,
+              precio: precioNetoUnitario,
+              porcentaje_iva: porcentajeIva,
+              iva_calculado: ivaCalculado,
+              subtotal: subtotalConDescuento,
+              descuento_porcentaje: producto.descuento_porcentaje || 0
+            })
+          );
+        }
+      }
 
       return {
         ...state,
-        productos: [...state.productos, ...nuevosProductos]
+        productos: productosActualizados
       };
+    }
     
     case 'REMOVE_PRODUCTO':
       return {
@@ -267,6 +349,16 @@ function pedidosReducer(state, action) {
         productos: [],
         observaciones: ''
       };
+
+    case 'RESTORE_DRAFT': {
+      const draft = action.payload;
+      if (!draft || !Array.isArray(draft.productos)) return state;
+      return {
+        cliente: draft.cliente || null,
+        productos: draft.productos.map(normalizarFlagsPrecioProducto),
+        observaciones: draft.observaciones || ''
+      };
+    }
     
     default:
       return state;
@@ -279,8 +371,60 @@ const initialState = {
   observaciones: ''
 };
 
-export function PedidosProvider({ children }) {
+export function PedidosProvider({ children, draftKey = null }) {
   const [state, dispatch] = useReducer(pedidosReducer, initialState);
+  const [savedDraft, setSavedDraft] = useState(null);
+  const saveTimeoutRef = useRef(null);
+
+  useEffect(() => {
+    if (!draftKey) return;
+    setSavedDraft(loadDraftFromStorage(draftKey));
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!savedDraft) return;
+    const hasCurrentContent =
+      Boolean(state.cliente) ||
+      state.productos.length > 0 ||
+      Boolean(state.observaciones?.trim());
+    if (hasCurrentContent) {
+      setSavedDraft(null);
+    }
+  }, [savedDraft, state.cliente, state.productos.length, state.observaciones]);
+
+  useEffect(() => {
+    if (!draftKey) return undefined;
+
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    saveTimeoutRef.current = setTimeout(() => {
+      saveDraftToStorage(draftKey, state);
+    }, 800);
+
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
+  }, [draftKey, state]);
+
+  const clearDraft = useCallback(() => {
+    if (!draftKey) return;
+    removeDraftFromStorage(draftKey);
+    setSavedDraft(null);
+  }, [draftKey]);
+
+  const restoreDraft = useCallback(() => {
+    if (!savedDraft) return;
+    dispatch({ type: 'RESTORE_DRAFT', payload: savedDraft });
+    setSavedDraft(null);
+  }, [savedDraft]);
+
+  const discardDraft = useCallback(() => {
+    clearDraft();
+  }, [clearDraft]);
 
   // Calcular totales dinámicamente (redondeo ,01–,59 mantienen; ,60–,99 suben)
   const subtotalRaw = state.productos.reduce((acc, prod) => acc + prod.subtotal, 0);
@@ -331,7 +475,14 @@ export function PedidosProvider({ children }) {
     setObservaciones: (observaciones) => dispatch({ type: 'SET_OBSERVACIONES', payload: observaciones }),
     
     // Limpiar todo
-    clearPedido: () => dispatch({ type: 'CLEAR_PEDIDO' }),
+    clearPedido: () => {
+      dispatch({ type: 'CLEAR_PEDIDO' });
+      clearDraft();
+    },
+    
+    restoreDraft,
+    discardDraft,
+    clearDraft,
     
     // Obtener datos para envío
     getDatosPedido: () => ({
@@ -352,6 +503,7 @@ export function PedidosProvider({ children }) {
       totalIva,
       total,
       totalProductos,
+      savedDraft,
       ...actions 
     }}>
       {children}

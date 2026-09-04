@@ -1,4 +1,5 @@
 import toast from '@/components/shared/toast';
+import { useQueryClient } from '@tanstack/react-query';
 import { useComprasUIStore } from '@/stores/comprasUIStore';
 import { useRegistrarCompraMutation } from '@/hooks/queries/finanzasQueries';
 import { useInvalidateFinanzas } from '@/hooks/queries/useInvalidateQueries';
@@ -6,7 +7,8 @@ import { useInvalidateFinanzas } from '@/hooks/queries/useInvalidateQueries';
 export function useRegistrarCompra() {
   const setLoading = useComprasUIStore((s) => s.setLoading);
   const mutation = useRegistrarCompraMutation();
-  const { invalidateCompras } = useInvalidateFinanzas();
+  const { invalidateCompras, invalidateFondos } = useInvalidateFinanzas();
+  const queryClient = useQueryClient();
 
   const registrarCompra = async (datosCompraCompletos) => {
     const {
@@ -49,8 +51,11 @@ export function useRegistrarCompra() {
       };
 
       const response = await mutation.mutateAsync(compraData);
-      toast.success('Compra registrada con éxito y movimiento de fondos actualizado');
       invalidateCompras();
+      invalidateFondos();
+      if (actualizarStock) {
+        queryClient.invalidateQueries({ queryKey: ['productos'] });
+      }
       return { success: true, data: response.data };
     } catch (error) {
       const errorMessage = error.message || 'Error al registrar la compra';
@@ -61,25 +66,8 @@ export function useRegistrarCompra() {
     }
   };
 
-  const registrarCompraSimple = async (proveedor, productos, total) => {
-    const datosCompra = {
-      proveedor_id: proveedor.id,
-      proveedor_nombre: proveedor.nombre,
-      proveedor_cuit: proveedor.cuit,
-      productos,
-      total,
-      subtotal: total * 0.826,
-      iva_total: total * 0.174,
-      actualizarStock: true,
-      observaciones: 'Compra registrada (modo compatibilidad - sin cuenta asignada)',
-    };
-    const resultado = await registrarCompra(datosCompra);
-    return resultado.success;
-  };
-
   return {
     registrarCompra,
-    registrarCompraSimple,
     loading: mutation.isPending,
   };
 }

@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { toast } from 'react-hot-toast';
+import { toast } from '@/components/shared/toast';
 
 // ✅ CONFIGURACIÓN DE API URL CON VALIDACIÓN
 const getApiUrl = () => {
@@ -198,7 +198,10 @@ class ApiClient {
       const refreshToken = getFromStorage('refreshToken');
       
       if (!refreshToken) {
-        throw new Error('No refresh token disponible en localStorage');
+        console.log('🔒 PWA: No hay refresh token. Cerrando sesión.');
+        this.processQueue(new Error('Sesión expirada'), null);
+        this.clearSessionAndRedirect();
+        return Promise.reject(new Error('Sesión expirada'));
       }
 
       // ✅ PWA: Enviar refresh token en el body
@@ -246,7 +249,12 @@ class ApiClient {
       const status = refreshError?.response?.status;
       const errorCode = refreshError?.response?.data?.code;
       const backendMessage = refreshError?.response?.data?.message;
-      const isAuthFailure = status === 401 || status === 403 || [
+      const isLocalSessionError = !refreshError?.response && (
+        refreshError.message?.includes('Sesión expirada') ||
+        refreshError.message?.includes('localStorage') ||
+        refreshError.message?.includes('No refresh token')
+      );
+      const isAuthFailure = isLocalSessionError || status === 401 || status === 403 || [
         'NO_REFRESH_TOKEN',
         'REFRESH_TOKEN_EXPIRED',
         'REFRESH_TOKEN_INVALID',
@@ -386,7 +394,7 @@ class ApiClient {
     const currentPath = window.location.pathname;
     if (currentPath !== '/login') {
       if (typeof toast !== 'undefined') {
-        toast.error('Sesión expirada. Por favor, inicie sesión nuevamente.');
+        toast.authError();
       }
       window.location.href = '/login';
     }

@@ -4,6 +4,7 @@ const initialFormData = {
   descripcion: '',
   monto: '',
   formaPago: '',
+  cuentaId: '',
   observaciones: '',
   archivo: null,
   archivoPreview: null,
@@ -154,7 +155,7 @@ export const useGastosUIStore = create((set, get) => ({
 
   isValidForm: () => {
     const { formData } = get();
-    const required = ['descripcion', 'monto', 'formaPago'];
+    const required = ['descripcion', 'monto', 'formaPago', 'cuentaId'];
     return required.every((field) => {
       const value = formData[field];
       if (field === 'monto') return value && getMontoNumerico(value) > 0;
@@ -183,6 +184,7 @@ export const useGastosUIStore = create((set, get) => ({
       observaciones: formData.observaciones
         ? (formData.observaciones || '').trim()
         : null,
+      cuentaId: formData.cuentaId ? Number(formData.cuentaId) : null,
     };
   },
 

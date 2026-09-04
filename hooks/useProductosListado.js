@@ -31,6 +31,7 @@ export function useProductosListado() {
     if (trim(f.categoria_id)) params.set('categoria_id', trim(f.categoria_id));
     if (trim(f.unidad_medida)) params.set('unidad_medida', trim(f.unidad_medida));
     if (trim(f.stock)) params.set('stock', trim(f.stock));
+    if (opciones.fresh) params.set('fresh', '1');
 
     setLoading(true);
     try {

@@ -419,13 +419,15 @@ function AppHeader() {
                     </MenuLink>
                   )}
                   
-                  <MenuLink 
-                    href="/compras/RegistrarGasto" 
-                    className="block py-2 px-4 text-sm whitespace-nowrap border-b border-gray-200"
-                    requiresOnline={true}
-                  >
-                    Registrar Gasto
-                  </MenuLink>
+                  {role === 'GERENTE' && (
+                    <MenuLink 
+                      href="/compras/RegistrarGasto" 
+                      className="block py-2 px-4 text-sm whitespace-nowrap border-b border-gray-200"
+                      requiresOnline={true}
+                    >
+                      Registrar Gasto
+                    </MenuLink>
+                  )}
                   
                   {role === 'GERENTE' && (
                     <MenuLink 
@@ -752,13 +754,15 @@ function AppHeader() {
                       </MenuLink>
                     )}
                     
-                    <MenuLink 
-                      href="/compras/RegistrarGasto" 
-                      className="block py-2 px-4 hover:bg-blue-600 text-white"
-                      requiresOnline={true}
-                    >
-                      Registrar Gasto
-                    </MenuLink>
+                    {role === 'GERENTE' && (
+                      <MenuLink 
+                        href="/compras/RegistrarGasto" 
+                        className="block py-2 px-4 hover:bg-blue-600 text-white"
+                        requiresOnline={true}
+                      >
+                        Registrar Gasto
+                      </MenuLink>
+                    )}
                     
                     {role === 'GERENTE' && (
                       <MenuLink 

@@ -1,7 +1,7 @@
 // hooks/usePedidos.js
 import { useState } from 'react';
 import axios from 'axios';
-import { toast } from 'react-hot-toast';
+import toast from '@/components/shared/toast';
 
 import { axiosAuth, fetchAuth } from '../../utils/apiClient';
 
@@ -127,7 +127,13 @@ export function usePedidos() {
       }
     } catch (error) {
       console.error('Error al registrar pedido:', error);
-      toast.error('Error al registrar el pedido. Verifique su conexión.');
+      const isAuthError =
+        error?.response?.status === 401 ||
+        error?.message?.includes('Sesión expirada') ||
+        error?.message?.includes('No refresh token');
+      if (!isAuthError) {
+        toast.networkError('No se pudo registrar el pedido.');
+      }
       return { success: false, error: error.message };
     } finally {
       setLoading(false);

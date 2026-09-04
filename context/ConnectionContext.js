@@ -3,7 +3,7 @@
 // Principio: Desconexión automática, reconexión SOLO manual
 
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { toast } from 'react-hot-toast';
+import toast, { TOAST_IDS } from '@/components/shared/toast';
 import { getAppMode } from '../utils/offlineManager';
 import {
   checkBackendConnectivity,
@@ -70,9 +70,9 @@ export function ConnectionProvider({ children }) {
       
       // Solo mostrar toast si es PWA
       if (getAppMode() === 'pwa') {
-        toast('📴 Conexión perdida - Modo offline activado', {
+        toast.warning('Conexión perdida — modo offline activado', {
+          id: TOAST_IDS.OFFLINE,
           duration: 4000,
-          icon: '📴',
           style: { background: '#f59e0b', color: '#fff' }
         });
       }
@@ -137,9 +137,9 @@ export function ConnectionProvider({ children }) {
         localStorage.removeItem(STORAGE_KEY);
         console.log('✅ [ConnectionContext] Estado actualizado y localStorage limpiado');
         
-        toast.success('✅ App reconectada - Modo online activado', {
+        toast.success('App reconectada — modo online activado', {
+          id: TOAST_IDS.RECONNECTED,
           duration: 3000,
-          icon: '✅'
         });
 
         // Recargar página para actualizar toda la UI
@@ -153,8 +153,8 @@ export function ConnectionProvider({ children }) {
         console.log('❌ [ConnectionContext] RECONEXIÓN FALLIDA -', result.status);
         
         toast.error(connectivityErrorMessage(result.status), {
+          id: TOAST_IDS.NETWORK_ERROR,
           duration: 5000,
-          icon: '❌'
         });
 
         return false;
@@ -165,8 +165,8 @@ export function ConnectionProvider({ children }) {
       console.error('❌ [ConnectionContext] Mensaje:', error.message);
       
       toast.error('Error al intentar reconectar. Intente nuevamente.', {
+        id: TOAST_IDS.NETWORK_ERROR,
         duration: 5000,
-        icon: '❌'
       });
 
       return false;

@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import toast from '@/components/shared/toast';
 import useAuth from '../../hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -116,6 +117,20 @@ function GenerarListaPreciosContent() {
 }
 
 export default function GenerarListaPrecios() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user && user.rol !== 'GERENTE') {
+      toast.error('Solo los gerentes pueden acceder a lista de precios.');
+      router.push('/inicio');
+    }
+  }, [user, router]);
+
+  if (!user || user.rol !== 'GERENTE') {
+    return null;
+  }
+
   return (
     <ListaPreciosProvider>
       <GenerarListaPreciosContent />

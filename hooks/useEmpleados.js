@@ -1,4 +1,3 @@
-// hooks/useEmpleados.js - VERSIÓN FINAL COMPLETA
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../utils/apiClient';
@@ -6,23 +5,16 @@ import { axiosAuth } from '../utils/apiClient';
 export const useEmpleados = () => {
   const [loading, setLoading] = useState(false);
 
-  // Crear empleado
   const crearEmpleado = async (empleadoData) => {
     setLoading(true);
     try {
-      console.log('🚀 Creando empleado:', empleadoData);
-      
       const response = await axiosAuth.post('/empleados/crear-empleado', empleadoData);
-
-      console.log('✅ Empleado creado:', response.data);
       toast.success('Empleado creado exitosamente');
       return { success: true, data: response.data };
-
     } catch (error) {
-      console.error('❌ Error al crear empleado:', error);
-      
+      console.error('Error al crear empleado:', error);
+
       let message = 'Error al crear empleado';
-      
       if (error.response) {
         switch (error.response.status) {
           case 401:
@@ -35,7 +27,7 @@ export const useEmpleados = () => {
             message = error.response.data?.message || message;
         }
       }
-      
+
       toast.error(message);
       return { success: false, error: message };
     } finally {
@@ -43,7 +35,6 @@ export const useEmpleados = () => {
     }
   };
 
-  // Actualizar empleado
   const actualizarEmpleado = async (id, empleadoData) => {
     setLoading(true);
     try {
@@ -52,22 +43,17 @@ export const useEmpleados = () => {
         delete dataToSend.password;
       }
 
-      console.log('🔄 Actualizando empleado:', id, dataToSend);
-
       const response = await axiosAuth.put(
         `/empleados/actualizar-empleado/${id}`,
         dataToSend
       );
 
-      console.log('✅ Empleado actualizado:', response.data);
       toast.success('Empleado actualizado exitosamente');
       return { success: true, data: response.data };
-
     } catch (error) {
-      console.error('❌ Error al actualizar empleado:', error);
-      
+      console.error('Error al actualizar empleado:', error);
+
       let message = 'Error al actualizar empleado';
-      
       if (error.response) {
         switch (error.response.status) {
           case 401:
@@ -80,7 +66,7 @@ export const useEmpleados = () => {
             message = error.response.data?.message || message;
         }
       }
-      
+
       toast.error(message);
       return { success: false, error: message };
     } finally {
@@ -88,19 +74,13 @@ export const useEmpleados = () => {
     }
   };
 
-  // Listar TODOS los empleados (activos e inactivos)
   const listarTodosEmpleados = async () => {
     setLoading(true);
     try {
-      console.log('📋 Cargando todos los empleados...');
-      
       const response = await axiosAuth.get('/empleados/listar-todos');
-
-      console.log('✅ Empleados cargados:', response.data.length);
       return { success: true, data: response.data };
-
     } catch (error) {
-      console.error('❌ Error al listar empleados:', error);
+      console.error('Error al listar empleados:', error);
       const message = error.response?.data?.message || 'Error al listar empleados';
       toast.error(message);
       return { success: false, data: [] };
@@ -109,15 +89,12 @@ export const useEmpleados = () => {
     }
   };
 
-  // Desactivar empleado
   const desactivarEmpleado = async (id) => {
     setLoading(true);
     try {
       const response = await axiosAuth.delete(`/empleados/${id}`);
-
       toast.success('Empleado desactivado exitosamente');
       return { success: true, data: response.data };
-
     } catch (error) {
       const message = error.response?.data?.message || 'Error al desactivar empleado';
       toast.error(message);
@@ -127,15 +104,12 @@ export const useEmpleados = () => {
     }
   };
 
-  // Reactivar empleado (opcional)
   const reactivarEmpleado = async (id) => {
     setLoading(true);
     try {
       const response = await axiosAuth.put(`/empleados/reactivar/${id}`);
-
       toast.success('Empleado reactivado exitosamente');
       return { success: true, data: response.data };
-
     } catch (error) {
       const message = error.response?.data?.message || 'Error al reactivar empleado';
       toast.error(message);
@@ -145,7 +119,6 @@ export const useEmpleados = () => {
     }
   };
 
-  // Validaciones
   const validarDatosEmpleado = (datos, esEdicion = false) => {
     const errores = [];
 

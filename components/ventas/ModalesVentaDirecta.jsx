@@ -208,7 +208,9 @@ export function ModalFacturacionVentaDirecta({
   onClose, 
   cliente,
   productos,
-  onConfirmarVenta
+  onConfirmarVenta,
+  faltantesStock = null,
+  loading = false
 }) {
   const [tipoFiscal, setTipoFiscal] = useState('A');
   const [subtotalSinIva, setSubtotalSinIva] = useState(0);
@@ -252,7 +254,6 @@ export function ModalFacturacionVentaDirecta({
     return tipo === tipoCorrectoPorIVA;
   };
 
-  // Inicializar valores cuando se abre el modal (con redondeo ,01–,59 mantienen; ,60–,99 suben)
   useEffect(() => {
     if (mostrar && productos && productos.length > 0 && cliente?.condicion_iva !== undefined) {
       const subtotal = productos.reduce((acc, prod) => acc + (Number(prod.subtotal) || 0), 0);
@@ -366,6 +367,25 @@ export function ModalFacturacionVentaDirecta({
                 </div>
               </div>
             </div>
+
+            {faltantesStock?.length > 0 && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <h3 className="font-semibold text-red-800 mb-2">Stock insuficiente</h3>
+                <p className="text-sm text-red-700 mb-3">
+                  No se pudo completar la venta. Corregí las cantidades en el carrito e intentá nuevamente.
+                </p>
+                <ul className="space-y-2 text-sm">
+                  {faltantesStock.map((item) => (
+                    <li key={item.id || item.nombre} className="flex flex-col sm:flex-row sm:justify-between gap-1 border-b border-red-100 pb-2 last:border-b-0 last:pb-0">
+                      <span className="font-medium text-red-900">{item.nombre}</span>
+                      <span className="text-red-700">
+                        Pedido: {item.requerido} · Disponible: {item.disponible}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             
             {/* ✅ SELECT CON OPCIONES DESHABILITADAS SEGÚN CONDICIÓN IVA */}
             <div className="mb-6">
@@ -483,13 +503,16 @@ export function ModalFacturacionVentaDirecta({
             <div className="flex flex-col sm:flex-row gap-4">
               <LoadingButton
                 onClick={handleConfirmar}
+                loading={loading}
+                loadingText="Procesando venta..."
                 className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2"
               >
                 CONFIRMAR VENTA
               </LoadingButton>
               <button
                 onClick={handleClose}
-                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2"
+                disabled={loading}
+                className="bg-gray-600 hover:bg-gray-700 disabled:bg-gray-400 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg font-semibold transition-colors w-full sm:w-1/2"
               >
                 CANCELAR
               </button>

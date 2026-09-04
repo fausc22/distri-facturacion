@@ -1,5 +1,5 @@
 // utils/offlineManager.js - Sistema de Storage Offline para PWA
-import { toast } from 'react-hot-toast';
+import toast from '@/components/shared/toast';
 
 // ✅ HELPER PARA SSR
 const isClient = () => typeof window !== 'undefined';
@@ -82,7 +82,7 @@ class OfflineManager {
     } catch (error) {
       console.error('❌ Error guardando clientes offline:', error);
       if (error?.isQuotaExceeded || isQuotaExceededError(error)) {
-        toast.error(QUOTA_MSG);
+        toast.error(QUOTA_MSG, { id: 'quota-exceeded' });
         throw error?.isQuotaExceeded ? error : Object.assign(new Error(QUOTA_MSG), { name: 'QuotaExceededError', isQuotaExceeded: true });
       }
       return false;
@@ -121,7 +121,7 @@ class OfflineManager {
     } catch (error) {
       console.error('❌ Error guardando productos offline:', error);
       if (error?.isQuotaExceeded || isQuotaExceededError(error)) {
-        toast.error(QUOTA_MSG);
+        toast.error(QUOTA_MSG, { id: 'quota-exceeded' });
         throw error?.isQuotaExceeded ? error : Object.assign(new Error(QUOTA_MSG), { name: 'QuotaExceededError', isQuotaExceeded: true });
       }
       return false;
@@ -203,7 +203,7 @@ class OfflineManager {
     } catch (error) {
       console.error('❌ Error guardando pedido pendiente:', error);
       if (error?.isQuotaExceeded || isQuotaExceededError(error)) {
-        toast.error(QUOTA_MSG);
+        toast.error(QUOTA_MSG, { id: 'quota-exceeded' });
         throw error?.isQuotaExceeded ? error : Object.assign(new Error(QUOTA_MSG), { name: 'QuotaExceededError', isQuotaExceeded: true });
       }
       return false;
@@ -246,7 +246,7 @@ class OfflineManager {
     } catch (error) {
       console.error('❌ Error guardando cache de pedidos:', error);
       if (error?.isQuotaExceeded || isQuotaExceededError(error)) {
-        toast.error(QUOTA_MSG);
+        toast.error(QUOTA_MSG, { id: 'quota-exceeded' });
       }
       return false;
     }

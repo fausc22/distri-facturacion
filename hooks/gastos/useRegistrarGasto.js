@@ -22,7 +22,7 @@ const obtenerMontoNumerico = (montoFormateado) => {
 export const useRegistrarGasto = () => {
   const setLoading = useGastosUIStore((s) => s.setLoading);
   const mutation = useRegistrarGastoMutation();
-  const { invalidateCompras } = useInvalidateFinanzas();
+  const { invalidateCompras, invalidateFondos } = useInvalidateFinanzas();
 
   const subirComprobanteDirecto = async (gastoId, archivo) => {
     const maxSize = 10 * 1024 * 1024;
@@ -67,10 +67,16 @@ export const useRegistrarGasto = () => {
         observaciones: formData.observaciones
           ? (formData.observaciones || '').trim()
           : null,
+        cuentaId: formData.cuentaId ? Number(formData.cuentaId) : null,
       };
 
       if (!gastoData.descripcion || !gastoData.forma_pago || gastoData.monto <= 0) {
         toast.error('Por favor complete todos los campos obligatorios correctamente');
+        return false;
+      }
+
+      if (!gastoData.cuentaId) {
+        toast.error('Debe seleccionar una cuenta de origen para el egreso');
         return false;
       }
 
@@ -100,6 +106,7 @@ export const useRegistrarGasto = () => {
       }
 
       invalidateCompras();
+      invalidateFondos();
       return true;
     } catch (error) {
       if (error.response?.status === 401) {

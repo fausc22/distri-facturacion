@@ -1,7 +1,10 @@
 import React, { useState } from "react";
+import Link from 'next/link';
 import { toast } from 'react-hot-toast';
 import { MdExpandMore, MdExpandLess } from "react-icons/md";
 import { ModalPDFUniversal, BotonGenerarPDFUniversal } from '../shared/ModalPDFUniversal';
+import { formatearCantidad } from '../../utils/formatearCantidad';
+import { axiosAuth } from '../../utils/apiClient';
 
 
 // Función helper para formatear fechas
@@ -136,8 +139,7 @@ function TablaProductosEscritorio({ productos }) {
         </thead>
         <tbody>
           {productos.map((producto) => {
-            // ✅ CONVERSIÓN SEGURA A ENTERO
-            const cantidad = Math.floor(Number(producto.cantidad)) || 0;
+            const cantidad = formatearCantidad(producto.cantidad);
             
             return (
               <tr key={producto.id} className="hover:bg-gray-100 border-b">
@@ -158,8 +160,7 @@ function TarjetasProductosMovil({ productos }) {
   return (
     <div className="lg:hidden space-y-3">
       {productos.map((producto) => {
-        // ✅ CONVERSIÓN SEGURA A ENTERO
-        const cantidad = Math.floor(Number(producto.cantidad)) || 0;
+        const cantidad = formatearCantidad(producto.cantidad);
         
         return (
           <div key={producto.id} className="bg-white p-3 rounded shadow border">
@@ -214,15 +215,12 @@ function TablaProductos({ productos, loading }) {
   );
 }
 
-// ✅ FUNCIÓN CORREGIDA - SIN DECIMALES PARA CANTIDADES
 function ResumenCantidades({ productos }) {
-  // Calcular total de productos
   const totalProductos = productos.length;
   
-  // ✅ CONVERSIÓN CORRECTA SIN DECIMALES
   const totalCantidad = productos.reduce((acc, prod) => {
-    const cantidad = Math.floor(Number(prod.cantidad)) || 0;
-    return acc + cantidad;
+    const cantidad = Number(prod.cantidad);
+    return acc + (Number.isFinite(cantidad) ? cantidad : 0);
   }, 0);
 
   if (productos.length === 0) return null;
@@ -237,8 +235,7 @@ function ResumenCantidades({ productos }) {
         
         <div className="flex justify-between items-center py-2 bg-green-300 rounded-lg px-3 border-2 border-green-400">
           <span className="text-black font-bold">CANTIDAD TOTAL:</span>
-          {/* ✅ CORREGIDO: SIN .toFixed(3) - MOSTRAR COMO ENTERO */}
-          <span className="text-black text-lg font-bold">{totalCantidad}</span>
+          <span className="text-black text-lg font-bold">{formatearCantidad(totalCantidad)}</span>
         </div>
       </div>
     </div>
@@ -254,6 +251,8 @@ export function ModalDetalleRemito({
   onClose,
   onGenerarPDF,
   generandoPDF = false,
+  onRemitoActualizado,
+  user,
   // Props para el modal PDF
   mostrarModalPDF,
   pdfURL,
@@ -265,6 +264,7 @@ export function ModalDetalleRemito({
   onCerrarModalPDF
 }) {
   const [clienteExpandido, setClienteExpandido] = useState(false);
+  const [loadingEstado, setLoadingEstado] = useState(false);
 
   if (!remito) return null;
 
@@ -276,6 +276,38 @@ export function ModalDetalleRemito({
     onClose();
   };
 
+  const handleCambiarEstado = async (nuevoEstado) => {
+    if (nuevoEstado === 'Cancelado') {
+      const confirmar = window.confirm(
+        `¿Anular el remito #${remito.id}? Esta acción no se puede deshacer fácilmente.`
+      );
+      if (!confirmar) return;
+    }
+
+    setLoadingEstado(true);
+    try {
+      const response = await axiosAuth.put(`/productos/remitos/${remito.id}/estado`, {
+        estado: nuevoEstado
+      });
+      if (response.data.success) {
+        toast.success(`Remito marcado como ${nuevoEstado}`);
+        onRemitoActualizado?.({ estado: nuevoEstado });
+      } else {
+        toast.error(response.data.message || 'No se pudo actualizar el estado');
+      }
+    } catch (error) {
+      console.error('Error actualizando estado del remito:', error);
+      toast.error(error.response?.data?.message || 'Error al actualizar el estado');
+    } finally {
+      setLoadingEstado(false);
+    }
+  };
+
+  const estadoActual = remito.estado;
+  const puedeMarcarEntregado = estadoActual === 'Pendiente' || estadoActual === 'Activo';
+  const puedeMarcarActivo = estadoActual === 'Pendiente';
+  const puedeAnular = user?.rol === 'GERENTE' && estadoActual !== 'Cancelado';
+
   return (
     <>
       <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50 p-2 sm:p-4">
@@ -283,9 +315,19 @@ export function ModalDetalleRemito({
           <div className="p-3 sm:p-4 lg:p-6">
             {/* Header */}
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">
-                Remito #{remito.id}
-              </h2>
+              <div>
+                <h2 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-800">
+                  Remito #{remito.id}
+                </h2>
+                {remito.venta_id && (
+                  <Link
+                    href={`/ventas/Facturacion?venta_id=${remito.venta_id}`}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    Factura #{remito.venta_id}
+                  </Link>
+                )}
+              </div>
               <button 
                 onClick={onClose}
                 className="text-gray-500 hover:text-gray-700 text-xl sm:text-2xl p-1"
@@ -324,20 +366,57 @@ export function ModalDetalleRemito({
           </div>
             
             {/* Botones de acción */}
-            <div className="mt-6 flex flex-col sm:flex-row gap-4">
-              <BotonGenerarPDFUniversal
-                onGenerar={onGenerarPDF}
-                loading={generandoPDF}
-                texto="🖨️ IMPRIMIR REMITO"
-                className="bg-green-600 hover:bg-green-700 w-full sm:w-1/2"
-              />
-              
-              <button
-                onClick={handleCerrarModal}
-                className="bg-gray-600 hover:bg-gray-700 text-white text-sm sm:text-lg font-semibold px-4 sm:px-6 py-2 sm:py-3 rounded-lg transition-colors w-full sm:w-1/2"
-              >
-                ❌ CERRAR
-              </button>
+            <div className="mt-6 flex flex-col gap-4">
+              {(puedeMarcarEntregado || puedeMarcarActivo || puedeAnular) && (
+                <div className="flex flex-col sm:flex-row flex-wrap gap-3">
+                  {puedeMarcarEntregado && (
+                    <button
+                      type="button"
+                      onClick={() => handleCambiarEstado('Entregado')}
+                      disabled={loadingEstado}
+                      className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    >
+                      {loadingEstado ? 'Actualizando...' : 'Marcar entregado'}
+                    </button>
+                  )}
+                  {puedeMarcarActivo && (
+                    <button
+                      type="button"
+                      onClick={() => handleCambiarEstado('Activo')}
+                      disabled={loadingEstado}
+                      className="bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-400 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    >
+                      {loadingEstado ? 'Actualizando...' : 'Marcar activo'}
+                    </button>
+                  )}
+                  {puedeAnular && (
+                    <button
+                      type="button"
+                      onClick={() => handleCambiarEstado('Cancelado')}
+                      disabled={loadingEstado}
+                      className="bg-red-600 hover:bg-red-700 disabled:bg-gray-400 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    >
+                      {loadingEstado ? 'Actualizando...' : 'Anular'}
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <BotonGenerarPDFUniversal
+                  onGenerar={onGenerarPDF}
+                  loading={generandoPDF}
+                  texto="🖨️ IMPRIMIR REMITO"
+                  className="bg-green-600 hover:bg-green-700 w-full sm:w-1/2"
+                />
+                
+                <button
+                  onClick={handleCerrarModal}
+                  className="bg-gray-600 hover:bg-gray-700 text-white text-sm sm:text-lg font-semibold px-4 sm:px-6 py-2 sm:py-3 rounded-lg transition-colors w-full sm:w-1/2"
+                >
+                  ❌ CERRAR
+                </button>
+              </div>
             </div>
           </div>
         </div>

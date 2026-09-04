@@ -326,6 +326,18 @@ export function useRegistrarGastoMutation() {
   });
 }
 
+export function useAnularCompraMutation() {
+  return useMutation({
+    mutationFn: async (compraId) => {
+      const response = await axiosAuth.put(`/compras/${compraId}/anular`);
+      if (!response.data?.success) {
+        throw new Error(response.data?.message || 'Error al anular la compra');
+      }
+      return response.data;
+    },
+  });
+}
+
 // ─── Reportes: fetchers extraídos de useFinanzasData ───
 
 export function appendFiltrosComunes(params, filtros = {}, incluirPeriodo = false) {
@@ -397,6 +409,23 @@ export async function fetchResumenFinanciero(filtros = {}) {
   return response.data.data;
 }
 
+export async function fetchResumenPorCuenta(filtros = {}) {
+  const params = buildReportesParams(filtros);
+  const response = await axiosAuth.get(`/finanzas/resumen-por-cuenta?${params.toString()}`);
+  if (!response.data?.success) throw new Error(response.data?.message || 'Error al cargar resumen por cuenta');
+  return {
+    data: response.data.data ?? [],
+    totales: response.data.totales ?? {},
+  };
+}
+
+export async function fetchReporteGerencial(filtros = {}) {
+  const params = buildReportesParams(filtros);
+  const response = await axiosAuth.get(`/finanzas/reporte-gerencial?${params.toString()}`);
+  if (!response.data?.success) throw new Error(response.data?.message || 'Error al cargar reporte gerencial');
+  return response.data.data;
+}
+
 export async function fetchBalanceGeneral(filtros = {}) {
   const params = buildReportesParams(filtros);
   if (filtros.anio) params.append('anio', filtros.anio);
@@ -458,6 +487,30 @@ export function useReportesDashboardQuery(filtros, enabled = true) {
     queryKey: queryKeys.reportes.dashboard(filtros),
     enabled: enabled && Boolean(filtros?.desde && filtros?.hasta),
     queryFn: () => fetchDashboardSimplificado(filtros),
+  });
+}
+
+export function useReportesGerencialQuery(filtros, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.reportes.gerencial(filtros),
+    enabled: enabled && Boolean(filtros?.desde && filtros?.hasta),
+    queryFn: () => fetchReporteGerencial(filtros),
+  });
+}
+
+export function useResumenFinancieroQuery(filtros, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.reportes.resumen(filtros),
+    enabled: enabled && Boolean(filtros?.desde && filtros?.hasta),
+    queryFn: () => fetchResumenFinanciero(filtros),
+  });
+}
+
+export function useResumenPorCuentaQuery(filtros, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.reportes.resumenPorCuenta(filtros),
+    enabled: enabled && Boolean(filtros?.desde && filtros?.hasta),
+    queryFn: () => fetchResumenPorCuenta(filtros),
   });
 }
 

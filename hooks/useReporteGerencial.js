@@ -1,10 +1,11 @@
 // hooks/useReporteGerencial.js
 // Carga del reporte gerencial usando el período compartido del store.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../utils/apiClient';
 import { usePeriodoReportes } from './usePeriodoReportes';
+import { useReportesGerencialQuery } from './queries/finanzasQueries';
 
 export function useReporteGerencial() {
   const {
@@ -20,36 +21,9 @@ export function useReporteGerencial() {
     etiquetaPeriodo,
   } = usePeriodoReportes();
 
-  const [datos, setDatos] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const filtros = { desde: rango.desde, hasta: rango.hasta };
+  const query = useReportesGerencialQuery(filtros, Boolean(rango.desde && rango.hasta));
   const [generandoPDF, setGenerandoPDF] = useState(false);
-
-  const cargarDatos = useCallback(async (rangoOverride) => {
-    const r = rangoOverride || rango;
-    setLoading(true);
-    setError(null);
-    try {
-      const response = await axiosAuth.get('/finanzas/reporte-gerencial', {
-        params: { desde: r.desde, hasta: r.hasta },
-      });
-      if (response.data?.success) {
-        setDatos(response.data.data);
-        return response.data.data;
-      }
-      const msg = response.data?.message || 'No se pudo cargar el reporte gerencial';
-      setError(msg);
-      toast.error(msg);
-      return null;
-    } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || 'Error al cargar el reporte gerencial';
-      setError(msg);
-      toast.error(msg);
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, [rango]);
 
   const descargarPDF = useCallback(async () => {
     if (!rango.desde || !rango.hasta) {
@@ -111,12 +85,6 @@ export function useReporteGerencial() {
     }
   }, [rango]);
 
-  useEffect(() => {
-    if (rango.desde && rango.hasta) {
-      cargarDatos(rango);
-    }
-  }, [rango.desde, rango.hasta, cargarDatos]);
-
   return {
     modo,
     setModo,
@@ -125,11 +93,11 @@ export function useReporteGerencial() {
     seleccionRango,
     setSeleccionRango,
     rango,
-    datos,
-    loading,
-    error,
+    datos: query.data ?? null,
+    loading: query.isFetching,
+    error: query.error?.message || null,
     generandoPDF,
-    recargar: () => cargarDatos(rango),
+    recargar: () => query.refetch(),
     descargarPDF,
     aniosDisponibles,
     meses,

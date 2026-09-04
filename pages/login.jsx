@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/router';
-import toast, { Toaster } from 'react-hot-toast';
+import toast from '@/components/shared/toast';
+import { Toaster } from 'react-hot-toast';
 import Head from 'next/head';
 import { useAuthContext } from '../components/AuthProvider';
 import { checkBackendConnectivity, connectivityErrorMessage } from '../utils/connectivity';
@@ -128,7 +129,7 @@ export default function Login() {
         toast.error(`❌ ${connectivityErrorMessage(result.status)}`);
       }
     } catch (error) {
-      toast.error('❌ Error de conexión: No se puede conectar al servidor');
+      toast.networkError('No se puede conectar al servidor.');
       console.error('Error de conexión:', error);
     } finally {
       setLoading(false);

@@ -1,10 +1,12 @@
+import { useEffect } from 'react';
 import { useFormularioGasto } from '@/hooks/gastos/useFormularioGasto';
+import { useCuentasSimple } from '@/hooks/compra/useCuentasSimple';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import FormFieldError from '@/components/shared/FormFieldError';
 import { gastoSchema } from '@/lib/formSchemas';
 import { useZodForm } from '@/hooks/forms/useZodForm';
-import { useEffect } from 'react';
+import { LoadingState } from '@/components/shared/StateViews';
 
 function CampoDescripcion({ value, opcionesDescripcion, onChange, error }) {
   return (
@@ -84,6 +86,36 @@ function CampoFormaPago({ value, opcionesFormaPago, onChange, error }) {
   );
 }
 
+function CampoCuenta({ value, cuentas, loadingCuentas, onChange, error }) {
+  return (
+    <div className="mb-6">
+      <Label htmlFor="cuentaId">
+        Cuenta de origen (egreso) <span className="text-destructive">*</span>
+      </Label>
+      {loadingCuentas ? (
+        <LoadingState message="Cargando cuentas..." />
+      ) : (
+        <select
+          id="cuentaId"
+          name="cuentaId"
+          value={value}
+          onChange={onChange}
+          className="mt-2 flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          required
+        >
+          <option value="">Seleccionar cuenta...</option>
+          {cuentas.map((cuenta) => (
+            <option key={cuenta.id} value={String(cuenta.id)}>
+              {cuenta.nombre} - Saldo: ${Number(cuenta.saldo).toFixed(2)}
+            </option>
+          ))}
+        </select>
+      )}
+      <FormFieldError message={error} />
+    </div>
+  );
+}
+
 function CampoObservaciones({ value, onChange }) {
   return (
     <div className="mb-6">
@@ -104,12 +136,14 @@ function CampoObservaciones({ value, onChange }) {
 export default function FormularioGasto() {
   const { formData, opcionesDescripcion, opcionesFormaPago, handleInputChange } =
     useFormularioGasto();
-  const { register, watch, trigger, formState } = useZodForm({
+  const { cuentas, loadingCuentas } = useCuentasSimple(true);
+  const { register, watch, setValue, trigger, formState } = useZodForm({
     schema: gastoSchema,
     defaultValues: {
       descripcion: formData.descripcion || '',
       monto: formData.monto || '',
       formaPago: formData.formaPago || '',
+      cuentaId: formData.cuentaId || '',
       observaciones: formData.observaciones || '',
     },
   });
@@ -117,18 +151,21 @@ export default function FormularioGasto() {
   const descripcionValue = watch('descripcion');
   const montoValue = watch('monto');
   const formaPagoValue = watch('formaPago');
+  const cuentaIdValue = watch('cuentaId');
   const observacionesValue = watch('observaciones');
 
   useEffect(() => {
     handleInputChange({ target: { name: 'descripcion', value: descripcionValue } });
     handleInputChange({ target: { name: 'monto', value: montoValue } });
     handleInputChange({ target: { name: 'formaPago', value: formaPagoValue } });
+    handleInputChange({ target: { name: 'cuentaId', value: cuentaIdValue } });
     handleInputChange({ target: { name: 'observaciones', value: observacionesValue } });
     trigger();
   }, [
     descripcionValue,
     montoValue,
     formaPagoValue,
+    cuentaIdValue,
     observacionesValue,
     handleInputChange,
     trigger,
@@ -152,6 +189,16 @@ export default function FormularioGasto() {
         opcionesFormaPago={opcionesFormaPago}
         onChange={register('formaPago').onChange}
         error={formState.errors.formaPago?.message}
+      />
+      <CampoCuenta
+        value={cuentaIdValue || ''}
+        cuentas={cuentas}
+        loadingCuentas={loadingCuentas}
+        onChange={(e) => {
+          setValue('cuentaId', e.target.value);
+          handleInputChange({ target: { name: 'cuentaId', value: e.target.value } });
+        }}
+        error={formState.errors.cuentaId?.message}
       />
       <CampoObservaciones value={observacionesValue} onChange={register('observaciones').onChange} />
     </div>

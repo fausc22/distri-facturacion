@@ -1,7 +1,10 @@
 import Head from 'next/head';
+import { useEffect } from 'react';
+import { useRouter } from 'next/router';
 import toast from '@/components/shared/toast';
 import useAuth from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
 import { PanelCard } from '@/components/shared/PanelCard';
 import { GastoProvider, useGasto } from '@/context/GastosContext';
 import { useRegistrarGasto } from '@/hooks/gastos/useRegistrarGasto';
@@ -13,6 +16,8 @@ import { BotonAccionesGasto } from '@/components/gastos/BotonAccionesGasto';
 import { ConfirmModal } from '@/components/shared/ConfirmModal';
 
 function RegistrarGastoContent() {
+  const { user } = useAuth();
+  const router = useRouter();
   const {
     formData,
     resetForm,
@@ -28,12 +33,16 @@ function RegistrarGastoContent() {
   const { registrarGasto, loading } = useRegistrarGasto();
   const { esFormularioValido, obtenerResumen, validarRangoMonto } = useFormularioGasto();
 
-  useAuth();
+  useEffect(() => {
+    if (user && user.rol !== 'GERENTE') {
+      router.push('/inicio');
+    }
+  }, [user, router]);
 
   const handleConfirmarGasto = () => {
     if (!esFormularioValido()) {
       toast.error(
-        'Por favor complete los campos obligatorios: Descripción, Monto y Forma de Pago'
+        'Por favor complete los campos obligatorios: Descripción, Monto, Forma de Pago y Cuenta'
       );
       return;
     }
@@ -79,6 +88,26 @@ function RegistrarGastoContent() {
     tieneComprobante: hayArchivo(),
     nombreComprobante: archivoInfo?.nombre || null,
   };
+
+  if (!user || user.rol !== 'GERENTE') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4">
+        <Card className="max-w-md p-8 text-center shadow-lg">
+          <CardHeader>
+            <CardTitle>Acceso Restringido</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-6 text-muted-foreground">
+              Solo los gerentes pueden registrar gastos.
+            </p>
+            <Button type="button" onClick={() => router.push('/inicio')}>
+              Volver al Inicio
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/30 p-4">

@@ -1,5 +1,8 @@
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+import { useQueryClient } from '@tanstack/react-query';
 import toast from '@/components/shared/toast';
 import useAuth from '@/hooks/useAuth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +12,8 @@ import { CompraProvider, useComprasHistorialUI } from '@/context/ComprasContext'
 import { useHistorialCompras } from '@/hooks/compra/useHistorialCompras';
 import { useDetalleCompra, useDetalleGasto } from '@/hooks/compra/useDetalleCompra';
 import { useComprobantes } from '@/hooks/useComprobantes';
+import { useAnularCompraMutation } from '@/hooks/queries/finanzasQueries';
+import { useInvalidateFinanzas } from '@/hooks/queries/useInvalidateQueries';
 import TabsHistorialCompras from '@/components/compra/TabsHistorialCompras';
 import TablaComprasHistorial from '@/components/compra/TablaComprasHistorial';
 import TablaGastosHistorial from '@/components/compra/TablaGastosHistorial';
@@ -27,7 +32,18 @@ const ModalComprobanteCompra = dynamic(
 );
 
 function HistorialComprasContent() {
-  useAuth();
+  const { user } = useAuth();
+  const router = useRouter();
+  const [anulando, setAnulando] = useState(false);
+  const anularMutation = useAnularCompraMutation();
+  const { invalidateCompras, invalidateFondos } = useInvalidateFinanzas();
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (user && user.rol !== 'GERENTE') {
+      router.push('/inicio');
+    }
+  }, [user, router]);
 
   const {
     vistaActiva,
@@ -128,6 +144,43 @@ function HistorialComprasContent() {
     clearComprobante();
     limpiarEstados();
   };
+
+  const handleAnularCompra = async (compraId) => {
+    setAnulando(true);
+    try {
+      await anularMutation.mutateAsync(compraId);
+      toast.success('Compra anulada correctamente');
+      cerrarDetalleCompra();
+      invalidateCompras();
+      invalidateFondos();
+      queryClient.invalidateQueries({ queryKey: ['productos'] });
+      await cargarDatos();
+    } catch (error) {
+      toast.error(error.message || 'No se pudo anular la compra');
+    } finally {
+      setAnulando(false);
+    }
+  };
+
+  if (!user || user.rol !== 'GERENTE') {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4">
+        <Card className="max-w-md p-8 text-center shadow-lg">
+          <CardHeader>
+            <CardTitle>Acceso Restringido</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="mb-6 text-muted-foreground">
+              Solo los gerentes pueden acceder al historial de compras.
+            </p>
+            <Button type="button" onClick={() => router.push('/inicio')}>
+              Volver al Inicio
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   const handleSelectAllCompras = (checked) => {
     setSeleccionCompras(checked ? compras.map((c) => c.id) : []);
@@ -234,6 +287,8 @@ function HistorialComprasContent() {
           productos={productos}
           loadingProductos={loadingProductos}
           onClose={cerrarDetalleCompra}
+          onAnular={handleAnularCompra}
+          anulando={anulando}
           onGestionarComprobante={(id) => {
             cerrarDetalleCompra();
             handleOpenComprobante(id, 'compra');

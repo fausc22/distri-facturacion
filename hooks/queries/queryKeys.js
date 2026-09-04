@@ -41,5 +41,7 @@ export const queryKeys = {
     balance: (params) => ['reportes', 'balance', params],
     productos: (params) => ['reportes', 'productos', params],
     geografico: (params) => ['reportes', 'geografico', params],
+    resumen: (params) => ['reportes', 'resumen', params],
+    resumenPorCuenta: (params) => ['reportes', 'resumen-por-cuenta', params],
   },
 };

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import useAuth from '../../hooks/useAuth';
 import { useClientes } from '../../hooks/useClientes';
 import TableHeader from '../../components/common/TableHeader';
@@ -8,7 +9,8 @@ import ModalCliente from '../../components/clientes/ModalCliente';
 import ModalBase from '../../components/common/ModalBase';
 
 export default function GestionClientes() {
-  useAuth();
+  const { user } = useAuth();
+  const router = useRouter();
 
   const { buscarClientes, eliminarCliente, loading, loadingBusqueda } = useClientes();
   
@@ -34,6 +36,12 @@ export default function GestionClientes() {
   const searchInputRef = useRef(null);
   const searchHadFocusRef = useRef(false);
 
+  useEffect(() => {
+    if (user && user.rol !== 'GERENTE') {
+      router.push('/inicio');
+    }
+  }, [user, router]);
+
   const cargarClientes = useCallback(async ({
     pagina = currentPage,
     termino = searchQuery,
@@ -57,8 +65,9 @@ export default function GestionClientes() {
    * El texto del input (searchInput) no está en las dependencias: no se busca al escribir.
    */
   useEffect(() => {
+    if (!user || user.rol !== 'GERENTE') return;
     cargarClientes();
-  }, [cargarClientes]);
+  }, [user, cargarClientes]);
 
   useEffect(() => {
     if (!loadingBusqueda && searchHadFocusRef.current && searchInputRef.current) {
@@ -160,6 +169,26 @@ export default function GestionClientes() {
     { key: 'acciones', label: 'Acciones', sortable: false, className: '!px-2 sm:!px-2.5 !py-2 text-right' }
   ];
 
+  if (!user || user.rol !== 'GERENTE') {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">Acceso Restringido</h2>
+          <p className="text-gray-600 mb-6">
+            Solo los gerentes pueden acceder a la gestión de clientes.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.push('/inicio')}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-semibold transition-colors"
+          >
+            Volver al Inicio
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (loading && clientes.length === 0) {
     return (
       <div className="min-h-screen bg-gray-100 flex items-center justify-center">
@@ -170,6 +199,22 @@ export default function GestionClientes() {
       </div>
     );
   }
+
+  const emptyState = (
+    <div className="px-4 py-12 text-center">
+      <p className="text-gray-500 font-medium">No se encontraron clientes</p>
+      <p className="text-sm text-gray-400 mt-1">
+        Probá con otro término de búsqueda o creá un cliente nuevo.
+      </p>
+      <button
+        type="button"
+        onClick={handleNuevoCliente}
+        className="mt-4 min-h-[44px] px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 touch-manipulation"
+      >
+        Nuevo cliente
+      </button>
+    </div>
+  );
 
   return (
     <div className="flex flex-col min-h-screen bg-gray-100">
@@ -293,7 +338,12 @@ export default function GestionClientes() {
                 onSort={handleSort}
               />
               <tbody className="bg-white divide-y divide-gray-200">
-                {clientesPaginados.map((cliente) => (
+                {clientesPaginados.length === 0 ? (
+                  <tr>
+                    <td colSpan={6}>{emptyState}</td>
+                  </tr>
+                ) : (
+                  clientesPaginados.map((cliente) => (
                   <tr key={cliente.id} className="hover:bg-gray-50">
                     <td className="px-2 py-2.5 sm:px-2.5 align-top min-w-0">
                       <div className="flex items-start gap-1 min-w-0">
@@ -355,14 +405,18 @@ export default function GestionClientes() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                ))
+                )}
               </tbody>
             </table>
           </div>
 
           {/* Vista móvil — Fase 4: touch targets y scroll */}
           <div className="lg:hidden touch-manipulation">
-            {clientesPaginados.map((cliente) => (
+            {clientesPaginados.length === 0 ? (
+              emptyState
+            ) : (
+              clientesPaginados.map((cliente) => (
               <div key={cliente.id} className="border-b border-gray-200 p-4 hover:bg-gray-50 active:bg-gray-100">
                 <div className="flex justify-between items-start gap-3 mb-2">
                   <div className="flex-1 min-w-0">
@@ -415,7 +469,8 @@ export default function GestionClientes() {
                   </div>
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
 
           {/* Paginación */}
@@ -456,7 +511,7 @@ export default function GestionClientes() {
             <span className="font-semibold">{clienteAEliminar?.nombre || ''}</span>?
           </p>
           <p className="text-xs text-gray-500">
-            Esta acción es permanente. Si el cliente tiene pedidos o ventas asociados, puede haber restricciones en base de datos.
+            Esta acción es permanente. Si el cliente tiene pedidos asociados, no podrá eliminarse.
           </p>
           <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button

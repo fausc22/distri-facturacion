@@ -1,8 +1,9 @@
-import { MdRemoveRedEye } from 'react-icons/md';
+import { useState } from 'react';
 import { FormModal } from '@/components/shared/FormModal';
 import { Button } from '@/components/ui/button';
 import { LoadingState } from '@/components/shared/StateViews';
 import { DataTable } from '@/components/tables/DataTable';
+import { ConfirmModal } from '@/components/shared/ConfirmModal';
 import { formatearCantidad } from '@/utils/formatearCantidad';
 
 const formatCurrency = (value) =>
@@ -28,8 +29,14 @@ export default function ModalDetalleCompra({
   loadingProductos,
   onClose,
   onGestionarComprobante,
+  onAnular,
+  anulando = false,
 }) {
+  const [confirmAnular, setConfirmAnular] = useState(false);
+
   if (!compra) return null;
+
+  const puedeAnular = compra.estado === 'Registrada' || compra.estado === 'Confirmada';
 
   const columns = [
     { accessorKey: 'producto_id', header: 'Código' },
@@ -58,57 +65,83 @@ export default function ModalDetalleCompra({
   ];
 
   return (
-    <FormModal
-      open={open}
-      onOpenChange={(isOpen) => !isOpen && onClose()}
-      title="Detalle de Compra"
-      size="xl"
-      hideFooter
-    >
-      <div className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          <strong>Fecha:</strong> {formatDate(compra.fecha)}
-        </p>
+    <>
+      <FormModal
+        open={open}
+        onOpenChange={(isOpen) => !isOpen && onClose()}
+        title="Detalle de Compra"
+        size="xl"
+        hideFooter
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            <strong>Fecha:</strong> {formatDate(compra.fecha)}
+          </p>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-lg border p-4">
-            <h3 className="mb-2 font-semibold">Información del Proveedor</h3>
-            <p className="text-sm">
-              <strong>Proveedor:</strong> {compra.proveedor_nombre}
-            </p>
-            <p className="text-sm">
-              <strong>CUIT:</strong> {compra.proveedor_cuit}
-            </p>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-lg border p-4">
+              <h3 className="mb-2 font-semibold">Información del Proveedor</h3>
+              <p className="text-sm">
+                <strong>Proveedor:</strong> {compra.proveedor_nombre}
+              </p>
+              <p className="text-sm">
+                <strong>CUIT:</strong> {compra.proveedor_cuit}
+              </p>
+            </div>
+            <div className="rounded-lg border p-4">
+              <h3 className="mb-2 font-semibold">Información de la Compra</h3>
+              <p className="text-sm">
+                <strong>Estado:</strong> {compra.estado}
+              </p>
+              <p className="text-sm">
+                <strong>Total:</strong> {formatCurrency(compra.total)}
+              </p>
+            </div>
           </div>
-          <div className="rounded-lg border p-4">
-            <h3 className="mb-2 font-semibold">Información de la Compra</h3>
-            <p className="text-sm">
-              <strong>Estado:</strong> {compra.estado}
-            </p>
-            <p className="text-sm">
-              <strong>Total:</strong> {formatCurrency(compra.total)}
-            </p>
+
+          <div>
+            <h3 className="mb-2 font-semibold">Productos Comprados</h3>
+            {loadingProductos ? (
+              <LoadingState message="Cargando productos..." />
+            ) : (
+              <DataTable columns={columns} data={productos} enablePagination={false} />
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" onClick={() => onGestionarComprobante(compra.id)}>
+              Gestionar Comprobante
+            </Button>
+            {puedeAnular && typeof onAnular === 'function' && (
+              <Button
+                type="button"
+                variant="danger"
+                disabled={anulando}
+                onClick={() => setConfirmAnular(true)}
+              >
+                {anulando ? 'Anulando...' : 'Anular Compra'}
+              </Button>
+            )}
+            <Button type="button" variant="outline" onClick={onClose}>
+              Cerrar
+            </Button>
           </div>
         </div>
+      </FormModal>
 
-        <div>
-          <h3 className="mb-2 font-semibold">Productos Comprados</h3>
-          {loadingProductos ? (
-            <LoadingState message="Cargando productos..." />
-          ) : (
-            <DataTable columns={columns} data={productos} enablePagination={false} />
-          )}
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={() => onGestionarComprobante(compra.id)}>
-            Gestionar Comprobante
-          </Button>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cerrar
-          </Button>
-        </div>
-      </div>
-    </FormModal>
+      <ConfirmModal
+        open={confirmAnular}
+        onOpenChange={(isOpen) => !isOpen && setConfirmAnular(false)}
+        title="¿Anular esta compra?"
+        description="Se revertirá el stock y el movimiento de fondos asociado. Esta acción no se puede deshacer."
+        confirmLabel="Sí, Anular"
+        cancelLabel="Cancelar"
+        variant="danger"
+        onConfirm={async () => {
+          setConfirmAnular(false);
+          await onAnular(compra.id);
+        }}
+      />
+    </>
   );
 }

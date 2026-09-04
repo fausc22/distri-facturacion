@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ModalBase from '../common/ModalBase';
+import ModalAjusteStock from './ModalAjusteStock';
+import useAuth from '../../hooks/useAuth';
 import { useProductos } from '../../hooks/useProductos';
 import { formatearMoneda } from '../../utils/formatearMoneda';
 import { precioConIvaDesdeNeto, precioNetoDesdeConIva, roundPrecio } from '../../utils/rounding';
@@ -11,6 +13,8 @@ function ModalProducto({
   onProductoGuardado,
   modo = 'crear' // 'crear' o 'editar'
 }) {
+  const { user } = useAuth();
+  const esGerente = user?.rol === 'GERENTE';
   const { crearProducto, actualizarProducto, obtenerCategorias, validarDatosProducto, loading } = useProductos();
 
   const [formData, setFormData] = useState({
@@ -27,6 +31,7 @@ function ModalProducto({
   const [errores, setErrores] = useState([]);
   const [modoEntradaPrecio, setModoEntradaPrecio] = useState('sin_iva');
   const [precioConIvaInput, setPrecioConIvaInput] = useState('');
+  const [modalAjusteAbierto, setModalAjusteAbierto] = useState(false);
 
   // Cargar categorías al abrir el modal
   useEffect(() => {
@@ -45,19 +50,13 @@ function ModalProducto({
   // Llenar formulario cuando se selecciona un producto para editar
   useEffect(() => {
     if (producto && modo === 'editar') {
-      // Debug: ver qué valor viene de la BD
-      console.log('📊 Producto recibido:', producto);
-      console.log('📊 IVA del producto:', producto.iva, 'Tipo:', typeof producto.iva);
-      
       // Convertir el IVA al formato correcto si viene como número
       let ivaValue = '21.00';
       if (producto.iva !== undefined && producto.iva !== null) {
         const ivaNum = parseFloat(producto.iva);
         ivaValue = ivaNum.toFixed(2);
       }
-      
-      console.log('📊 IVA formateado:', ivaValue);
-      
+
       setFormData({
         nombre: producto.nombre || '',
         categoria_id: producto.categoria_id || '',
@@ -85,6 +84,7 @@ function ModalProducto({
       setModoEntradaPrecio('sin_iva');
     }
     setErrores([]);
+    setModalAjusteAbierto(false);
   }, [producto, modo, isOpen]);
 
   const handleInputChange = (e) => {
@@ -140,13 +140,26 @@ function ModalProducto({
     const payload = {
       ...formData,
       precio: formData.precio !== '' ? String(roundPrecio(formData.precio)) : '',
+      // En editar, stock_actual no se modifica desde este modal
+      ...(modo === 'editar'
+        ? { stock_actual: producto.stock_actual }
+        : {}),
     };
 
-    const erroresValidacion = validarDatosProducto(payload);
+    const { errores: erroresValidacion, advertencias } = validarDatosProducto(payload);
     if (erroresValidacion.length > 0) {
       setErrores(erroresValidacion);
       return;
     }
+
+    if (advertencias.length > 0) {
+      const mensaje = `${advertencias.join('. ')}. ¿Deseás continuar de todas formas?`;
+      if (!window.confirm(mensaje)) {
+        return;
+      }
+    }
+
+    setErrores([]);
 
     let resultado;
     if (modo === 'crear') {
@@ -168,8 +181,10 @@ function ModalProducto({
   ];
 
   const porcentajesIVA = ['0.00', '10.50', '21.00'];
+  const camposComercialesDisabled = !esGerente || loading;
 
   return (
+    <>
     <ModalBase
       isOpen={isOpen}
       onClose={onClose}
@@ -260,9 +275,9 @@ function ModalProducto({
               onChange={handleInputChange}
               step="0.01"
               min="0"
-              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation disabled:bg-gray-100 disabled:cursor-not-allowed"
               required
-              disabled={loading}
+              disabled={camposComercialesDisabled}
               placeholder="0.00"
             />
           </div>
@@ -278,7 +293,8 @@ function ModalProducto({
               <button
                 type="button"
                 onClick={alternarModoPrecio}
-                className="text-xs font-medium text-primary hover:underline"
+                disabled={camposComercialesDisabled}
+                className="text-xs font-medium text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed disabled:no-underline"
               >
                 {modoEntradaPrecio === 'con_iva'
                   ? 'Ingresar sin IVA'
@@ -293,9 +309,9 @@ function ModalProducto({
                 onChange={handlePrecioConIvaChange}
                 step="0.01"
                 min="0"
-                className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
+                className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation disabled:bg-gray-100 disabled:cursor-not-allowed"
                 required
-                disabled={loading}
+                disabled={camposComercialesDisabled}
                 placeholder="0.00"
               />
             ) : (
@@ -306,9 +322,9 @@ function ModalProducto({
                 onChange={handlePrecioNetoChange}
                 step="0.01"
                 min="0"
-                className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
+                className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation disabled:bg-gray-100 disabled:cursor-not-allowed"
                 required
-                disabled={loading}
+                disabled={camposComercialesDisabled}
                 placeholder="0.00"
               />
             )}
@@ -337,8 +353,8 @@ function ModalProducto({
               name="iva"
               value={formData.iva}
               onChange={handleIvaChange}
-              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
-              disabled={loading}
+              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation disabled:bg-gray-100 disabled:cursor-not-allowed"
+              disabled={camposComercialesDisabled}
               required
             >
               {porcentajesIVA.map(porcentaje => (
@@ -348,26 +364,21 @@ function ModalProducto({
               ))}
             </select>
           </div>
-
-          {/* Stock Actual */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Stock Actual *
-            </label>
-            <input
-              type="number"
-              name="stock_actual"
-              value={formData.stock_actual}
-              onChange={handleInputChange}
-              step="0.5"
-              min="0"
-              className="w-full min-h-[44px] px-3 py-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 touch-manipulation"
-              required
-              disabled={loading}
-              placeholder="0"
-            />
-          </div>
         </div>
+
+        {/* Ajustar stock (solo en editar) */}
+        {modo === 'editar' && (
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={() => setModalAjusteAbierto(true)}
+              disabled={loading}
+              className="min-h-[44px] min-w-[44px] px-4 py-2 border border-amber-400 text-amber-800 bg-amber-50 rounded-md hover:bg-amber-100 active:bg-amber-200 touch-manipulation disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Ajustar stock
+            </button>
+          </div>
+        )}
 
         {/* Información adicional */}
         {formData.precio && formData.iva && modoEntradaPrecio === 'sin_iva' && (
@@ -389,20 +400,35 @@ function ModalProducto({
           >
             Cancelar
           </button>
-          <button
-            type="submit"
-            className={`min-h-[44px] min-w-[44px] px-6 py-2 text-white rounded-md touch-manipulation ${
-              loading
-                ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
-            }`}
-            disabled={loading}
-          >
-            {loading ? 'Guardando...' : modo === 'crear' ? 'Crear Producto' : 'Actualizar Producto'}
-          </button>
+          {(modo === 'crear' || esGerente) && (
+            <button
+              type="submit"
+              className={`min-h-[44px] min-w-[44px] px-6 py-2 text-white rounded-md touch-manipulation ${
+                loading
+                  ? 'bg-gray-400 cursor-not-allowed'
+                  : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+              }`}
+              disabled={loading}
+            >
+              {loading ? 'Guardando...' : modo === 'crear' ? 'Crear Producto' : 'Actualizar Producto'}
+            </button>
+          )}
         </div>
       </form>
     </ModalBase>
+
+    {modo === 'editar' && producto && (
+      <ModalAjusteStock
+        producto={{ ...producto, stock_actual: formData.stock_actual || producto.stock_actual }}
+        isOpen={modalAjusteAbierto}
+        onClose={() => setModalAjusteAbierto(false)}
+        onStockAjustado={() => {
+          onProductoGuardado();
+          onClose();
+        }}
+      />
+    )}
+    </>
   );
 }
 

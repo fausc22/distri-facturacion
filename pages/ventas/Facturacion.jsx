@@ -1,6 +1,7 @@
-import { useRef, useMemo, useCallback, useState } from 'react';
+import { useRef, useMemo, useCallback, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import toast from '@/components/shared/toast';
 import useAuth from '../../hooks/useAuth';
 import { useVentasUIStore } from '@/stores/ventasUIStore';
@@ -648,5 +649,19 @@ function HistorialVentasContent() {
 }
 
 export default function HistorialVentas() {
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user && user.rol !== 'GERENTE') {
+      toast.error('Solo los gerentes pueden acceder a facturación.');
+      router.push('/inicio');
+    }
+  }, [user, router]);
+
+  if (!user || user.rol !== 'GERENTE') {
+    return null;
+  }
+
   return <HistorialVentasContent />;
 }

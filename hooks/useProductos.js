@@ -107,6 +107,7 @@ export const useProductos = () => {
   // Validar datos de producto
   const validarDatosProducto = (datos) => {
     const errores = [];
+    const advertencias = [];
 
     // Campos obligatorios
     if (!datos.nombre?.trim()) {
@@ -142,12 +143,12 @@ export const useProductos = () => {
       errores.push('El stock debe ser un número válido mayor o igual a 0');
     }
 
-    // Validación de lógica de negocio
+    // Advertencia de negocio (no bloquea; requiere confirmación en UI)
     if (!isNaN(costo) && !isNaN(precio) && precio < costo) {
-      errores.push('Advertencia: El precio de venta es menor que el costo');
+      advertencias.push('El precio de venta es menor que el costo');
     }
 
-    return errores;
+    return { errores, advertencias };
   };
 
   return {

@@ -1,6 +1,6 @@
 // hooks/pedidos/usePedidosHybrid.js - OFFLINE-FIRST: Registro robusto de pedidos
 import { useState, useRef } from 'react';
-import { toast } from 'react-hot-toast';
+import toast from '@/components/shared/toast';
 import { axiosAuth } from '../../utils/apiClient';
 import { getAppMode, offlineManager } from '../../utils/offlineManager';
 import { useOfflineCatalog } from '../useOfflineCatalog';
@@ -332,8 +332,20 @@ export function usePedidosHybrid() {
         registrandoRef.current = false;
         return resultado;
       }
+
+      const errorMessage = error?.message || '';
+      const isAuthError =
+        error?.response?.status === 401 ||
+        error?.response?.status === 403 ||
+        errorMessage.includes('Sesión expirada') ||
+        errorMessage.includes('No refresh token');
+
+      if (isAuthError) {
+        registrandoRef.current = false;
+        return { success: false, error: errorMessage || 'Sesión expirada' };
+      }
       
-      toast.error('Error al registrar el pedido. Verifique su conexión.');
+      toast.networkError('No se pudo registrar el pedido.');
       registrandoRef.current = false;
       return { success: false, error: error.message };
     } finally {

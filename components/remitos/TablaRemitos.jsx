@@ -91,6 +91,9 @@ function TablaEscritorio({
             >
               Usuario {getSortIcon('empleado_nombre')}
             </th>
+            <th className="p-3 text-center" title="Ver detalle (también doble clic en la fila)">
+              Acciones
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -142,6 +145,21 @@ function TablaEscritorio({
                 <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm">
                   {remito.empleado_nombre || 'No especificado'}
                 </span>
+              </td>
+              <td className="p-3 text-center">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRowDoubleClick(remito);
+                  }}
+                  className="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-green-700 bg-green-50 hover:bg-green-100 rounded-md transition-colors"
+                  title="Ver detalle"
+                  aria-label={`Ver detalle del remito ${remito.id}`}
+                >
+                  <span aria-hidden>👁</span>
+                  Ver
+                </button>
               </td>
             </tr>
           ))}
@@ -312,7 +330,8 @@ export default function TablaRemitos({
   onSelectRemito,
   onSelectAll,
   onRowDoubleClick,
-  loading
+  loading,
+  totalRemitos
 }) {
   const [sortField, setSortField] = useState(null);
   const [sortDirection, setSortDirection] = useState('asc');
@@ -409,7 +428,7 @@ export default function TablaRemitos({
           </span>
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-4">
             <span>
-              Total de remitos: <span className="font-medium">{remitos.length}</span>
+              Total de remitos: <span className="font-medium">{typeof totalRemitos === 'number' ? totalRemitos : remitos.length}</span>
             </span>
           </div>
         </div>

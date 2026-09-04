@@ -1,6 +1,6 @@
 // hooks/ventas/useVentaDirecta.js
 import { useState, useRef } from 'react';
-import { toast } from 'react-hot-toast';
+import toast from '@/components/shared/toast';
 import { axiosAuth } from '../../utils/apiClient';
 import { generarHashVenta } from '../../utils/pedidoHash';
 
@@ -88,7 +88,10 @@ export function useVentaDirecta() {
       }
     } catch (error) {
       console.error('Error en venta directa:', error);
-      
+
+      const serverMsg = error.response?.data?.message;
+      const faltantes = error.response?.data?.faltantes;
+
       // ✅ VERIFICAR SI ES ERROR DE DUPLICADO
       if (error.response?.status === 409 || error.response?.data?.code === 'DUPLICATE') {
         console.log('⚠️ Venta duplicada detectada');
@@ -100,23 +103,29 @@ export function useVentaDirecta() {
           existing: true
         };
       }
-      
-      // Manejo de errores específicos
-      if (error.response?.status === 403) {
-        toast.error('No tienes permisos para realizar ventas directas. Solo gerentes.', {
-          duration: 5000,
-          icon: '🔒'
-        });
+
+      const isAuthError =
+        error?.response?.status === 401 ||
+        error?.message?.includes('Sesión expirada') ||
+        error?.message?.includes('No refresh token');
+
+      if (isAuthError) {
+        // apiClient.js ya muestra el toast de sesión expirada
+      } else if (error.response?.status === 403) {
+        toast.error('Sin permisos para realizar ventas directas.', { duration: 5000 });
       } else if (error.response?.status === 400) {
-        toast.error(error.response.data.message || 'Datos inválidos');
+        toast.error(serverMsg || 'Datos inválidos en la venta.');
+      } else if (serverMsg) {
+        toast.error(serverMsg, { duration: 6000 });
       } else {
-        toast.error('Error al registrar la venta directa. Verifique su conexión.');
+        toast.networkError('No se pudo conectar con el servidor.');
       }
-      
+
       registrandoRef.current = false;
       return {
         success: false,
-        error: error.response?.data?.message || error.message
+        error: serverMsg || error.message,
+        faltantes: faltantes || null
       };
     } finally {
       setLoading(false);

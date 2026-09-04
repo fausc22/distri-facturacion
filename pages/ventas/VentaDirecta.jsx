@@ -34,6 +34,16 @@ const ModalFacturacionVentaDirecta = dynamic(
   { ssr: false }
 );
 
+const VENTA_DIRECTA_DRAFT_KEY = 'venta_directa_draft_v1';
+
+const formatDraftAge = (savedAt) => {
+  const mins = Math.floor((Date.now() - savedAt) / 60000);
+  if (mins < 1) return 'hace un momento';
+  if (mins < 60) return `hace ${mins} minuto${mins === 1 ? '' : 's'}`;
+  const hours = Math.floor(mins / 60);
+  return `hace ${hours} hora${hours === 1 ? '' : 's'}`;
+};
+
 function VentaDirectaContent() {
   const { 
     cliente, 
@@ -44,7 +54,10 @@ function VentaDirectaContent() {
     total, 
     totalProductos,
     clearPedido,
-    getDatosPedido
+    getDatosPedido,
+    savedDraft,
+    restoreDraft,
+    discardDraft
   } = usePedidosContext();
  
   const { registrarVentaDirecta, loading } = useVentaDirecta();
@@ -54,6 +67,7 @@ function VentaDirectaContent() {
   const [mostrarConfirmacion, setMostrarConfirmacion] = useState(false);
   const [mostrarModalFacturacion, setMostrarModalFacturacion] = useState(false);
   const [mostrarConfirmacionSalida, setMostrarConfirmacionSalida] = useState(false);
+  const [faltantesStock, setFaltantesStock] = useState(null);
 
   // Verificar que sea gerente
   useEffect(() => {
@@ -103,6 +117,7 @@ function VentaDirectaContent() {
 
   const handleContinuarAFacturacion = () => {
     setMostrarConfirmacion(false);
+    setFaltantesStock(null);
     setMostrarModalFacturacion(true);
   };
 
@@ -156,11 +171,13 @@ function VentaDirectaContent() {
     
     console.log('💰 Enviando venta directa completa:', datosCompletos);
     
+    setFaltantesStock(null);
     const resultado = await registrarVentaDirecta(datosCompletos);
     
     if (resultado.success) {
       clearPedido();
       setMostrarModalFacturacion(false);
+      setFaltantesStock(null);
       
       toast.success(
         `Venta directa completada:\n` +
@@ -177,6 +194,11 @@ function VentaDirectaContent() {
       setTimeout(() => {
         router.push('/inicio');
       }, 2000);
+      return;
+    }
+
+    if (resultado.faltantes?.length) {
+      setFaltantesStock(resultado.faltantes);
     }
   };
 
@@ -186,6 +208,7 @@ function VentaDirectaContent() {
 
   const handleCancelarFacturacion = () => {
     setMostrarModalFacturacion(false);
+    setFaltantesStock(null);
   };
 
   const handleVolver = () => {
@@ -217,6 +240,42 @@ function VentaDirectaContent() {
         </CardHeader>
         <CardContent className="pt-6">
         <PageBreadcrumbs />
+
+        {savedDraft && (
+          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="font-semibold text-amber-900">Borrador guardado</p>
+                <p className="text-sm text-amber-800">
+                  {savedDraft.cliente?.nombre
+                    ? `Cliente: ${savedDraft.cliente.nombre} · `
+                    : ''}
+                  {savedDraft.productos?.length || 0} producto(s) · {formatDraftAge(savedDraft.savedAt)}
+                </p>
+                <p className="mt-1 text-xs text-amber-700">
+                  Se guarda automáticamente por 24 horas mientras armás la venta.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <button
+                  type="button"
+                  onClick={restoreDraft}
+                  className="rounded bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-amber-700"
+                >
+                  Restaurar borrador
+                </button>
+                <button
+                  type="button"
+                  onClick={discardDraft}
+                  className="rounded border border-amber-400 px-4 py-2 text-sm font-semibold text-amber-900 transition-colors hover:bg-amber-100"
+                >
+                  Descartar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col md:flex-row gap-6">
           <ClienteSelector />
           <ProductoSelector mostrarPreciosConIva mostrarBotonFletes />
@@ -258,13 +317,15 @@ function VentaDirectaContent() {
         cliente={cliente}
         productos={productos}
         onConfirmarVenta={handleConfirmarVenta}
+        faltantesStock={faltantesStock}
+        loading={loading}
       />
 
       <ConfirmModal
         open={mostrarConfirmacionSalida}
         onOpenChange={setMostrarConfirmacionSalida}
         title="Salir de Venta Directa"
-        description="Hay datos cargados sin guardar. Si salís ahora, se perderán."
+        description="Hay datos cargados sin confirmar. El borrador se guarda automáticamente por 24 horas, pero la venta no quedará registrada hasta confirmarla."
         confirmLabel="Salir igualmente"
         cancelLabel="Seguir editando"
         variant="danger"
@@ -276,7 +337,7 @@ function VentaDirectaContent() {
 
 export default function VentaDirecta() {
   return (
-    <PedidosProvider>
+    <PedidosProvider draftKey={VENTA_DIRECTA_DRAFT_KEY}>
       <VentaDirectaContent />
     </PedidosProvider>
   );

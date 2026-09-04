@@ -75,8 +75,6 @@ export function ModalEditarProductoVentaDirecta({
   }
 
   // Cálculos
-  const stockDisponible = Number(producto.stock_actual) || 999999; // Stock alto para venta directa
-  const stockSuficiente = true; // Siempre suficiente para venta directa
   const porcentajeIva = Number(producto.porcentaje_iva) || 21;
   const multiplicadorIva = 1 + porcentajeIva / 100;
   const precioUnitarioFinalAuto = localPrecio * multiplicadorIva;

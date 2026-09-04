@@ -63,6 +63,9 @@ export const useFormularioGasto = () => {
       
       case 'formaPago':
         return valor && (valor || '').trim() !== '';
+
+      case 'cuentaId':
+        return valor && (valor || '').toString().trim() !== '';
       
       default:
         return true;
@@ -94,6 +97,9 @@ export const useFormularioGasto = () => {
       
       case 'formaPago':
         return 'Debe seleccionar una forma de pago';
+
+      case 'cuentaId':
+        return 'Debe seleccionar una cuenta de origen';
       
       default:
         return '';

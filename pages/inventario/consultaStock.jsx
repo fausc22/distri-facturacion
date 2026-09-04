@@ -5,174 +5,14 @@ import useAuth from '../../hooks/useAuth';
 import { axiosAuth } from '../../utils/apiClient';
 import { useProductosListado } from '../../hooks/useProductosListado';
 import FiltrosProductos from '../../components/productos/FiltrosProductos';
+import ModalEditarProductoStock from '../../components/productos/ModalEditarProductoStock';
 import TableHeader from '../../components/common/TableHeader';
 import Pagination from '../../components/common/Pagination';
 import { formatearMoneda } from '../../utils/formatearMoneda';
+import { formatearCantidad } from '../../utils/formatearCantidad';
+import { getStockStatus, STOCK_THRESHOLDS } from '../../constants/stockThresholds';
 
-function ModalEditarProducto({ producto, isOpen, onClose, onProductoActualizado, categorias }) {
-  const [formData, setFormData] = useState({
-    nombre: '',
-    categoria_id: '',
-    stock_actual: ''
-  });
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (producto) {
-      setFormData({
-        nombre: producto.nombre || '',
-        categoria_id: producto.categoria_id || '',
-        stock_actual: producto.stock_actual || ''
-      });
-    }
-  }, [producto]);
-
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!formData.nombre.trim()) {
-      toast.error('El nombre es obligatorio');
-      return;
-    }
-    if (!formData.categoria_id) {
-      toast.error('La categoría es obligatoria');
-      return;
-    }
-    if (formData.stock_actual === '' || isNaN(formData.stock_actual)) {
-      toast.error('El stock debe ser un número válido');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const response = await axiosAuth.put(`/productos/actualizar-producto-basico/${producto.id}`, {
-        ...formData,
-        stock_actual: parseFloat(formData.stock_actual)
-      });
-      if (response.data.success) {
-        toast.success('Producto actualizado correctamente');
-        onProductoActualizado();
-        onClose();
-      }
-    } catch (error) {
-      console.error('Error actualizando producto:', error);
-      toast.error(error.response?.data?.message || 'Error al actualizar producto');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold text-gray-900">Editar Producto: {producto?.nombre}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-            disabled={loading}
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
-            <input
-              type="text"
-              name="nombre"
-              value={formData.nombre}
-              onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-              disabled={loading}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Categoría *</label>
-            <select
-              name="categoria_id"
-              value={formData.categoria_id}
-              onChange={handleInputChange}
-              className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              required
-              disabled={loading}
-            >
-              <option value="">Seleccionar categoría</option>
-              {categorias.map((categoria) => (
-                <option key={categoria.id} value={categoria.id}>
-                  {categoria.nombre}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Stock Actual *</label>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const newValue = Math.max(0, parseFloat(formData.stock_actual || 0) - 0.5);
-                  setFormData((prev) => ({ ...prev, stock_actual: newValue.toString() }));
-                }}
-                className="px-3 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 disabled:bg-gray-300"
-                disabled={loading || parseFloat(formData.stock_actual || 0) <= 0}
-              >
-                -0.5
-              </button>
-              <input
-                type="number"
-                name="stock_actual"
-                value={formData.stock_actual}
-                onChange={handleInputChange}
-                className="flex-1 p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-center"
-                min="0"
-                step="0.5"
-                required
-                disabled={loading}
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  const newValue = parseFloat(formData.stock_actual || 0) + 0.5;
-                  setFormData((prev) => ({ ...prev, stock_actual: newValue.toString() }));
-                }}
-                className="px-3 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 disabled:bg-gray-300"
-                disabled={loading}
-              >
-                +0.5
-              </button>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-3 pt-4">
-            <button
-              onClick={handleSubmit}
-              className={`px-6 py-2 text-white rounded-md ${
-                loading ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'
-              }`}
-              disabled={loading}
-            >
-              {loading ? 'Actualizando...' : 'Actualizar Producto'}
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export default function GestionProductos() {
+export default function ConsultaStock() {
   useAuth();
 
   const [categorias, setCategorias] = useState([]);
@@ -203,14 +43,14 @@ export default function GestionProductos() {
     cargarCategorias();
   }, []);
 
-  const handleRefetch = useCallback(() => {
-    cargarProductos({});
+  const handleRefetch = useCallback((opciones = {}) => {
+    cargarProductos(opciones);
   }, [cargarProductos]);
 
   useEffect(() => {
     if (!autoRefreshEnabled || modalAbierto) return undefined;
     const intervalId = setInterval(() => {
-      handleRefetch();
+      handleRefetch({ fresh: true });
     }, autoRefreshSeconds * 1000);
     return () => clearInterval(intervalId);
   }, [autoRefreshEnabled, autoRefreshSeconds, handleRefetch, modalAbierto]);
@@ -228,7 +68,7 @@ export default function GestionProductos() {
     cargarProductos({ filtros: nuevosFiltros, pagina: 1 });
   }, [cargarProductos, filtros, setFiltros]);
 
-  const handleKeyPress = useCallback(
+  const handleKeyDown = useCallback(
     (e) => {
       if (e.key === 'Enter') handleBuscar();
     },
@@ -303,19 +143,9 @@ export default function GestionProductos() {
     handleRefetch();
   };
 
-  const getStockColor = (stock) => {
-    if (stock === 0) return 'bg-red-100 text-red-800';
-    if (stock <= 5) return 'bg-orange-100 text-orange-800';
-    if (stock <= 20) return 'bg-yellow-100 text-yellow-800';
-    return 'bg-green-100 text-green-800';
-  };
+  const getStockColor = (stock) => getStockStatus(stock).color;
 
-  const getStockText = (stock) => {
-    if (stock === 0) return 'Sin stock';
-    if (stock <= 5) return 'Stock crítico';
-    if (stock <= 20) return 'Stock bajo';
-    return 'Stock normal';
-  };
+  const getStockText = (stock) => getStockStatus(stock).label;
 
   const formatearStock = (stock) => {
     const numero = parseFloat(stock || 0);
@@ -326,10 +156,17 @@ export default function GestionProductos() {
   const columnas = [
     { key: 'nombre', label: 'Producto', sortable: true },
     { key: 'categoria_nombre', label: 'Categoría', sortable: true },
-    { key: 'stock_actual', label: 'Stock Actual', sortable: true },
-    { key: 'estado_stock', label: 'Estado Stock', sortable: false },
-    { key: 'precio', label: 'Precio', sortable: true },
-    { key: 'acciones', label: 'Acciones', sortable: false }
+    { key: 'stock_actual', label: 'Stock Actual', sortable: true, className: 'px-3' },
+    { key: 'estado_stock', label: 'Estado Stock', sortable: false, className: 'px-3' },
+    { key: 'stock_reservado', label: 'Reservado', sortable: false, className: 'px-3' },
+    { key: 'stock_libre', label: 'Libre', sortable: false, className: 'px-3' },
+    { key: 'precio', label: 'Precio', sortable: true, className: 'px-3' },
+    {
+      key: 'acciones',
+      label: 'Acciones',
+      sortable: false,
+      className: 'sticky right-0 bg-gray-50 z-10 text-right min-w-[100px]',
+    },
   ];
 
   if (loading && productos.length === 0) {
@@ -362,7 +199,7 @@ export default function GestionProductos() {
                   placeholder="Buscar por nombre o categoría..."
                   value={searchTermInput}
                   onChange={(e) => setSearchTermInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
+                  onKeyDown={handleKeyDown}
                   className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -425,13 +262,23 @@ export default function GestionProductos() {
           totalProductos={total}
         />
 
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
+        <div className="bg-white rounded-lg shadow-md">
           <div className="hidden lg:block overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <TableHeader columns={columnas} sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} />
               <tbody className="bg-white divide-y divide-gray-200">
-                {productosOrdenados.map((producto) => (
-                  <tr key={producto.id} className="hover:bg-gray-50">
+                {productosOrdenados.length === 0 && !loading ? (
+                  <tr>
+                    <td colSpan={8} className="px-6 py-12 text-center">
+                      <p className="text-gray-500 font-medium">No se encontraron productos</p>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Probá ajustando la búsqueda o los filtros.
+                      </p>
+                    </td>
+                  </tr>
+                ) : (
+                  productosOrdenados.map((producto) => (
+                  <tr key={producto.id} className="hover:bg-gray-50 group">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-gray-900">{producto.nombre || '-'}</div>
                       <div className="text-sm text-gray-500">{producto.unidad_medida || '-'}</div>
@@ -439,12 +286,12 @@ export default function GestionProductos() {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                       {producto.categoria_nombre || '-'}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-center">
+                    <td className="px-3 py-4 whitespace-nowrap text-sm font-bold text-center">
                       <span
                         className={`inline-flex px-2 py-1 text-xs font-bold rounded-full ${
                           producto.stock_actual === 0
                             ? 'text-red-600'
-                            : producto.stock_actual <= 5
+                            : producto.stock_actual <= STOCK_THRESHOLDS.CRITICO
                               ? 'text-orange-600'
                               : 'text-gray-900'
                         }`}
@@ -452,7 +299,7 @@ export default function GestionProductos() {
                         {formatearStock(producto.stock_actual)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-center">
                       <span
                         className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStockColor(
                           producto.stock_actual
@@ -461,10 +308,19 @@ export default function GestionProductos() {
                         {getStockText(producto.stock_actual)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                      {formatearCantidad(producto.stock_reservado || 0)}
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-900">
+                      {formatearCantidad(
+                        producto.stock_libre ??
+                          (producto.stock_actual - (producto.stock_reservado || 0))
+                      )}
+                    </td>
+                    <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
                       {formatearMoneda(producto.precio || 0)}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <td className="sticky right-0 bg-white group-hover:bg-gray-50 z-10 px-4 py-4 whitespace-nowrap text-sm font-medium text-right shadow-[-4px_0_6px_-2px_rgba(0,0,0,0.06)]">
                       <button
                         onClick={() => handleEditarProducto(producto)}
                         className="text-blue-600 hover:text-blue-900 bg-blue-50 hover:bg-blue-100 px-3 py-1 rounded-md transition-colors"
@@ -473,13 +329,22 @@ export default function GestionProductos() {
                       </button>
                     </td>
                   </tr>
-                ))}
+                ))
+                )}
               </tbody>
             </table>
           </div>
 
           <div className="lg:hidden">
-            {productosOrdenados.map((producto) => (
+            {productosOrdenados.length === 0 && !loading ? (
+              <div className="p-8 text-center">
+                <p className="text-gray-500 font-medium">No se encontraron productos</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Probá ajustando la búsqueda o los filtros.
+                </p>
+              </div>
+            ) : (
+              productosOrdenados.map((producto) => (
               <div key={producto.id} className="border-b border-gray-200 p-4 hover:bg-gray-50">
                 <div className="flex justify-between items-start mb-2">
                   <div className="flex-1 min-w-0">
@@ -504,12 +369,21 @@ export default function GestionProductos() {
                         className={`text-sm font-bold ${
                           producto.stock_actual === 0
                             ? 'text-red-600'
-                            : producto.stock_actual <= 5
+                            : producto.stock_actual <= STOCK_THRESHOLDS.CRITICO
                               ? 'text-orange-600'
                               : 'text-gray-900'
                         }`}
                       >
                         {formatearStock(producto.stock_actual)}
+                      </span>
+                    </div>
+                    <div className="text-center">
+                      <span className="text-sm font-medium text-gray-900">
+                        Libre:{' '}
+                        {formatearCantidad(
+                          producto.stock_libre ??
+                            (producto.stock_actual - (producto.stock_reservado || 0))
+                        )}
                       </span>
                     </div>
                     <div className="text-center">
@@ -523,7 +397,8 @@ export default function GestionProductos() {
                   </span>
                 </div>
               </div>
-            ))}
+            ))
+            )}
           </div>
 
           <Pagination
@@ -537,14 +412,13 @@ export default function GestionProductos() {
         </div>
       </div>
 
-      <ModalEditarProducto
+      <ModalEditarProductoStock
         producto={productoSeleccionado}
         categorias={categorias}
         isOpen={modalAbierto}
         onClose={() => {
           setModalAbierto(false);
           setProductoSeleccionado(null);
-          handleRefetch();
         }}
         onProductoActualizado={handleProductoActualizado}
       />
