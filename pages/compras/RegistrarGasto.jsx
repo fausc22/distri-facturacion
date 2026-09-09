@@ -18,6 +18,7 @@ import { ConfirmModal } from '@/components/shared/ConfirmModal';
 function RegistrarGastoContent() {
   const { user } = useAuth();
   const router = useRouter();
+  const puedeRegistrarGastos = ['GERENTE', 'VENDEDOR'].includes(user?.rol);
   const {
     formData,
     resetForm,
@@ -34,10 +35,10 @@ function RegistrarGastoContent() {
   const { esFormularioValido, obtenerResumen, validarRangoMonto } = useFormularioGasto();
 
   useEffect(() => {
-    if (user && user.rol !== 'GERENTE') {
+    if (user && !puedeRegistrarGastos) {
       router.push('/inicio');
     }
-  }, [user, router]);
+  }, [user, puedeRegistrarGastos, router]);
 
   const handleConfirmarGasto = () => {
     if (!esFormularioValido()) {
@@ -89,7 +90,7 @@ function RegistrarGastoContent() {
     nombreComprobante: archivoInfo?.nombre || null,
   };
 
-  if (!user || user.rol !== 'GERENTE') {
+  if (!user || !puedeRegistrarGastos) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-4">
         <Card className="max-w-md p-8 text-center shadow-lg">
@@ -98,7 +99,7 @@ function RegistrarGastoContent() {
           </CardHeader>
           <CardContent>
             <p className="mb-6 text-muted-foreground">
-              Solo los gerentes pueden registrar gastos.
+              No tenés permisos para registrar gastos.
             </p>
             <Button type="button" onClick={() => router.push('/inicio')}>
               Volver al Inicio

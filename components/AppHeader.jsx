@@ -419,7 +419,7 @@ function AppHeader() {
                     </MenuLink>
                   )}
                   
-                  {role === 'GERENTE' && (
+                  {(role === 'GERENTE' || role === 'VENDEDOR') && (
                     <MenuLink 
                       href="/compras/RegistrarGasto" 
                       className="block py-2 px-4 text-sm whitespace-nowrap border-b border-gray-200"
@@ -754,7 +754,7 @@ function AppHeader() {
                       </MenuLink>
                     )}
                     
-                    {role === 'GERENTE' && (
+                    {(role === 'GERENTE' || role === 'VENDEDOR') && (
                       <MenuLink 
                         href="/compras/RegistrarGasto" 
                         className="block py-2 px-4 hover:bg-blue-600 text-white"

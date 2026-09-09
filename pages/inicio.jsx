@@ -456,8 +456,8 @@ export default function Inicio() {
           </div>
         )}
 
-        {/* 4. ADMINISTRACIÓN - Solo gerentes, solo en modo online */}
-        {!estaEnModoOffline && empleado?.rol === 'GERENTE' && (
+        {/* 4. ADMINISTRACIÓN - Clientes para vendedores; administración completa para gerentes */}
+        {!estaEnModoOffline && (empleado?.rol === 'GERENTE' || empleado?.rol === 'VENDEDOR') && (
           <div className={`bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 ${edicionTheme.cardBorder}`}>
             <div className={`p-5 md:p-6 ${edicionTheme.header}`}>
               <div className="flex items-center">
@@ -471,36 +471,42 @@ export default function Inicio() {
               <p className="text-white/80 mt-2 text-sm">Gestión de usuarios y sistema</p>
             </div>
             <div className="p-3 md:p-4 space-y-1">
-              <LinkGuard href="/edicion/Empleados" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${edicionTheme.link}`}>
-                <span className={`font-medium text-gray-800 ${edicionTheme.linkText}`}>Gestión de Empleados</span>
-                <svg className={`w-5 h-5 text-gray-400 ${edicionTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </LinkGuard>
+              {empleado?.rol === 'GERENTE' && (
+                <LinkGuard href="/edicion/Empleados" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${edicionTheme.link}`}>
+                  <span className={`font-medium text-gray-800 ${edicionTheme.linkText}`}>Gestión de Empleados</span>
+                  <svg className={`w-5 h-5 text-gray-400 ${edicionTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </LinkGuard>
+              )}
               <LinkGuard href="/edicion/Clientes" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${edicionTheme.link}`}>
                 <span className={`font-medium text-gray-800 ${edicionTheme.linkText}`}>Gestión de Clientes</span>
                 <svg className={`w-5 h-5 text-gray-400 ${edicionTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </LinkGuard>
-              <LinkGuard href="/edicion/Proveedores" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${edicionTheme.link}`}>
-                <span className={`font-medium text-gray-800 ${edicionTheme.linkText}`}>Gestión de Proveedores</span>
-                <svg className={`w-5 h-5 text-gray-400 ${edicionTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </LinkGuard>
-              <LinkGuard href="/auditoria/Auditoria" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${edicionTheme.link} border-t border-gray-200`}>
-                <span className={`font-medium text-gray-800 ${edicionTheme.linkText}`}>Auditoría del Sistema</span>
-                <svg className={`w-5 h-5 text-gray-400 ${edicionTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </LinkGuard>
+              {empleado?.rol === 'GERENTE' && (
+                <>
+                  <LinkGuard href="/edicion/Proveedores" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${edicionTheme.link}`}>
+                    <span className={`font-medium text-gray-800 ${edicionTheme.linkText}`}>Gestión de Proveedores</span>
+                    <svg className={`w-5 h-5 text-gray-400 ${edicionTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </LinkGuard>
+                  <LinkGuard href="/auditoria/Auditoria" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${edicionTheme.link} border-t border-gray-200`}>
+                    <span className={`font-medium text-gray-800 ${edicionTheme.linkText}`}>Auditoría del Sistema</span>
+                    <svg className={`w-5 h-5 text-gray-400 ${edicionTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </LinkGuard>
+                </>
+              )}
             </div>
           </div>
         )}
 
-        {/* 5. COMPRAS - Al final por menor uso, solo en modo online */}
-        {!estaEnModoOffline && empleado?.rol === 'GERENTE' && (
+        {/* 5. COMPRAS - Registrar gasto para vendedores; compras completas para gerentes */}
+        {!estaEnModoOffline && (empleado?.rol === 'GERENTE' || empleado?.rol === 'VENDEDOR') && (
           <div className={`bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 ${comprasTheme.cardBorder}`}>
             <div className={`p-5 md:p-6 ${comprasTheme.header}`}>
               <div className="flex items-center">
@@ -514,18 +520,22 @@ export default function Inicio() {
               <p className="text-white/80 mt-2 text-sm">Gestión de compras y gastos</p>
             </div>
             <div className="p-3 md:p-4 space-y-1">
-              <LinkGuard href="/compras/RegistrarCompra" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${comprasTheme.link}`}>
-                <span className={`font-medium text-gray-800 ${comprasTheme.linkText}`}>Registrar Compra Proveedores</span>
-                <svg className={`w-5 h-5 text-gray-400 ${comprasTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </LinkGuard>
-              <LinkGuard href="/compras/HistorialCompras" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${comprasTheme.link}`}>
-                <span className={`font-medium text-gray-800 ${comprasTheme.linkText}`}>Historial de Compras</span>
-                <svg className={`w-5 h-5 text-gray-400 ${comprasTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </LinkGuard>
+              {empleado?.rol === 'GERENTE' && (
+                <>
+                  <LinkGuard href="/compras/RegistrarCompra" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${comprasTheme.link}`}>
+                    <span className={`font-medium text-gray-800 ${comprasTheme.linkText}`}>Registrar Compra Proveedores</span>
+                    <svg className={`w-5 h-5 text-gray-400 ${comprasTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </LinkGuard>
+                  <LinkGuard href="/compras/HistorialCompras" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${comprasTheme.link}`}>
+                    <span className={`font-medium text-gray-800 ${comprasTheme.linkText}`}>Historial de Compras</span>
+                    <svg className={`w-5 h-5 text-gray-400 ${comprasTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </LinkGuard>
+                </>
+              )}
               <LinkGuard href="/compras/RegistrarGasto" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${comprasTheme.link}`}>
                 <span className={`font-medium text-gray-800 ${comprasTheme.linkText}`}>Registrar Gasto</span>
                 <svg className={`w-5 h-5 text-gray-400 ${comprasTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
