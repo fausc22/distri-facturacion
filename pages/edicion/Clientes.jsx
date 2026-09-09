@@ -11,6 +11,8 @@ import ModalBase from '../../components/common/ModalBase';
 export default function GestionClientes() {
   const { user } = useAuth();
   const router = useRouter();
+  const puedeGestionarClientes = ['GERENTE', 'VENDEDOR'].includes(user?.rol);
+  const esGerente = user?.rol === 'GERENTE';
 
   const { buscarClientes, eliminarCliente, loading, loadingBusqueda } = useClientes();
   
@@ -37,10 +39,10 @@ export default function GestionClientes() {
   const searchHadFocusRef = useRef(false);
 
   useEffect(() => {
-    if (user && user.rol !== 'GERENTE') {
+    if (user && !puedeGestionarClientes) {
       router.push('/inicio');
     }
-  }, [user, router]);
+  }, [user, puedeGestionarClientes, router]);
 
   const cargarClientes = useCallback(async ({
     pagina = currentPage,
@@ -65,9 +67,9 @@ export default function GestionClientes() {
    * El texto del input (searchInput) no está en las dependencias: no se busca al escribir.
    */
   useEffect(() => {
-    if (!user || user.rol !== 'GERENTE') return;
+    if (!puedeGestionarClientes) return;
     cargarClientes();
-  }, [user, cargarClientes]);
+  }, [puedeGestionarClientes, cargarClientes]);
 
   useEffect(() => {
     if (!loadingBusqueda && searchHadFocusRef.current && searchInputRef.current) {
@@ -169,13 +171,13 @@ export default function GestionClientes() {
     { key: 'acciones', label: 'Acciones', sortable: false, className: '!px-2 sm:!px-2.5 !py-2 text-right' }
   ];
 
-  if (!user || user.rol !== 'GERENTE') {
+  if (!user || !puedeGestionarClientes) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100 p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 max-w-md text-center">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">Acceso Restringido</h2>
           <p className="text-gray-600 mb-6">
-            Solo los gerentes pueden acceder a la gestión de clientes.
+            No tenés permisos para acceder a la gestión de clientes.
           </p>
           <button
             type="button"
@@ -394,14 +396,16 @@ export default function GestionClientes() {
                         >
                           Editar
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleSolicitarEliminar(cliente)}
-                          className="min-h-[36px] px-2 py-1.5 inline-flex items-center justify-center text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 active:bg-red-200 rounded border border-red-200/80 touch-manipulation"
-                          title="Eliminar cliente"
-                        >
-                          Eliminar
-                        </button>
+                        {esGerente && (
+                          <button
+                            type="button"
+                            onClick={() => handleSolicitarEliminar(cliente)}
+                            className="min-h-[36px] px-2 py-1.5 inline-flex items-center justify-center text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 active:bg-red-200 rounded border border-red-200/80 touch-manipulation"
+                            title="Eliminar cliente"
+                          >
+                            Eliminar
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -441,14 +445,16 @@ export default function GestionClientes() {
                     >
                       Editar
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSolicitarEliminar(cliente)}
-                      className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 active:bg-red-800 touch-manipulation"
-                      title="Eliminar cliente"
-                    >
-                      Eliminar
-                    </button>
+                    {esGerente && (
+                      <button
+                        type="button"
+                        onClick={() => handleSolicitarEliminar(cliente)}
+                        className="min-h-[44px] min-w-[44px] inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white text-sm rounded-md hover:bg-red-700 active:bg-red-800 touch-manipulation"
+                        title="Eliminar cliente"
+                      >
+                        Eliminar
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -497,7 +503,7 @@ export default function GestionClientes() {
 
       {/* Modal confirmar eliminar (Fase 6) */}
       <ModalBase
-        isOpen={!!clienteAEliminar}
+        isOpen={esGerente && !!clienteAEliminar}
         onClose={handleCerrarModalEliminar}
         title="Eliminar cliente"
         size="sm"

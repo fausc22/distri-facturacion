@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
+import { resolvePorcentajeIva } from '../../utils/rounding';
 
 export function useNotas() {
   const [loading, setLoading] = useState(false);
@@ -101,7 +102,7 @@ export function useNotas() {
         precio: parseFloat(p.precio),
         iva: parseFloat(p.iva_calculado),
         subtotal: parseFloat(p.subtotal),
-        porcentaje_iva: p.porcentaje_iva || 21,
+        porcentaje_iva: resolvePorcentajeIva(p.porcentaje_iva),
         esManual: p.esManual || false
       }))
     };

@@ -144,8 +144,10 @@ function VentaDirectaContent() {
         cantidad: p.cantidad,
         precio: parseFloat(p.precio) || 0,
         iva: parseFloat(p.iva_calculado) || 0,
+        porcentaje_iva: parseFloat(p.porcentaje_iva),
         subtotal: parseFloat(p.subtotal) || 0,
         descuento_porcentaje: parseFloat(p.descuento_porcentaje || 0),
+        esManual: Boolean(p.esManual),
         // Compatibilidad con modo manual de precio (backend ignora si no lo usa)
         precio_incluye_iva: Boolean(p.precio_incluye_iva),
         precio_unitario_final_manual:

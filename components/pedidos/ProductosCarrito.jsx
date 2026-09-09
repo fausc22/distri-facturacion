@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useContextoCompartido } from '../../hooks/shared/useContextoCompartido';
 import { ModalEditarProductoVentaDirecta } from '../ventas/ModalEditarProductoVentaDirecta';
 import { formatearMoneda } from '../../utils/formatearMoneda';
+import { resolvePorcentajeIva } from '../../utils/rounding';
 
 const calcularConIva = (montoBase, porcentajeIva) =>
   Number(montoBase || 0) * (1 + (Number(porcentajeIva || 0) / 100));
@@ -75,7 +76,7 @@ function TablaEscritorio({ productos, onActualizarCantidad, onEliminar, onActual
               const descuentoPorcentaje = Number(prod.descuento_porcentaje) || 0;
               const subtotalBase = prod.cantidad * prod.precio;
               const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
-              const porcentajeIva = Number(prod.porcentaje_iva) || 21;
+              const porcentajeIva = resolvePorcentajeIva(prod.porcentaje_iva);
               const precioUnitarioFinalManual = Number(prod.precio_unitario_final_manual) || 0;
               const usaPrecioManual = Boolean(prod.precio_incluye_iva) && precioUnitarioFinalManual > 0;
               const precioUnitarioFinal = usaPrecioManual
@@ -202,7 +203,7 @@ function TarjetasMovil({ productos, onActualizarCantidad, onActualizarDescuento,
           const descuentoPorcentaje = Number(prod.descuento_porcentaje) || 0;
           const subtotalBase = prod.cantidad * prod.precio;
           const montoDescuento = (subtotalBase * descuentoPorcentaje) / 100;
-          const porcentajeIva = Number(prod.porcentaje_iva) || 21;
+          const porcentajeIva = resolvePorcentajeIva(prod.porcentaje_iva);
           const precioUnitarioFinalManual = Number(prod.precio_unitario_final_manual) || 0;
           const usaPrecioManual = Boolean(prod.precio_incluye_iva) && precioUnitarioFinalManual > 0;
           const precioUnitarioFinal = usaPrecioManual
@@ -402,7 +403,7 @@ export default function ProductosCarrito({ mostrarResumen = true }) {
                 if (!esClienteExento) return null;
                 
                 const montoExento = productos.reduce((acc, prod) => {
-                  const porcentajeIva = prod.porcentaje_iva || 21;
+                  const porcentajeIva = resolvePorcentajeIva(prod.porcentaje_iva);
                   const ivaQueDeberiaCobrarse = parseFloat((prod.subtotal * (porcentajeIva / 100)).toFixed(2));
                   return acc + ivaQueDeberiaCobrarse;
                 }, 0);

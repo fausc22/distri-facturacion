@@ -1,5 +1,6 @@
 // context/ListaPreciosContext.js
 import { createContext, useContext, useReducer } from 'react';
+import { obtenerPorcentajeIva } from '../utils/rounding';
 
 const ListaPreciosContext = createContext();
 
@@ -42,7 +43,7 @@ function listaPreciosReducer(state, action) {
       } else {
         // Si no existe, agregarlo
         const subtotalSinIva = parseFloat((cantidadNueva * action.payload.precio).toFixed(2));
-        const porcentajeIva = action.payload.iva || 21;
+        const porcentajeIva = obtenerPorcentajeIva(action.payload);
         const ivaCalculado = parseFloat((subtotalSinIva * (porcentajeIva / 100)).toFixed(2));
         
         const nuevoProducto = {
@@ -65,7 +66,7 @@ function listaPreciosReducer(state, action) {
     case 'ADD_MULTIPLE_PRODUCTOS':
       const nuevosProductos = action.payload.map(producto => {
         const subtotalSinIva = parseFloat((producto.cantidad * producto.precio).toFixed(2));
-        const porcentajeIva = producto.iva || producto.porcentaje_iva || 21;
+        const porcentajeIva = obtenerPorcentajeIva(producto);
         const ivaCalculado = parseFloat((subtotalSinIva * (porcentajeIva / 100)).toFixed(2));
         
         return {

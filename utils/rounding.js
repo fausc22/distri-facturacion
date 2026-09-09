@@ -64,3 +64,23 @@ export function precioConIvaDesdeNeto(precioNeto, porcentajeIva) {
   if (!Number.isFinite(iva) || iva < 0) return roundPrecio(precioNeto);
   return roundPrecio(Number(precioNeto) * (1 + iva / 100));
 }
+
+/**
+ * Resuelve una alícuota de IVA. 0% es un valor válido: no usar `|| 21`.
+ * @param {unknown} value
+ * @param {number} [fallback=21]
+ * @returns {number}
+ */
+export function resolvePorcentajeIva(value, fallback = 21) {
+  if (value === null || value === undefined || value === '') return fallback;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : fallback;
+}
+
+/**
+ * Lee la alícuota de un producto de catálogo o de una línea de carrito.
+ * Prefiere `porcentaje_iva` (tasa de la línea) y, si no está, `iva` (tasa de catálogo).
+ */
+export function obtenerPorcentajeIva(producto, fallback = 21) {
+  return resolvePorcentajeIva(producto?.porcentaje_iva ?? producto?.iva, fallback);
+}

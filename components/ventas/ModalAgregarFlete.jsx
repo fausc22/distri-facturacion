@@ -96,6 +96,8 @@ export function ModalAgregarFlete({ isOpen, onClose }) {
         precio: subtotalRedondeado,
         iva: ivaPorcentaje,
         descuento_porcentaje: 0,
+        // Línea manual: no acumular con otros fletes que usan la misma plantilla
+        esManual: true,
       };
       addProducto(producto, 1);
       onClose();

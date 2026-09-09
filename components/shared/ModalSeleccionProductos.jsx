@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react';
 import { MdExpandLess, MdExpandMore, MdSearch } from 'react-icons/md';
-import { roundFacturacion } from '../../utils/rounding';
+import { roundFacturacion, obtenerPorcentajeIva } from '../../utils/rounding';
 
 const formatearMoneda = (monto) => `$${Number(monto || 0).toFixed(2)}`;
 
 const formatearCantidad = (cantidad) => {
   const cantidadNum = parseFloat(cantidad);
   return cantidadNum % 1 === 0 ? cantidadNum.toString() : cantidadNum.toFixed(1);
-};
-
-const obtenerPorcentajeIva = (producto) => {
-  const iva = Number(producto?.iva ?? producto?.porcentaje_iva ?? 21);
-  return Number.isFinite(iva) && iva >= 0 ? iva : 21;
 };
 
 const calcularMontoConIva = (montoBase, porcentajeIva) =>

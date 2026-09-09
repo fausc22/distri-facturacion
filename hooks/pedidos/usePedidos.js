@@ -4,6 +4,7 @@ import axios from 'axios';
 import toast from '@/components/shared/toast';
 
 import { axiosAuth, fetchAuth } from '../../utils/apiClient';
+import { resolvePorcentajeIva } from '../../utils/rounding';
 
 export function usePedidos() {
   const [loading, setLoading] = useState(false);
@@ -64,7 +65,7 @@ export function usePedidos() {
       // Los productos en el contexto tienen porcentaje_iva disponible
       montoExento = productos.reduce((acc, prod) => {
         // El porcentaje_iva está disponible en el contexto de pedidos
-        const porcentajeIva = prod.porcentaje_iva || 21; // Usar 21% si no está disponible
+        const porcentajeIva = resolvePorcentajeIva(prod.porcentaje_iva);
         const subtotal = parseFloat(prod.subtotal) || 0;
         const ivaQueDeberiaCobrarse = parseFloat((subtotal * (porcentajeIva / 100)).toFixed(2));
         return acc + ivaQueDeberiaCobrarse;
@@ -98,6 +99,7 @@ export function usePedidos() {
         cantidad: p.cantidad,
         precio: parseFloat(p.precio), // Precio unitario
         iva: parseFloat(p.iva_calculado), // IVA en pesos
+        porcentaje_iva: parseFloat(p.porcentaje_iva),
         subtotal: parseFloat(p.subtotal), // Subtotal sin IVA
         descuento_porcentaje: parseFloat(p.descuento_porcentaje || 0),
         // Compatibilidad con modo manual de precio (backend ignora si no lo usa)

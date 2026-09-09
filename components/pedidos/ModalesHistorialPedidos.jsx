@@ -14,7 +14,7 @@ import ModalBase from '../common/ModalBase';
 import LoadingButton from '../common/LoadingButton';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Z_INDEX } from '../../constants/zIndex';
-import { roundFacturacion } from '../../utils/rounding';
+import { roundFacturacion, resolvePorcentajeIva } from '../../utils/rounding';
 
 // ✅ MODAL DE DESCUENTOS CORREGIDO - APLICA % SOBRE SUBTOTAL
 export function ModalDescuentos({
@@ -622,7 +622,7 @@ export function ModalEditarProductoPedido({
         setLocalPrecioIncluyeIva(Boolean(producto.precio_incluye_iva));
         setLocalPrecioFinalManual(
           Number(producto.precio_unitario_final_manual) ||
-            (Number(producto.precio) || 0) * (1 + (Number(producto.porcentaje_iva) || 21) / 100)
+            (Number(producto.precio) || 0) * (1 + resolvePorcentajeIva(producto.porcentaje_iva) / 100)
         );
         setLocalDescuento(Number(producto.descuento_porcentaje) || 0);
         setLocalNombre(producto.producto_nombre || '');
@@ -667,7 +667,7 @@ export function ModalEditarProductoPedido({
   // ✅ CÁLCULOS Y VALORES
   const stockDisponible = Number(producto.stock_actual) || 0;
   const stockSuficiente = localCantidad <= stockDisponible;
-  const porcentajeIva = Number(producto.porcentaje_iva) || 21;
+  const porcentajeIva = resolvePorcentajeIva(producto.porcentaje_iva);
   const multiplicadorIva = 1 + porcentajeIva / 100;
   const precioUnitarioFinalAuto = localPrecio * multiplicadorIva;
   const precioUnitarioFinalVigente = localPrecioIncluyeIva
@@ -1245,7 +1245,7 @@ export function TablaProductosEscritorio({ productos, onEditarProducto, onElimin
             const descuentoPorcentaje = Number(producto.descuento_porcentaje) || 0; // ✅ DESCUENTO
             const precioUnitarioFinalManual = Number(producto.precio_unitario_final_manual) || 0;
             const usaPrecioManual = Boolean(producto.precio_incluye_iva) && precioUnitarioFinalManual > 0;
-            const porcentajeIva = Number(producto.porcentaje_iva) || 21;
+            const porcentajeIva = resolvePorcentajeIva(producto.porcentaje_iva);
             const precioFinalUnitario = usaPrecioManual
               ? precioUnitarioFinalManual
               : precio * (1 + porcentajeIva / 100);
@@ -1321,7 +1321,7 @@ export function TarjetasProductosMovil({ productos, onEditarProducto, onEliminar
         const descuentoPorcentaje = Number(producto.descuento_porcentaje) || 0; // ✅ DESCUENTO
         const precioUnitarioFinalManual = Number(producto.precio_unitario_final_manual) || 0;
         const usaPrecioManual = Boolean(producto.precio_incluye_iva) && precioUnitarioFinalManual > 0;
-        const porcentajeIva = Number(producto.porcentaje_iva) || 21;
+        const porcentajeIva = resolvePorcentajeIva(producto.porcentaje_iva);
         const precioFinalUnitario = usaPrecioManual
           ? precioUnitarioFinalManual
           : precio * (1 + porcentajeIva / 100);
@@ -1480,7 +1480,7 @@ export function ResumenTotales({ productos, pedido }) {
   if (esClienteExento && montoExentoRaw === 0 && productos.length > 0) {
     montoExentoRaw = productos.reduce((acc, prod) => {
       const subtotal = Number(prod.subtotal) || 0;
-      const porcentajeIva = Number(prod.porcentaje_iva) || 21;
+      const porcentajeIva = resolvePorcentajeIva(prod.porcentaje_iva);
       const ivaQueDeberiaCobrarse = parseFloat((subtotal * (porcentajeIva / 100)).toFixed(2));
       return acc + ivaQueDeberiaCobrarse;
     }, 0);
@@ -1498,7 +1498,7 @@ export function ResumenTotales({ productos, pedido }) {
     const precio = Number(prod.precio) || 0;
     const cantidad = Number(prod.cantidad) || 0;
     const subtotalBase = precio * cantidad;
-    const porcentaje = (Number(prod.porcentaje_iva) || 21) / 100;
+    const porcentaje = resolvePorcentajeIva(prod.porcentaje_iva) / 100;
     const ivaBase = subtotalBase * porcentaje;
     return acc + subtotalBase + ivaBase;
   }, 0);

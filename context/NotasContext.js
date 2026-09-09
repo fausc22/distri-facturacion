@@ -1,6 +1,6 @@
 // context/NotasContext.js
 import { createContext, useContext, useReducer } from 'react';
-import { roundFacturacion } from '../utils/rounding';
+import { roundFacturacion, obtenerPorcentajeIva } from '../utils/rounding';
 
 export const NotasContext = createContext();
 
@@ -20,7 +20,7 @@ const calcularTotalesProducto = ({
   cantidad,
   descuentoPorcentaje = 0
 }) => {
-  const porcentajeIva = Number(producto?.porcentaje_iva ?? producto?.iva ?? 21) || 21;
+  const porcentajeIva = obtenerPorcentajeIva(producto);
   const incluyeIva = Boolean(producto?.precio_incluye_iva);
 
   const precioManualFinal = Number(producto?.precio_unitario_final_manual);

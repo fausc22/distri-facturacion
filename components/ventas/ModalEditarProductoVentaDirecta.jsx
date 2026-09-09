@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { toast } from 'react-hot-toast';
 import useAuth from '../../hooks/useAuth';
 import { formatearMoneda } from '../../utils/formatearMoneda';
+import { resolvePorcentajeIva } from '../../utils/rounding';
 
 export function ModalEditarProductoVentaDirecta({
   producto,
@@ -33,7 +34,7 @@ export function ModalEditarProductoVentaDirecta({
       setLocalPrecioFinalManual(
         Number(producto.precio_unitario_final_manual) ||
           (Number(producto.precio) || 0) *
-            (1 + (Number(producto.porcentaje_iva) || 21) / 100)
+            (1 + resolvePorcentajeIva(producto.porcentaje_iva) / 100)
       );
       setLocalDescuento(Number(producto.descuento_porcentaje) || 0);
       setLocalNombre(producto.nombre || '');
@@ -75,7 +76,7 @@ export function ModalEditarProductoVentaDirecta({
   }
 
   // Cálculos
-  const porcentajeIva = Number(producto.porcentaje_iva) || 21;
+  const porcentajeIva = resolvePorcentajeIva(producto.porcentaje_iva);
   const multiplicadorIva = 1 + porcentajeIva / 100;
   const precioUnitarioFinalAuto = localPrecio * multiplicadorIva;
   const precioUnitarioFinalVigente = localPrecioIncluyeIva
@@ -117,7 +118,7 @@ export function ModalEditarProductoVentaDirecta({
   const handlePrecioChange = (e) => {
     if (guardando) return;
     const valor = Math.max(0, parseFloat(e.target.value) || 0);
-    const porcentajeIvaActual = Number(producto.porcentaje_iva) || 21;
+    const porcentajeIvaActual = resolvePorcentajeIva(producto.porcentaje_iva);
     const multiplicadorIvaActual = 1 + porcentajeIvaActual / 100;
 
     if (localPrecioIncluyeIva) {
@@ -135,7 +136,7 @@ export function ModalEditarProductoVentaDirecta({
     if (guardando) return;
 
     const checked = e.target.checked;
-    const porcentajeIvaActual = Number(producto.porcentaje_iva) || 21;
+    const porcentajeIvaActual = resolvePorcentajeIva(producto.porcentaje_iva);
     const multiplicadorIvaActual = 1 + porcentajeIvaActual / 100;
 
     if (checked) {
@@ -153,7 +154,7 @@ export function ModalEditarProductoVentaDirecta({
     if (guardando) return;
 
     const valorFinal = Math.max(0, parseFloat(e.target.value) || 0);
-    const porcentajeIvaActual = Number(producto.porcentaje_iva) || 21;
+    const porcentajeIvaActual = resolvePorcentajeIva(producto.porcentaje_iva);
     const multiplicadorIvaActual = 1 + porcentajeIvaActual / 100;
     const netoCalculado = valorFinal / multiplicadorIvaActual;
 

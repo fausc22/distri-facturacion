@@ -5,6 +5,7 @@ import { axiosAuth } from '../../utils/apiClient';
 import useAuth from '../useAuth';
 import { offlineManager, getAppMode } from '../../utils/offlineManager';
 import { useConnectionContext } from '../../context/ConnectionContext';
+import { obtenerPorcentajeIva, resolvePorcentajeIva } from '../../utils/rounding';
 
 export function useEditarPedido() {
   const [selectedPedido, setSelectedPedido] = useState(null);
@@ -94,7 +95,7 @@ export function useEditarPedido() {
 
     const precio = parseFloat(producto.precio);
     const subtotalSinIva = parseFloat((precio * cantidad).toFixed(2));
-    const porcentajeIva = producto.iva || 21; // Porcentaje de IVA
+    const porcentajeIva = obtenerPorcentajeIva(producto);
     const ivaCalculado = parseFloat((subtotalSinIva * (porcentajeIva / 100)).toFixed(2));
 
     const newProduct = {
@@ -104,6 +105,7 @@ export function useEditarPedido() {
       cantidad,
       precio,
       iva: ivaCalculado, // IVA en pesos
+      porcentaje_iva: porcentajeIva,
       subtotal: subtotalSinIva, // Subtotal sin IVA
       descuento_porcentaje: 0, // 🆕 Descuento inicial en 0
       stock_actual: stockDisponible // Guardar stock para validaciones futuras
@@ -201,7 +203,7 @@ export function useEditarPedido() {
     }
 
     // ✅ CALCULAR SUBTOTAL CON DESCUENTO (compatible con modo manual)
-    const porcentajeIva = parseFloat(producto.porcentaje_iva) || 21;
+    const porcentajeIva = resolvePorcentajeIva(producto.porcentaje_iva);
     const multiplicadorIva = 1 + (porcentajeIva / 100);
     const precioNetoUnitario =
       precioIncluyeIva && Number.isFinite(precioFinalManual) && precioFinalManual >= 0
@@ -219,6 +221,7 @@ export function useEditarPedido() {
       cantidad,
       precio: parseFloat(precioNetoUnitario.toFixed(6)),
       iva: ivaCalculado,
+      porcentaje_iva: porcentajeIva,
       subtotal: parseFloat(subtotalConDescuento.toFixed(2)),
       descuento_porcentaje: descuentoPorcentaje, // ✅ Enviar descuento al backend
       producto_nombre: producto.producto_nombre || producto.nombre, // ✅ Incluir nombre editado

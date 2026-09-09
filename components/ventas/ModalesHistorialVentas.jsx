@@ -4,6 +4,7 @@ import { MdDeleteForever, MdExpandMore, MdExpandLess, MdRemoveRedEye } from "rea
 import { ModalPDFUniversal, BotonGenerarPDFUniversal } from '../shared/ModalPDFUniversal';
 import { ModalDetalleCAE } from './ModalDetalleCAE';
 import { formatearMoneda } from '../../utils/formatearMoneda';
+import { resolvePorcentajeIva } from '../../utils/rounding';
 
 // Función helper para formatear fechas
 const formatearFecha = (fecha) => {
@@ -470,7 +471,7 @@ function ResumenTotales({ productos, venta }) {
   if (esClienteExento && montoExento === 0 && productos.length > 0) {
     montoExento = productos.reduce((acc, prod) => {
       const subtotal = Number(prod.subtotal) || 0;
-      const porcentajeIva = Number(prod.porcentaje_iva) || 21;
+      const porcentajeIva = resolvePorcentajeIva(prod.porcentaje_iva);
       const ivaQueDeberiaCobrarse = parseFloat((subtotal * (porcentajeIva / 100)).toFixed(2));
       return acc + ivaQueDeberiaCobrarse;
     }, 0);

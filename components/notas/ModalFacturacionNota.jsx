@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 import ModalBase from '../common/ModalBase';
 import { Z_INDEX } from '../../constants/zIndex';
-import { roundFacturacion } from '../../utils/rounding';
+import { roundFacturacion, resolvePorcentajeIva } from '../../utils/rounding';
 
 export function ModalFacturacionNota({ 
   mostrar, 
@@ -81,7 +81,7 @@ export function ModalFacturacionNota({
       const esClienteExento = cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
       const montoExento = esClienteExento 
         ? productos.reduce((acc, prod) => {
-            const porcentajeIva = prod.porcentaje_iva || 21;
+            const porcentajeIva = resolvePorcentajeIva(prod.porcentaje_iva);
             const ivaQueDeberiaCobrarse = parseFloat((prod.subtotal * (porcentajeIva / 100)).toFixed(2));
             return acc + ivaQueDeberiaCobrarse;
           }, 0)

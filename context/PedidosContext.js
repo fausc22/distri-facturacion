@@ -1,6 +1,6 @@
 // context/PedidosContext.js
 import { createContext, useContext, useReducer, useEffect, useRef, useState, useCallback } from 'react';
-import { roundFacturacion } from '../utils/rounding';
+import { roundFacturacion, obtenerPorcentajeIva } from '../utils/rounding';
 
 export const PedidosContext = createContext();
 
@@ -72,7 +72,7 @@ const calcularTotalesProducto = ({
   cantidad,
   descuentoPorcentaje = 0
 }) => {
-  const porcentajeIva = Number(producto?.porcentaje_iva ?? producto?.iva ?? 21) || 21;
+  const porcentajeIva = obtenerPorcentajeIva(producto);
   const incluyeIva = Boolean(producto?.precio_incluye_iva);
 
   const precioManualFinal = Number(producto?.precio_unitario_final_manual);
@@ -120,93 +120,21 @@ function pedidosReducer(state, action) {
     case 'CLEAR_CLIENTE':
       return { ...state, cliente: null };
     
-    case 'ADD_PRODUCTO':
-  const cantidadNueva = parseFloat(action.payload.cantidad) || 0.5;
+    case 'ADD_PRODUCTO': {
+      const cantidadNueva = parseFloat(action.payload.cantidad) || 0.5;
+      const esManual = Boolean(action.payload.esManual);
 
-      // ✅ VERIFICAR SI EL PRODUCTO YA EXISTE
-      const productoExistenteIndex = state.productos.findIndex(p => p.id === action.payload.id);
-
-      if (productoExistenteIndex !== -1) {
-        // Si existe, actualizar la cantidad
-        const productosActualizados = [...state.productos];
-        const productoExistente = productosActualizados[productoExistenteIndex];
-        const nuevaCantidadTotal = parseFloat(productoExistente.cantidad) + cantidadNueva;
-
-        const descuentoPorcentaje = productoExistente.descuento_porcentaje || 0;
-        const {
-          precioNetoUnitario,
-          subtotalConDescuento,
-          ivaCalculado
-        } = calcularTotalesProducto({
-          producto: productoExistente,
-          cantidad: nuevaCantidadTotal,
-          descuentoPorcentaje
-        });
-
-        productosActualizados[productoExistenteIndex] = {
-          ...productoExistente,
-          cantidad: nuevaCantidadTotal,
-          precio: precioNetoUnitario,
-          subtotal: subtotalConDescuento,
-          iva_calculado: ivaCalculado
-          // descuento_porcentaje se mantiene
-        };
-
-        return {
-          ...state,
-          productos: productosActualizados
-        };
-      } else {
-        // Si no existe, agregarlo como antes
-        const productoNormalizado = normalizarFlagsPrecioProducto(action.payload);
-        const {
-          porcentajeIva,
-          precioNetoUnitario,
-          subtotalConDescuento,
-          ivaCalculado
-        } = calcularTotalesProducto({
-          producto: productoNormalizado,
-          cantidad: cantidadNueva,
-          descuentoPorcentaje: parseFloat(action.payload.descuento_porcentaje || 0)
-        });
-
-        const nuevoProducto = {
-          id: action.payload.id,
-          nombre: action.payload.nombre,
-          unidad_medida: action.payload.unidad_medida || 'Unidad',
-          cantidad: cantidadNueva,
-          precio: precioNetoUnitario,
-          porcentaje_iva: porcentajeIva,
-          iva_calculado: ivaCalculado,
-          subtotal: subtotalConDescuento,
-          descuento_porcentaje: parseFloat(action.payload.descuento_porcentaje || 0), // ✅ INICIALIZAR DESCUENTO
-          // Flags de compatibilidad para modo precio manual
-          precio_incluye_iva: Boolean(action.payload.precio_incluye_iva),
-          precio_unitario_final_manual:
-            action.payload.precio_unitario_final_manual !== undefined &&
-            action.payload.precio_unitario_final_manual !== null &&
-            !Number.isNaN(Number(action.payload.precio_unitario_final_manual))
-              ? parseFloat(action.payload.precio_unitario_final_manual)
-              : null
-        };
-
-        return {
-          ...state,
-          productos: [...state.productos, nuevoProducto]
-        };
-      }
-    
-    case 'ADD_MULTIPLE_PRODUCTOS': {
-      let productosActualizados = [...state.productos];
-
-      for (const producto of action.payload) {
-        const productoNormalizado = normalizarFlagsPrecioProducto(producto);
-        const cantidadNueva = parseFloat(producto.cantidad) || 0.5;
-        const productoExistenteIndex = productosActualizados.findIndex((p) => p.id === producto.id);
+      // Catálogo: acumular por id. Manuales (fletes): siempre línea nueva.
+      if (!esManual) {
+        const productoExistenteIndex = state.productos.findIndex(
+          (p) => !p.esManual && p.id === action.payload.id
+        );
 
         if (productoExistenteIndex !== -1) {
+          const productosActualizados = [...state.productos];
           const productoExistente = productosActualizados[productoExistenteIndex];
           const nuevaCantidadTotal = parseFloat(productoExistente.cantidad) + cantidadNueva;
+
           const descuentoPorcentaje = productoExistente.descuento_porcentaje || 0;
           const {
             precioNetoUnitario,
@@ -225,32 +153,115 @@ function pedidosReducer(state, action) {
             subtotal: subtotalConDescuento,
             iva_calculado: ivaCalculado
           };
-        } else {
-          const {
-            porcentajeIva,
-            precioNetoUnitario,
-            subtotalConDescuento,
-            ivaCalculado
-          } = calcularTotalesProducto({
-            producto: productoNormalizado,
-            cantidad: cantidadNueva,
-            descuentoPorcentaje: parseFloat(producto.descuento_porcentaje || 0)
-          });
 
-          productosActualizados.push(
-            normalizarFlagsPrecioProducto({
-              id: producto.id,
-              nombre: producto.nombre,
-              unidad_medida: producto.unidad_medida || 'Unidad',
-              cantidad: cantidadNueva,
-              precio: precioNetoUnitario,
-              porcentaje_iva: porcentajeIva,
-              iva_calculado: ivaCalculado,
-              subtotal: subtotalConDescuento,
-              descuento_porcentaje: producto.descuento_porcentaje || 0
-            })
-          );
+          return {
+            ...state,
+            productos: productosActualizados
+          };
         }
+      }
+
+      const productoNormalizado = normalizarFlagsPrecioProducto(action.payload);
+      const {
+        porcentajeIva,
+        precioNetoUnitario,
+        subtotalConDescuento,
+        ivaCalculado
+      } = calcularTotalesProducto({
+        producto: productoNormalizado,
+        cantidad: cantidadNueva,
+        descuentoPorcentaje: parseFloat(action.payload.descuento_porcentaje || 0)
+      });
+
+      const nuevoProducto = {
+        id: action.payload.id,
+        nombre: action.payload.nombre,
+        unidad_medida: action.payload.unidad_medida || 'Unidad',
+        cantidad: cantidadNueva,
+        precio: precioNetoUnitario,
+        porcentaje_iva: porcentajeIva,
+        iva_calculado: ivaCalculado,
+        subtotal: subtotalConDescuento,
+        descuento_porcentaje: parseFloat(action.payload.descuento_porcentaje || 0),
+        esManual,
+        precio_incluye_iva: Boolean(action.payload.precio_incluye_iva),
+        precio_unitario_final_manual:
+          action.payload.precio_unitario_final_manual !== undefined &&
+          action.payload.precio_unitario_final_manual !== null &&
+          !Number.isNaN(Number(action.payload.precio_unitario_final_manual))
+            ? parseFloat(action.payload.precio_unitario_final_manual)
+            : null
+      };
+
+      return {
+        ...state,
+        productos: [...state.productos, nuevoProducto]
+      };
+    }
+    
+    case 'ADD_MULTIPLE_PRODUCTOS': {
+      let productosActualizados = [...state.productos];
+
+      for (const producto of action.payload) {
+        const productoNormalizado = normalizarFlagsPrecioProducto(producto);
+        const cantidadNueva = parseFloat(producto.cantidad) || 0.5;
+        const esManual = Boolean(producto.esManual);
+
+        if (!esManual) {
+          const productoExistenteIndex = productosActualizados.findIndex(
+            (p) => !p.esManual && p.id === producto.id
+          );
+
+          if (productoExistenteIndex !== -1) {
+            const productoExistente = productosActualizados[productoExistenteIndex];
+            const nuevaCantidadTotal = parseFloat(productoExistente.cantidad) + cantidadNueva;
+            const descuentoPorcentaje = productoExistente.descuento_porcentaje || 0;
+            const {
+              precioNetoUnitario,
+              subtotalConDescuento,
+              ivaCalculado
+            } = calcularTotalesProducto({
+              producto: productoExistente,
+              cantidad: nuevaCantidadTotal,
+              descuentoPorcentaje
+            });
+
+            productosActualizados[productoExistenteIndex] = {
+              ...productoExistente,
+              cantidad: nuevaCantidadTotal,
+              precio: precioNetoUnitario,
+              subtotal: subtotalConDescuento,
+              iva_calculado: ivaCalculado
+            };
+            continue;
+          }
+        }
+
+        const {
+          porcentajeIva,
+          precioNetoUnitario,
+          subtotalConDescuento,
+          ivaCalculado
+        } = calcularTotalesProducto({
+          producto: productoNormalizado,
+          cantidad: cantidadNueva,
+          descuentoPorcentaje: parseFloat(producto.descuento_porcentaje || 0)
+        });
+
+        productosActualizados.push(
+          normalizarFlagsPrecioProducto({
+            id: producto.id,
+            nombre: producto.nombre,
+            unidad_medida: producto.unidad_medida || 'Unidad',
+            cantidad: cantidadNueva,
+            precio: precioNetoUnitario,
+            porcentaje_iva: porcentajeIva,
+            iva_calculado: ivaCalculado,
+            subtotal: subtotalConDescuento,
+            descuento_porcentaje: producto.descuento_porcentaje || 0,
+            esManual
+          })
+        );
       }
 
       return {
