@@ -21,16 +21,19 @@ import { FileText, ClipboardList, Package, Users, Receipt } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const TABS = [
-  { id: 'libro-iva', name: 'Libro IVA Ventas', icon: FileText },
-  { id: 'lista-precios', name: 'Lista de Precios', icon: ClipboardList },
-  { id: 'control-stock', name: 'Control de Stock', icon: Package },
-  { id: 'listado-vendedores', name: 'Listado Vendedores', icon: Users },
-  { id: 'resumen-cuenta', name: 'Resumen de Cuenta', icon: Receipt },
+  { id: 'libro-iva', name: 'Libro IVA Ventas', icon: FileText, soloGerente: true },
+  { id: 'lista-precios', name: 'Lista de Precios', icon: ClipboardList, soloGerente: false },
+  { id: 'control-stock', name: 'Control de Stock', icon: Package, soloGerente: false },
+  { id: 'listado-vendedores', name: 'Listado Vendedores', icon: Users, soloGerente: true },
+  { id: 'resumen-cuenta', name: 'Resumen de Cuenta', icon: Receipt, soloGerente: false },
 ];
 
-function ListadosContent() {
+function ListadosContent({ esGerente }) {
   const { tabActiva, setTabActiva } = useListadosUIStore();
   const [isMobile, setIsMobile] = useState(false);
+  const tabsVisibles = esGerente ? TABS : TABS.filter((tab) => !tab.soloGerente);
+  const tabPorDefecto = esGerente ? 'libro-iva' : 'lista-precios';
+  const tabMostrada = tabsVisibles.some((tab) => tab.id === tabActiva) ? tabActiva : tabPorDefecto;
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -39,22 +42,28 @@ function ListadosContent() {
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
+  useEffect(() => {
+    if (tabActiva !== tabMostrada) {
+      setTabActiva(tabMostrada);
+    }
+  }, [tabActiva, tabMostrada, setTabActiva]);
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-muted/30 p-2 sm:p-4">
       <Head>
         <title>VERTIMAR | LISTADOS</title>
-        <meta name="description" content="Generador de listados gerenciales" />
+        <meta name="description" content="Generador de listados" />
       </Head>
 
       <Card className="w-full max-w-6xl shadow-lg">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl sm:text-3xl">LISTADOS GERENCIALES</CardTitle>
+          <CardTitle className="text-2xl sm:text-3xl">LISTADOS</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="mb-4 sm:mb-6">
             {!isMobile ? (
               <nav className="flex space-x-1 overflow-x-auto border-b">
-                {TABS.map((tab) => {
+                {tabsVisibles.map((tab) => {
                   const Icon = tab.icon;
                   return (
                     <button
@@ -63,7 +72,7 @@ function ListadosContent() {
                       onClick={() => setTabActiva(tab.id)}
                       className={cn(
                         'flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium transition-colors',
-                        tabActiva === tab.id
+                        tabMostrada === tab.id
                           ? 'border-primary text-primary'
                           : 'border-transparent text-muted-foreground hover:border-border hover:text-foreground'
                       )}
@@ -75,12 +84,12 @@ function ListadosContent() {
                 })}
               </nav>
             ) : (
-              <Select value={tabActiva} onValueChange={setTabActiva}>
+              <Select value={tabMostrada} onValueChange={setTabActiva}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {TABS.map((tab) => (
+                  {tabsVisibles.map((tab) => (
                     <SelectItem key={tab.id} value={tab.id}>
                       {tab.name}
                     </SelectItem>
@@ -91,11 +100,11 @@ function ListadosContent() {
           </div>
 
           <div className="transition-all duration-300">
-            {tabActiva === 'libro-iva' && <LibroIvaVentas />}
-            {tabActiva === 'lista-precios' && <ListaPrecios />}
-            {tabActiva === 'control-stock' && <ControlStock />}
-            {tabActiva === 'listado-vendedores' && <ListadoVendedores />}
-            {tabActiva === 'resumen-cuenta' && <ResumenCuenta />}
+            {esGerente && tabMostrada === 'libro-iva' && <LibroIvaVentas />}
+            {tabMostrada === 'lista-precios' && <ListaPrecios />}
+            {tabMostrada === 'control-stock' && <ControlStock />}
+            {esGerente && tabMostrada === 'listado-vendedores' && <ListadoVendedores />}
+            {tabMostrada === 'resumen-cuenta' && <ResumenCuenta />}
           </div>
 
           <div className="mt-6 flex justify-center sm:mt-8">
@@ -116,11 +125,19 @@ function ListadosContent() {
 }
 
 export default function Listados() {
-  useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-muted/30">
+        <p className="text-muted-foreground">Cargando...</p>
+      </div>
+    );
+  }
 
   return (
     <ControlStockProvider>
-      <ListadosContent />
+      <ListadosContent esGerente={user.rol === 'GERENTE'} />
     </ControlStockProvider>
   );
 }

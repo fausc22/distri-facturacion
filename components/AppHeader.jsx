@@ -442,8 +442,8 @@ function AppHeader() {
               )}
             </motion.div>
 
-            {/* FINANZAS - Solo gerentes y requiere online */}
-            {role === 'GERENTE' && (
+            {/* FINANZAS - Listados para gerente y vendedor; el resto solo gerentes. Requiere online */}
+            {(role === 'GERENTE' || role === 'VENDEDOR') && (
               <motion.div className="relative" variants={menuItemVariants} whileHover="hover" whileTap="tap">
                 <button 
                   onClick={() => isPWA && modoOffline ? null : toggleSubMenu('finanzas')} 
@@ -463,34 +463,38 @@ function AppHeader() {
                     transition={{ duration: 0.2, ease: 'easeOut' }}
                     style={{ minWidth: '200px' }}
                   >
-                    <MenuLink 
-                      href="/finanzas/fondos" 
-                      className="block py-2 px-4 text-sm whitespace-nowrap"
-                      requiresOnline={true}
-                    >
-                      Fondos
-                    </MenuLink>
-                    <MenuLink 
-                      href="/finanzas/ingresos" 
-                      className="block py-2 px-4 text-sm whitespace-nowrap"
-                      requiresOnline={true}
-                    >
-                      Historial de Ingresos
-                    </MenuLink>
-                    <MenuLink 
-                      href="/finanzas/egresos" 
-                      className="block py-2 px-4 text-sm whitespace-nowrap border-b border-gray-200"
-                      requiresOnline={true}
-                    >
-                      Historial de Egresos
-                    </MenuLink>
-                    <MenuLink 
-                      href="/finanzas/reportes" 
-                      className="block py-2 px-4 text-sm whitespace-nowrap"
-                      requiresOnline={true}
-                    >
-                      Reportes Financieros
-                    </MenuLink>
+                    {role === 'GERENTE' && (
+                      <>
+                        <MenuLink 
+                          href="/finanzas/fondos" 
+                          className="block py-2 px-4 text-sm whitespace-nowrap"
+                          requiresOnline={true}
+                        >
+                          Fondos
+                        </MenuLink>
+                        <MenuLink 
+                          href="/finanzas/ingresos" 
+                          className="block py-2 px-4 text-sm whitespace-nowrap"
+                          requiresOnline={true}
+                        >
+                          Historial de Ingresos
+                        </MenuLink>
+                        <MenuLink 
+                          href="/finanzas/egresos" 
+                          className="block py-2 px-4 text-sm whitespace-nowrap border-b border-gray-200"
+                          requiresOnline={true}
+                        >
+                          Historial de Egresos
+                        </MenuLink>
+                        <MenuLink 
+                          href="/finanzas/reportes" 
+                          className="block py-2 px-4 text-sm whitespace-nowrap"
+                          requiresOnline={true}
+                        >
+                          Reportes Financieros
+                        </MenuLink>
+                      </>
+                    )}
                     <MenuLink 
                       href="/finanzas/Listados" 
                       className="block py-2 px-4 text-sm whitespace-nowrap"
@@ -777,7 +781,7 @@ function AppHeader() {
                 </div>
 
                 {/* FINANZAS MÓVIL */}
-                {role === 'GERENTE' && (
+                {(role === 'GERENTE' || role === 'VENDEDOR') && (
                   <div className="w-full mb-2">
                     <motion.button
                       onClick={() => toggleSubMenu('finanzas-mobile')}
@@ -792,33 +796,44 @@ function AppHeader() {
                       transition={{ duration: 0.3, ease: 'easeInOut' }}
                       className="overflow-hidden"
                     >
+                      {role === 'GERENTE' && (
+                        <>
+                          <MenuLink 
+                            href="/finanzas/fondos" 
+                            className="block py-2 px-4 hover:bg-blue-600 text-white"
+                            requiresOnline={true}
+                          >
+                            Fondos
+                          </MenuLink>
+                          <MenuLink 
+                            href="/finanzas/ingresos" 
+                            className="block py-2 px-4 hover:bg-blue-600 text-white"
+                            requiresOnline={true}
+                          >
+                            Historial de Ingresos
+                          </MenuLink>
+                          <MenuLink 
+                            href="/finanzas/egresos" 
+                            className="block py-2 px-4 hover:bg-blue-600 text-white"
+                            requiresOnline={true}
+                          >
+                            Historial de Egresos
+                          </MenuLink>
+                          <MenuLink 
+                            href="/finanzas/reportes" 
+                            className="block py-2 px-4 hover:bg-blue-600 text-white"
+                            requiresOnline={true}
+                          >
+                            Reportes Financieros
+                          </MenuLink>
+                        </>
+                      )}
                       <MenuLink 
-                        href="/finanzas/fondos" 
+                        href="/finanzas/Listados" 
                         className="block py-2 px-4 hover:bg-blue-600 text-white"
                         requiresOnline={true}
                       >
-                        Fondos
-                      </MenuLink>
-                      <MenuLink 
-                        href="/finanzas/ingresos" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
-                        requiresOnline={true}
-                      >
-                        Historial de Ingresos
-                      </MenuLink>
-                      <MenuLink 
-                        href="/finanzas/egresos" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
-                        requiresOnline={true}
-                      >
-                        Historial de Egresos
-                      </MenuLink>
-                      <MenuLink 
-                        href="/finanzas/reportes" 
-                        className="block py-2 px-4 hover:bg-blue-600 text-white"
-                        requiresOnline={true}
-                      >
-                        Reportes Financieros
+                        Listados
                       </MenuLink>
                     </motion.div>
                   </div>

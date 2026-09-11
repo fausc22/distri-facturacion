@@ -419,8 +419,8 @@ export default function Inicio() {
           </div>
         )}
 
-        {/* 3. FINANZAS - Solo gerentes, solo en modo online */}
-        {!estaEnModoOffline && empleado?.rol === 'GERENTE' && (
+        {/* 3. FINANZAS - Listados para gerente y vendedor; el resto solo gerentes. Solo online */}
+        {!estaEnModoOffline && (empleado?.rol === 'GERENTE' || empleado?.rol === 'VENDEDOR') && (
           <div className={`bg-white rounded-xl shadow-md hover:shadow-xl transition-all duration-200 overflow-hidden border-2 ${finanzasTheme.cardBorder}`}>
             <div className={`p-5 md:p-6 ${finanzasTheme.header}`}>
               <div className="flex items-center">
@@ -434,20 +434,24 @@ export default function Inicio() {
               <p className="text-white/80 mt-2 text-sm">Control financiero y reportes</p>
             </div>
             <div className="p-3 md:p-4 space-y-1">
-              <LinkGuard href="/finanzas/fondos" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${finanzasTheme.link}`}>
-                <span className={`font-medium text-gray-800 ${finanzasTheme.linkText}`}>Fondos</span>
-                <svg className={`w-5 h-5 text-gray-400 ${finanzasTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </LinkGuard>
-              <LinkGuard href="/finanzas/reportes" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${finanzasTheme.link}`}>
-                <span className={`font-medium text-gray-800 ${finanzasTheme.linkText}`}>Reportes Financieros</span>
-                <svg className={`w-5 h-5 text-gray-400 ${finanzasTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </LinkGuard>
+              {empleado?.rol === 'GERENTE' && (
+                <>
+                  <LinkGuard href="/finanzas/fondos" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${finanzasTheme.link}`}>
+                    <span className={`font-medium text-gray-800 ${finanzasTheme.linkText}`}>Fondos</span>
+                    <svg className={`w-5 h-5 text-gray-400 ${finanzasTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </LinkGuard>
+                  <LinkGuard href="/finanzas/reportes" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${finanzasTheme.link}`}>
+                    <span className={`font-medium text-gray-800 ${finanzasTheme.linkText}`}>Reportes Financieros</span>
+                    <svg className={`w-5 h-5 text-gray-400 ${finanzasTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </LinkGuard>
+                </>
+              )}
               <LinkGuard href="/finanzas/Listados" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${finanzasTheme.link}`}>
-                <span className={`font-medium text-gray-800 ${finanzasTheme.linkText}`}>Listados (IVA, Precios)</span>
+                <span className={`font-medium text-gray-800 ${finanzasTheme.linkText}`}>Listados</span>
                 <svg className={`w-5 h-5 text-gray-400 ${finanzasTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
