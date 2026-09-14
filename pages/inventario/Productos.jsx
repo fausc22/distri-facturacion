@@ -510,7 +510,9 @@ export default function GestionProductos() {
             <span className="font-semibold">{productoAEliminar?.nombre || ''}</span>?
           </p>
           <p className="text-xs text-gray-500">
-            Esta acción es permanente y puede afectar registros relacionados según configuración de base de datos.
+            Si el producto nunca se usó, se elimina de forma permanente. Si ya tiene
+            pedidos, ventas u otros registros, se da de baja: deja de aparecer en el
+            catálogo y conserva el historial.
           </p>
           <div className="flex flex-wrap justify-end gap-2 pt-2">
             <button

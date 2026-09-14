@@ -66,14 +66,14 @@ export const useProductos = () => {
     }
   };
 
-  // Eliminar producto
+  // Eliminar producto (físico si no tiene historial; baja lógica si ya se usó)
   const eliminarProducto = async (id) => {
     setLoading(true);
     try {
       const response = await axiosAuth.delete(`/productos/eliminar-producto/${id}`);
 
       if (response.data.success) {
-        toast.success('Producto eliminado correctamente');
+        toast.success(response.data.message || 'Producto eliminado correctamente');
         return { success: true, data: response.data.data || response.data };
       }
 
