@@ -534,9 +534,9 @@ export function ModalAgregarProductoPedido({
     }
 
     if (cantidad > productoSeleccionado.stock_actual) {
-      toast(
+      toast.warning(
         `Atención: stock real ${productoSeleccionado.stock_actual}. Se agregará igual; al facturar se validará.`,
-        { icon: '⚠️', duration: 5000 }
+        { duration: 5000 }
       );
     }
 
@@ -690,9 +690,9 @@ export function ModalEditarProductoPedido({
       const valorValido = Math.max(0.5, valor);
       
       if (valor > stockDisponible) {
-        toast(
+        toast.warning(
           `Atención: stock real ${stockDisponible}. Se puede guardar igual; al facturar se validará.`,
-          { icon: '⚠️', duration: 4000 }
+          { duration: 4000 }
         );
       }
       
@@ -786,9 +786,9 @@ export function ModalEditarProductoPedido({
     }
 
     if (avisoFaltanteStock) {
-      toast(
+      toast.warning(
         `Atención: stock real ${stockDisponible}. Se guardará igual; al facturar se validará.`,
-        { icon: '⚠️', duration: 5000 }
+        { duration: 5000 }
       );
     }
 

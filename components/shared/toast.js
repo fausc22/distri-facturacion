@@ -15,12 +15,19 @@ const TOAST_IDS = {
  * Wrapper unificado de notificaciones.
  * Mantiene react-hot-toast como motor (ya configurado en _app.jsx).
  *
+ * También es invocable: toast(msg, opts) → toast genérico (como react-hot-toast).
+ *
  * Reglas de uso:
  * - Errores de sesión/auth → toast.authError(msg)    [deduplicado globalmente]
  * - Errores de red genéricos → toast.networkError()  [deduplicado globalmente]
  * - Resto de errores → toast.error(msg)
+ * - Avisos de stock / no bloqueantes → toast.warning(msg)
  */
-export const toast = {
+function toastCallable(message, options) {
+  return hotToast(message, options);
+}
+
+export const toast = Object.assign(toastCallable, {
   success: (message, options) => hotToast.success(message, options),
 
   error: (message, options) => hotToast.error(message, options),
@@ -45,7 +52,7 @@ export const toast = {
   /** Toast de error de red puro — nunca se apila */
   networkError: (message = 'Sin respuesta del servidor. Verifique su conexión.') =>
     hotToast.error(message, { id: TOAST_IDS.NETWORK_ERROR, duration: 4000 }),
-};
+});
 
 export { TOAST_IDS };
 export default toast;
