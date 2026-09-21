@@ -131,15 +131,14 @@ export function useEditarPedido() {
     } catch (error) {
       console.error('Error al agregar producto:', error);
       
-      // Manejar errores específicos del backend
-      if (error.response?.data?.message) {
-        if (error.response.data.message.includes('stock')) {
-          toast.error('Stock insuficiente en el servidor');
-        } else if (error.response.data.message.includes('duplicado')) {
-          toast.error('El producto ya existe en el pedido');
-        } else {
-          toast.error(error.response.data.message);
-        }
+      const serverMsg = error.response?.data?.message;
+      if (error.response?.data?.code === 'INSUFFICIENT_STOCK' || serverMsg?.includes('Stock insuficiente')) {
+        // No debería ocurrir en pedidos (solo al facturar); si aparece, mostrar el mensaje del server
+        toast.error(serverMsg || 'No se pudo agregar el producto por stock');
+      } else if (serverMsg?.includes('duplicado') || serverMsg?.includes('ya está')) {
+        toast.error('El producto ya existe en el pedido');
+      } else if (serverMsg) {
+        toast.error(serverMsg);
       } else {
         toast.error('No se pudo agregar el producto');
       }

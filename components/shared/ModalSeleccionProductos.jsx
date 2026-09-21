@@ -114,8 +114,8 @@ function PanelDetalleExpandido({
             />
           </div>
           {avisoFaltante && (
-            <p className="text-amber-700">
-              Stock real {formatearCantidad(stockActual)}. Se puede agregar igual; al facturar se validará el stock.
+            <p className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-amber-800">
+              Stock real {formatearCantidad(stockActual)}. Podés agregarlo igual; el control se aplica al facturar.
             </p>
           )}
           <div className="rounded border border-green-200 bg-green-50 p-2">
@@ -374,8 +374,8 @@ export default function ModalSeleccionProductos({
                 />
               </div>
               {avisoFaltante && (
-                <p className="text-xs text-amber-700">
-                  Stock real {formatearCantidad(stockDisponible)}. Se puede agregar; el control fuerte es al facturar.
+                <p className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+                  Stock real {formatearCantidad(stockDisponible)}. Podés agregarlo igual; el control se aplica al facturar.
                 </p>
               )}
             </div>
@@ -390,10 +390,16 @@ export default function ModalSeleccionProductos({
                 className={`flex h-10 min-w-0 flex-1 items-center justify-center rounded-lg px-3 text-sm font-semibold text-white ${
                   agregarDeshabilitado
                     ? 'cursor-not-allowed bg-gray-400'
-                    : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800'
+                    : avisoFaltante
+                      ? 'bg-amber-600 hover:bg-amber-700 active:bg-amber-800'
+                      : 'bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800'
                 }`}
               >
-                {agregando ? 'Agregando...' : labelAgregar}
+                {agregando
+                  ? 'Agregando...'
+                  : avisoFaltante
+                    ? `Agregar igual (${formatearCantidad(cantidad)})`
+                    : labelAgregar}
               </button>
             )}
             <button

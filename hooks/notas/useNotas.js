@@ -94,17 +94,22 @@ export function useNotas() {
       observaciones: observaciones || 'sin observaciones',
       empleado_id: empleado.id,
       empleado_nombre: empleado.nombre || '',
-      productos: productos.map(p => ({
-        id: p.id,
-        nombre: p.nombre,
-        unidad_medida: p.unidad_medida || 'Unidad',
-        cantidad: p.cantidad,
-        precio: parseFloat(p.precio),
-        iva: parseFloat(p.iva_calculado),
-        subtotal: parseFloat(p.subtotal),
-        porcentaje_iva: resolvePorcentajeIva(p.porcentaje_iva),
-        esManual: p.esManual || false
-      }))
+      productos: productos.map(p => {
+        const esManual = p.esManual === true || p.esManual === 'true';
+        const productoId = esManual ? null : (p.id ?? p.producto_id ?? null);
+        return {
+          id: productoId,
+          producto_id: productoId,
+          nombre: p.nombre,
+          unidad_medida: p.unidad_medida || 'Unidad',
+          cantidad: p.cantidad,
+          precio: parseFloat(p.precio),
+          iva: parseFloat(p.iva_calculado),
+          subtotal: parseFloat(p.subtotal),
+          porcentaje_iva: resolvePorcentajeIva(p.porcentaje_iva),
+          esManual
+        };
+      })
     };
 
     setLoading(true);
@@ -123,8 +128,12 @@ export function useNotas() {
       }
     } catch (error) {
       console.error(`Error al crear ${tipoNota}:`, error);
-      toast.error(`Error al crear ${tipoNota === 'NOTA_DEBITO' ? 'la nota de débito' : 'la nota de crédito'}`);
-      return { success: false, error: error.message };
+      const msgBackend =
+        error?.response?.data?.message ||
+        error?.message ||
+        `Error al crear ${tipoNota === 'NOTA_DEBITO' ? 'la nota de débito' : 'la nota de crédito'}`;
+      toast.error(msgBackend);
+      return { success: false, error: msgBackend };
     } finally {
       setLoading(false);
     }

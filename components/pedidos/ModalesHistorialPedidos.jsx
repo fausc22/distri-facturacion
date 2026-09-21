@@ -582,6 +582,7 @@ export function ModalAgregarProductoPedido({
       agregando={agregandoProducto}
       titulo="Agregar producto al pedido"
       zIndex={Z_INDEX.MODAL_NESTED}
+      limitarPorStock={false}
       isProductoDeshabilitado={(producto) => productoYaExiste(producto.id)}
       getProductoDeshabilitadoLabel={() => '(Ya en pedido)'}
     />

@@ -1,5 +1,5 @@
 // components/notas/ModalCrearNota.jsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { NotasProvider, useNotasContext } from '../../context/NotasContext';
 import { useNotas } from '../../hooks/notas/useNotas';
@@ -53,11 +53,14 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
   const [itemsReferenciaVenta, setItemsReferenciaVenta] = useState([]);
   const [loadingItemsReferencia, setLoadingItemsReferencia] = useState(false);
   const [cantidadAAnular, setCantidadAAnular] = useState({});
+  // Evita confirmar con productos vacíos por setState asíncrono del contexto
+  const productosParaNotaRef = useRef(null);
 
   // Inicializar cuando se abre el modal
   useEffect(() => {
     if (mostrar) {
       clearNota();
+      productosParaNotaRef.current = null;
       setModoCreacion(null);
       setItemsReferenciaVenta([]);
       setCantidadAAnular({});
@@ -216,8 +219,16 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
         ? (ivaLinea * cantAAnular) / cantFacturada
         : 0;
       const porcentajeIva = subtotalLinea > 0 ? (ivaLinea / subtotalLinea) * 100 : 21;
+      // Nunca usar item.id (es el id de la línea en ventas_cont, no del catálogo)
+      const productoId = item.producto_id ?? null;
+      if (productoId == null) {
+        console.warn(
+          `⚠️ Ítem de venta sin producto_id: "${item.producto_nombre}". No se podrá devolver stock.`
+        );
+      }
       lista.push({
-        id: item.producto_id,
+        id: productoId,
+        producto_id: productoId,
         nombre: item.producto_nombre,
         unidad_medida: item.producto_um || 'Unidad',
         cantidad: cantAAnular,
@@ -271,12 +282,22 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
         return;
       }
 
+      const sinCatalogo = productosDesdeRef.filter((p) => p.id == null && !p.esManual);
+      if (sinCatalogo.length > 0) {
+        toast.error(
+          `Hay ${sinCatalogo.length} ítem(s) sin producto de catálogo; no se podría devolver stock. Revise la venta de referencia.`
+        );
+        return;
+      }
+
+      productosParaNotaRef.current = productosFinales;
       setProductos(productosFinales);
     } else {
       if (productos.length === 0) {
         toast.error('Debe agregar al menos un producto');
         return;
       }
+      productosParaNotaRef.current = productos;
     }
 
     setMostrarModalFacturacion(true);
@@ -291,9 +312,14 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
     }
 
     const datosNota = getDatosNota();
-    
+    const productosConfirmados =
+      (productosParaNotaRef.current && productosParaNotaRef.current.length > 0)
+        ? productosParaNotaRef.current
+        : datosNota.productos;
+
     const datosCompletos = {
       ...datosNota,
+      productos: productosConfirmados,
       empleado: user,
       cuentaId: datosFacturacion.cuentaId,
       tipoFiscal: datosFacturacion.tipoFiscal,
@@ -305,6 +331,7 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
     const resultado = await crearNota(tipoNota, datosCompletos);
     
     if (resultado.success) {
+      productosParaNotaRef.current = null;
       clearNota();
       setMostrarModalFacturacion(false);
       onNotaCreada();
