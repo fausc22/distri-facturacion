@@ -23,6 +23,9 @@ export default function ConsultaStock() {
   const [autoRefreshSeconds, setAutoRefreshSeconds] = useState(30);
   const [sortBy, setSortBy] = useState('stock_actual');
   const [sortOrder, setSortOrder] = useState('asc');
+  const [vistaActiva, setVistaActiva] = useState('catalogo');
+  const [faltantesData, setFaltantesData] = useState(null);
+  const [loadingFaltantes, setLoadingFaltantes] = useState(false);
 
   const { productos, total, loading, paginaActual, porPagina, filtros, setFiltros, cargarProductos } =
     useProductosListado();
@@ -39,9 +42,31 @@ export default function ConsultaStock() {
     }
   };
 
+  const cargarFaltantes = useCallback(async () => {
+    setLoadingFaltantes(true);
+    try {
+      const response = await axiosAuth.get('/productos/stock-faltantes');
+      if (response.data.success) {
+        setFaltantesData(response.data.data);
+      }
+    } catch (error) {
+      console.error('Error cargando faltantes:', error);
+      toast.error('Error al cargar faltantes y reposición');
+    } finally {
+      setLoadingFaltantes(false);
+    }
+  }, []);
+
   useEffect(() => {
     cargarCategorias();
-  }, []);
+    cargarFaltantes();
+  }, [cargarFaltantes]);
+
+  useEffect(() => {
+    if (vistaActiva === 'faltantes') {
+      cargarFaltantes();
+    }
+  }, [vistaActiva, cargarFaltantes]);
 
   const handleRefetch = useCallback((opciones = {}) => {
     cargarProductos(opciones);
@@ -158,8 +183,8 @@ export default function ConsultaStock() {
     { key: 'categoria_nombre', label: 'Categoría', sortable: true },
     { key: 'stock_actual', label: 'Stock Actual', sortable: true, className: 'px-3' },
     { key: 'estado_stock', label: 'Estado Stock', sortable: false, className: 'px-3' },
-    { key: 'stock_reservado', label: 'Reservado', sortable: false, className: 'px-3' },
-    { key: 'stock_libre', label: 'Libre', sortable: false, className: 'px-3' },
+    { key: 'en_pedidos_pendientes', label: 'En pedidos', sortable: false, className: 'px-3' },
+    { key: 'disponible_estimado', label: 'Disponible estimado', sortable: false, className: 'px-3' },
     { key: 'precio', label: 'Precio', sortable: true, className: 'px-3' },
     {
       key: 'acciones',
@@ -191,6 +216,40 @@ export default function ConsultaStock() {
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">Consulta de Stock</h1>
 
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              type="button"
+              onClick={() => setVistaActiva('catalogo')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                vistaActiva === 'catalogo'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Catálogo
+            </button>
+            <button
+              type="button"
+              onClick={() => setVistaActiva('faltantes')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                vistaActiva === 'faltantes'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Faltantes y reposición
+              {faltantesData?.resumen &&
+                (faltantesData.resumen.total_faltantes > 0 ||
+                  faltantesData.resumen.total_proximos_agotarse > 0) && (
+                  <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-bold rounded-full bg-red-500 text-white">
+                    {(faltantesData.resumen.total_faltantes || 0) +
+                      (faltantesData.resumen.total_proximos_agotarse || 0)}
+                  </span>
+                )}
+            </button>
+          </div>
+
+          {vistaActiva === 'catalogo' && (
           <div className="flex flex-col sm:flex-row gap-3 mb-4">
             <div className="flex-1 flex gap-2">
               <div className="flex-1 w-full">
@@ -253,8 +312,107 @@ export default function ConsultaStock() {
               {modalAbierto && autoRefreshEnabled ? 'Auto-refresh pausado mientras editás.' : ''}
             </span>
           </div>
+          )}
         </div>
 
+        {vistaActiva === 'faltantes' && (
+          <div className="space-y-6 mb-6">
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">Faltantes por pedidos pendientes</h2>
+                <button
+                  type="button"
+                  onClick={cargarFaltantes}
+                  disabled={loadingFaltantes}
+                  className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {loadingFaltantes ? 'Cargando...' : 'Actualizar'}
+                </button>
+              </div>
+              {loadingFaltantes && !faltantesData ? (
+                <p className="text-gray-500 text-sm">Cargando alertas...</p>
+              ) : (faltantesData?.faltantes_por_pedidos || []).length === 0 ? (
+                <p className="text-gray-500 text-sm">No hay faltantes por pedidos pendientes.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Producto</th>
+                        <th className="px-3 py-2 text-center font-medium text-gray-600">Stock real</th>
+                        <th className="px-3 py-2 text-center font-medium text-gray-600">En pedidos</th>
+                        <th className="px-3 py-2 text-center font-medium text-gray-600">Falta comprar</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Pedidos</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {faltantesData.faltantes_por_pedidos.map((item) => (
+                        <tr key={item.id}>
+                          <td className="px-3 py-2">
+                            <div className="font-medium text-gray-900">{item.nombre}</div>
+                            <div className="text-xs text-gray-500">{item.categoria_nombre || '-'}</div>
+                          </td>
+                          <td className="px-3 py-2 text-center">{formatearCantidad(item.stock_actual)}</td>
+                          <td className="px-3 py-2 text-center">{formatearCantidad(item.en_pedidos_pendientes)}</td>
+                          <td className="px-3 py-2 text-center font-semibold text-red-600">
+                            {formatearCantidad(item.cantidad_faltante)}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-gray-600">
+                            {(item.pedidos || []).slice(0, 4).map((ped) => (
+                              <div key={`${item.id}-${ped.pedido_id}`}>
+                                #{ped.pedido_id} · {ped.cliente_nombre} · {formatearCantidad(ped.cantidad)} · {ped.empleado_nombre}
+                              </div>
+                            ))}
+                            {(item.pedidos || []).length > 4 && (
+                              <div className="text-gray-400">+{(item.pedidos || []).length - 4} más</div>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-lg shadow-md p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">Próximos a agotarse (stock físico bajo)</h2>
+              {(faltantesData?.proximos_agotarse || []).length === 0 ? (
+                <p className="text-gray-500 text-sm">No hay productos bajo el umbral de stock bajo.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Producto</th>
+                        <th className="px-3 py-2 text-left font-medium text-gray-600">Categoría</th>
+                        <th className="px-3 py-2 text-center font-medium text-gray-600">Stock actual</th>
+                        <th className="px-3 py-2 text-center font-medium text-gray-600">Estado</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {faltantesData.proximos_agotarse.map((item) => (
+                        <tr key={item.id}>
+                          <td className="px-3 py-2 font-medium text-gray-900">{item.nombre}</td>
+                          <td className="px-3 py-2 text-gray-600">{item.categoria_nombre || '-'}</td>
+                          <td className="px-3 py-2 text-center font-semibold">{formatearCantidad(item.stock_actual)}</td>
+                          <td className="px-3 py-2 text-center">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStockColor(item.stock_actual)}`}>
+                              {getStockText(item.stock_actual)}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {vistaActiva === 'catalogo' && (
+        <>
         <FiltrosProductos
           filtros={filtros}
           onFiltrosChange={handleFiltrosChange}
@@ -309,12 +467,16 @@ export default function ConsultaStock() {
                       </span>
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-900">
-                      {formatearCantidad(producto.stock_reservado || 0)}
+                      {formatearCantidad(
+                        producto.en_pedidos_pendientes ?? producto.stock_reservado ?? 0
+                      )}
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap text-sm text-center text-gray-900">
                       {formatearCantidad(
-                        producto.stock_libre ??
-                          (producto.stock_actual - (producto.stock_reservado || 0))
+                        producto.disponible_estimado ??
+                          producto.stock_libre ??
+                          (producto.stock_actual -
+                            (producto.en_pedidos_pendientes ?? producto.stock_reservado ?? 0))
                       )}
                     </td>
                     <td className="px-3 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -379,10 +541,12 @@ export default function ConsultaStock() {
                     </div>
                     <div className="text-center">
                       <span className="text-sm font-medium text-gray-900">
-                        Libre:{' '}
+                        Disponible:{' '}
                         {formatearCantidad(
-                          producto.stock_libre ??
-                            (producto.stock_actual - (producto.stock_reservado || 0))
+                          producto.disponible_estimado ??
+                            producto.stock_libre ??
+                            (producto.stock_actual -
+                              (producto.en_pedidos_pendientes ?? producto.stock_reservado ?? 0))
                         )}
                       </span>
                     </div>
@@ -410,6 +574,8 @@ export default function ConsultaStock() {
             onPageChange={handlePageChange}
           />
         </div>
+        </>
+        )}
       </div>
 
       <ModalEditarProductoStock

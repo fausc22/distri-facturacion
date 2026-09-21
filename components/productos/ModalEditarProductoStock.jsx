@@ -78,7 +78,7 @@ export default function ModalEditarProductoStock({
     const stockNum = parseFloat(formData.stock_actual);
     if (stockReservado > 0 && stockNum < stockReservado) {
       const ok = window.confirm(
-        `El nuevo stock (${stockNum}) es menor que el reservado (${stockReservado}). ¿Continuar?`
+        `El nuevo stock (${stockNum}) es menor que lo pendiente en pedidos (${stockReservado}). ¿Continuar?`
       );
       if (!ok) return;
     }
@@ -157,12 +157,12 @@ export default function ModalEditarProductoStock({
 
           {stockReservado > 0 && (
             <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-              <p className="font-semibold">Atención: stock reservado en pedidos activos</p>
+              <p className="font-semibold">Atención: cantidad en pedidos pendientes de facturar</p>
               <p className="mt-1">
-                Reservado: {stockReservado} unid. · Stock libre estimado: {libre} unid.
+                En pedidos: {stockReservado} unid. · Disponible estimado: {libre} unid.
               </p>
               <p className="mt-1 text-xs text-amber-800">
-                Ajustar el stock por debajo de {stockReservado} unid. podría afectar pedidos en curso.
+                Ajustar el stock por debajo de {stockReservado} unid. puede impedir facturar esos pedidos.
               </p>
             </div>
           )}

@@ -43,14 +43,19 @@ export default function ProductoSelector({
   const handleAgregarProducto = () => {
     if (!productoSeleccionado || cantidad <= 0) return;
 
-    if (cantidad > productoSeleccionado.stock_actual) {
-      toast.error(`NO HAY STOCK DISPONIBLE PARA ${productoSeleccionado.nombre.toUpperCase()}.`);
-      return;
-    }
+    const stockReal = Number(productoSeleccionado.stock_actual) || 0;
+    const pendiente = Number(productoSeleccionado.pendiente_pedidos) || 0;
+    const disponibleEstimado =
+      productoSeleccionado.faltante !== undefined && productoSeleccionado.faltante !== null
+        ? Number(productoSeleccionado.faltante)
+        : stockReal - pendiente;
 
-    if (productoSeleccionado.stock_actual === 0) {
-      toast.error(`NO HAY STOCK DISPONIBLE PARA ${productoSeleccionado.nombre.toUpperCase()}.`);
-      return;
+    if (cantidad > stockReal || stockReal === 0) {
+      const faltantePrevisto = Math.max(0, cantidad - Math.max(0, disponibleEstimado));
+      toast(
+        `Atención: stock real ${stockReal}${pendiente > 0 ? `, en pedidos pendientes ${pendiente}` : ''}. Al facturar podría faltar ${faltantePrevisto || cantidad} u. de ${productoSeleccionado.nombre}.`,
+        { icon: '⚠️', duration: 5000 }
+      );
     }
 
     addProducto(productoSeleccionado, cantidad, subtotal);

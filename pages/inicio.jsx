@@ -8,12 +8,14 @@ import { getAppMode, offlineManager } from '../utils/offlineManager';
 import { LinkGuard } from '../components/OfflineGuard';
 import { useOfflineCatalog, useOfflinePedidos } from '../hooks/useOfflineCatalog';
 import { GREETING_THEME, MODULE_THEMES } from '../lib/moduleThemes';
+import { axiosAuth } from '../utils/apiClient';
 
 export default function Inicio() {
   const router = useRouter();
   const [empleado, setEmpleado] = useState(null);
   const [loading, setLoading] = useState(true);
   const [catalogStats, setCatalogStats] = useState(null);
+  const [alertasStock, setAlertasStock] = useState(null);
 
   // ✅ CONEXIÓN CENTRALIZADA - Única fuente de verdad
   const { modoOffline, reconectando, reconectar, isPWA } = useConnectionContext();
@@ -84,6 +86,28 @@ export default function Inicio() {
       console.log('📊 [inicio] Estadísticas del catálogo offline:', stats);
     }
   }, [isPWA]);
+
+  // Alertas de stock solo para gerentes (online)
+  useEffect(() => {
+    if (!empleado || empleado.rol !== 'GERENTE' || modoOffline) return undefined;
+
+    let cancelled = false;
+    const cargarAlertas = async () => {
+      try {
+        const response = await axiosAuth.get('/productos/stock-faltantes');
+        if (!cancelled && response.data.success) {
+          setAlertasStock(response.data.data.resumen || null);
+        }
+      } catch (error) {
+        console.error('Error cargando alertas de stock:', error);
+      }
+    };
+
+    cargarAlertas();
+    return () => {
+      cancelled = true;
+    };
+  }, [empleado, modoOffline]);
 
   // Handlers para los botones PWA
   const handleUpdateCatalog = async () => {
@@ -305,6 +329,37 @@ export default function Inicio() {
             </div>
           )}
         </div>
+      )}
+
+      {/* Alertas de stock — solo gerentes */}
+      {!estaEnModoOffline && empleado?.rol === 'GERENTE' && alertasStock && (
+        (alertasStock.total_faltantes > 0 || alertasStock.total_proximos_agotarse > 0) && (
+          <div className="mb-6 bg-white rounded-xl shadow-md border-l-4 border-red-500 p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Alertas de stock</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  {alertasStock.total_faltantes > 0 && (
+                    <span className="mr-3">
+                      <span className="font-bold text-red-600">{alertasStock.total_faltantes}</span> con faltante por pedidos pendientes
+                    </span>
+                  )}
+                  {alertasStock.total_proximos_agotarse > 0 && (
+                    <span>
+                      <span className="font-bold text-orange-600">{alertasStock.total_proximos_agotarse}</span> próximos a agotarse
+                    </span>
+                  )}
+                </p>
+              </div>
+              <LinkGuard
+                href="/inventario/consultaStock"
+                className="inline-flex items-center justify-center px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-medium rounded-lg transition-colors"
+              >
+                Ver faltantes y reposición
+              </LinkGuard>
+            </div>
+          </div>
+        )
       )}
 
       {/* ✅ MÓDULOS PRINCIPALES - Modo offline: solo VENTAS con Registrar Pedido */}

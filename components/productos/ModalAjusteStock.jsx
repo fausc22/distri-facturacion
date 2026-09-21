@@ -70,7 +70,7 @@ function ModalAjusteStock({
     }
     if (stockReservado > 0 && stockNum < stockReservado) {
       const ok = window.confirm(
-        `El nuevo stock (${formatearCantidad(stockNum)}) es menor que el reservado (${formatearCantidad(stockReservado)}). ¿Continuar?`
+        `El nuevo stock (${formatearCantidad(stockNum)}) es menor que lo pendiente en pedidos (${formatearCantidad(stockReservado)}). ¿Continuar?`
       );
       if (!ok) return;
     }
@@ -137,9 +137,9 @@ function ModalAjusteStock({
 
         {stockReservado > 0 && (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-            <p className="font-semibold">Stock reservado en pedidos activos</p>
+            <p className="font-semibold">Cantidad en pedidos pendientes de facturar</p>
             <p className="mt-1">
-              Reservado: {formatearCantidad(stockReservado)} · Libre estimado:{' '}
+              En pedidos: {formatearCantidad(stockReservado)} · Disponible estimado:{' '}
               {formatearCantidad(Math.max(0, (parseFloat(nuevoStock) || 0) - stockReservado))}
             </p>
           </div>

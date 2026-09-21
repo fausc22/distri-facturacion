@@ -116,11 +116,24 @@ export function useFacturacion() {
       }
       
       const errorMessage = error.response?.data?.message || 'Error al facturar el pedido';
-      toast.error(errorMessage);
+      const faltantes = error.response?.data?.faltantes;
+      if (Array.isArray(faltantes) && faltantes.length > 0) {
+        const detalle = faltantes
+          .slice(0, 3)
+          .map((f) => `${f.nombre}: faltan ${f.faltante}`)
+          .join(' | ');
+        toast.error(`${errorMessage}${faltantes.length > 3 ? '...' : ''}\n${detalle}`, {
+          duration: 8000
+        });
+      } else {
+        toast.error(errorMessage, { duration: 6000 });
+      }
       facturandoRef.current = false;
       return {
         success: false,
-        error: errorMessage
+        error: errorMessage,
+        code: error.response?.data?.code,
+        faltantes
       };
     } finally {
       setLoading(false);
