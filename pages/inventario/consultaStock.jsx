@@ -250,68 +250,70 @@ export default function ConsultaStock() {
           </div>
 
           {vistaActiva === 'catalogo' && (
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <div className="flex-1 flex gap-2">
-              <div className="flex-1 w-full">
-                <input
-                  type="text"
-                  placeholder="Buscar por nombre o categoría..."
-                  value={searchTermInput}
-                  onChange={(e) => setSearchTermInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                />
+            <>
+              <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                <div className="flex-1 flex gap-2">
+                  <div className="flex-1 w-full">
+                    <input
+                      type="text"
+                      placeholder="Buscar por nombre o categoría..."
+                      value={searchTermInput}
+                      onChange={(e) => setSearchTermInput(e.target.value)}
+                      onKeyDown={handleKeyDown}
+                      className="w-full p-2.5 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleBuscar}
+                    disabled={loading}
+                    className="px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Buscar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleLimpiarBusqueda}
+                    disabled={loading}
+                    className="px-4 py-2.5 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50"
+                  >
+                    Limpiar
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={handleBuscar}
-                disabled={loading}
-                className="px-4 py-2.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
-              >
-                Buscar
-              </button>
-              <button
-                type="button"
-                onClick={handleLimpiarBusqueda}
-                disabled={loading}
-                className="px-4 py-2.5 bg-gray-500 text-white rounded-md hover:bg-gray-600 disabled:opacity-50"
-              >
-                Limpiar
-              </button>
-            </div>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={handleRefetch}
-              disabled={loading}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-            >
-              Actualizar
-            </button>
-            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
-              <input
-                type="checkbox"
-                checked={autoRefreshEnabled}
-                onChange={(e) => setAutoRefreshEnabled(e.target.checked)}
-              />
-              Auto-refresh
-            </label>
-            <select
-              value={autoRefreshSeconds}
-              onChange={(e) => setAutoRefreshSeconds(Number(e.target.value))}
-              disabled={!autoRefreshEnabled}
-              className="border border-gray-300 rounded-md px-2 py-1 text-sm disabled:opacity-60"
-            >
-              <option value={15}>15s</option>
-              <option value={30}>30s</option>
-              <option value={60}>60s</option>
-            </select>
-            <span className="text-xs text-gray-500">
-              {modalAbierto && autoRefreshEnabled ? 'Auto-refresh pausado mientras editás.' : ''}
-            </span>
-          </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={handleRefetch}
+                  disabled={loading}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  Actualizar
+                </button>
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={autoRefreshEnabled}
+                    onChange={(e) => setAutoRefreshEnabled(e.target.checked)}
+                  />
+                  Auto-refresh
+                </label>
+                <select
+                  value={autoRefreshSeconds}
+                  onChange={(e) => setAutoRefreshSeconds(Number(e.target.value))}
+                  disabled={!autoRefreshEnabled}
+                  className="border border-gray-300 rounded-md px-2 py-1 text-sm disabled:opacity-60"
+                >
+                  <option value={15}>15s</option>
+                  <option value={30}>30s</option>
+                  <option value={60}>60s</option>
+                </select>
+                <span className="text-xs text-gray-500">
+                  {modalAbierto && autoRefreshEnabled ? 'Auto-refresh pausado mientras editás.' : ''}
+                </span>
+              </div>
+            </>
           )}
         </div>
 
