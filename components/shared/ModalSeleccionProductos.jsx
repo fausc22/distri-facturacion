@@ -12,13 +12,18 @@ const formatearCantidad = (cantidad) => {
 const calcularMontoConIva = (montoBase, porcentajeIva) =>
   roundFacturacion(Number(montoBase || 0) * (1 + porcentajeIva / 100));
 
-function ControlCantidadCompacto({ cantidad, onCantidadChange, stockDisponible, disabled = false }) {
+function ControlCantidadCompacto({ cantidad, onCantidadChange, stockDisponible, disabled = false, limitarPorStock = false }) {
   const handleCantidadChange = (nuevaCantidad) => {
     let cantidadFloat = parseFloat(nuevaCantidad) || 0.5;
     cantidadFloat = Math.round(cantidadFloat * 2) / 2;
-    const cantidadValida = Math.max(0.5, Math.min(stockDisponible, cantidadFloat));
+    let cantidadValida = Math.max(0.5, cantidadFloat);
+    if (limitarPorStock) {
+      cantidadValida = Math.min(Math.max(stockDisponible, 0.5), cantidadValida);
+    }
     onCantidadChange(cantidadValida);
   };
+
+  const topeStock = limitarPorStock ? stockDisponible : null;
 
   return (
     <div className="flex items-center gap-1.5">
@@ -37,7 +42,7 @@ function ControlCantidadCompacto({ cantidad, onCantidadChange, stockDisponible, 
         onChange={(e) => handleCantidadChange(e.target.value)}
         min="0.5"
         step="0.5"
-        max={stockDisponible}
+        max={topeStock ?? undefined}
         inputMode="decimal"
         className="h-9 w-14 rounded border border-gray-300 text-center text-sm text-black"
         onBlur={(e) => {
@@ -47,7 +52,7 @@ function ControlCantidadCompacto({ cantidad, onCantidadChange, stockDisponible, 
       />
       <button
         type="button"
-        disabled={disabled || cantidad >= stockDisponible}
+        disabled={disabled || (topeStock != null && cantidad >= topeStock)}
         className="flex h-9 w-9 items-center justify-center rounded bg-gray-200 text-sm font-bold text-black disabled:cursor-not-allowed disabled:opacity-40"
         onClick={() => handleCantidadChange(cantidad + 0.5)}
       >
@@ -65,13 +70,15 @@ function PanelDetalleExpandido({
   mostrarCantidad,
   onCantidadChange,
   disabled = false,
+  limitarPorStock = false,
 }) {
   const porcentajeIva = obtenerPorcentajeIva(producto);
   const precioNeto = Number(producto.precio) || 0;
   const precioFinal = calcularMontoConIva(precioNeto, porcentajeIva);
   const subtotalNeto = Number(subtotal) || 0;
   const subtotalFinal = calcularMontoConIva(subtotalNeto, porcentajeIva);
-  const stockInsuficiente = mostrarCantidad && cantidad > producto.stock_actual;
+  const stockActual = Number(producto.stock_actual) || 0;
+  const avisoFaltante = mostrarCantidad && cantidad > stockActual;
 
   return (
     <div className="mt-2 space-y-2 border-t border-gray-200 pt-2 text-xs text-gray-700">
@@ -101,12 +108,15 @@ function PanelDetalleExpandido({
             <ControlCantidadCompacto
               cantidad={cantidad}
               onCantidadChange={onCantidadChange}
-              stockDisponible={producto.stock_actual}
+              stockDisponible={stockActual}
               disabled={disabled}
+              limitarPorStock={limitarPorStock}
             />
           </div>
-          {stockInsuficiente && (
-            <p className="text-red-600">Stock insuficiente (máx. {formatearCantidad(producto.stock_actual)})</p>
+          {avisoFaltante && (
+            <p className="text-amber-700">
+              Stock real {formatearCantidad(stockActual)}. Se puede agregar igual; al facturar se validará el stock.
+            </p>
           )}
           <div className="rounded border border-green-200 bg-green-50 p-2">
             <span className="text-gray-500">Subtotal sin IVA</span>
@@ -147,6 +157,7 @@ export default function ModalSeleccionProductos({
   mensajeSinResultados = 'No se encontraron resultados.',
   zIndex = 50,
   expandirDetalleAlSeleccionar = false,
+  limitarPorStock = false,
 }) {
   const [detalleExpandido, setDetalleExpandido] = useState(false);
 
@@ -167,10 +178,8 @@ export default function ModalSeleccionProductos({
   }, []);
 
   const stockDisponible = Number(productoSeleccionado?.stock_actual) || 0;
-  const stockInsuficiente = mostrarCantidad && cantidad > stockDisponible;
-  const sinStock = stockDisponible <= 0;
-  const agregarDeshabilitado =
-    agregando || !productoSeleccionado || sinStock || stockInsuficiente;
+  const avisoFaltante = mostrarCantidad && cantidad > stockDisponible;
+  const agregarDeshabilitado = agregando || !productoSeleccionado;
 
   const handleSeleccionar = (producto) => {
     if (agregando || isProductoDeshabilitado(producto)) return;
@@ -179,11 +188,7 @@ export default function ModalSeleccionProductos({
 
   const labelAgregar =
     textoAgregar ||
-    (productoSeleccionado
-      ? sinStock
-        ? 'Sin stock'
-        : `Agregar ${formatearCantidad(cantidad)}`
-      : 'Agregar');
+    (productoSeleccionado ? `Agregar ${formatearCantidad(cantidad)}` : 'Agregar');
 
   return (
     <div
@@ -346,6 +351,7 @@ export default function ModalSeleccionProductos({
                 mostrarCantidad={mostrarCantidad}
                 onCantidadChange={onCantidadChange}
                 disabled={agregando}
+                limitarPorStock={limitarPorStock}
               />
             )}
           </div>
@@ -356,14 +362,22 @@ export default function ModalSeleccionProductos({
           style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
         >
           {productoSeleccionado && mostrarCantidad && (
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <span className="text-xs font-medium text-gray-600">Cantidad</span>
-              <ControlCantidadCompacto
-                cantidad={cantidad}
-                onCantidadChange={onCantidadChange}
-                stockDisponible={stockDisponible}
-                disabled={agregando}
-              />
+            <div className="mb-2 space-y-1.5">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium text-gray-600">Cantidad</span>
+                <ControlCantidadCompacto
+                  cantidad={cantidad}
+                  onCantidadChange={onCantidadChange}
+                  stockDisponible={stockDisponible}
+                  disabled={agregando}
+                  limitarPorStock={limitarPorStock}
+                />
+              </div>
+              {avisoFaltante && (
+                <p className="text-xs text-amber-700">
+                  Stock real {formatearCantidad(stockDisponible)}. Se puede agregar; el control fuerte es al facturar.
+                </p>
+              )}
             </div>
           )}
 

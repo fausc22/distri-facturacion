@@ -534,10 +534,10 @@ export function ModalAgregarProductoPedido({
     }
 
     if (cantidad > productoSeleccionado.stock_actual) {
-      toast.error(
-        `Stock insuficiente. Disponible: ${productoSeleccionado.stock_actual}, Solicitado: ${cantidad}`
+      toast(
+        `Atención: stock real ${productoSeleccionado.stock_actual}. Se agregará igual; al facturar se validará.`,
+        { icon: '⚠️', duration: 5000 }
       );
-      return;
     }
 
     setAgregandoProducto(true);
@@ -666,7 +666,7 @@ export function ModalEditarProductoPedido({
 
   // ✅ CÁLCULOS Y VALORES
   const stockDisponible = Number(producto.stock_actual) || 0;
-  const stockSuficiente = localCantidad <= stockDisponible;
+  const avisoFaltanteStock = localCantidad > stockDisponible;
   const porcentajeIva = resolvePorcentajeIva(producto.porcentaje_iva);
   const multiplicadorIva = 1 + porcentajeIva / 100;
   const precioUnitarioFinalAuto = localPrecio * multiplicadorIva;
@@ -677,20 +677,22 @@ export function ModalEditarProductoPedido({
   const montoDescuento = (subtotalBase * localDescuento) / 100;
   const subtotalFinal = subtotalBase - montoDescuento;
   const ivaCalculado = subtotalFinal * (porcentajeIva / 100);
-  const botonesDeshabilitados = !stockSuficiente || localPrecio <= 0 || guardando;
+  const botonesDeshabilitados = localPrecio <= 0 || guardando;
 
   // ✅ HANDLERS (NO SON HOOKS)
   const handleCantidadInput = (e) => {
       if (guardando) return;
-      let valor = parseFloat(e.target.value) || 0.5; // ← CAMBIAR A parseFloat Y 0.5
+      let valor = parseFloat(e.target.value) || 0.5;
       
-      // Redondear a medios más cercano
       valor = Math.round(valor * 2) / 2;
       
-      const valorValido = Math.max(0.5, Math.min(stockDisponible, valor)); // ← MÍNIMO 0.5
+      const valorValido = Math.max(0.5, valor);
       
       if (valor > stockDisponible) {
-        toast.error(`Stock insuficiente. Máximo: ${stockDisponible}`);
+        toast(
+          `Atención: stock real ${stockDisponible}. Se puede guardar igual; al facturar se validará.`,
+          { icon: '⚠️', duration: 4000 }
+        );
       }
       
       setLocalCantidad(valorValido);
@@ -699,14 +701,12 @@ export function ModalEditarProductoPedido({
     const handleCantidadBoton = (incremento) => {
       if (guardando) return;
       
-      // Incremento de 0.5 en lugar de 1
-      const nuevoIncremento = incremento > 0 ? 0.5 : -0.5; // ← CAMBIAR A 0.5
+      const nuevoIncremento = incremento > 0 ? 0.5 : -0.5;
       const nuevaCantidad = localCantidad + nuevoIncremento;
       
-      // Redondear a medios más cercano
       const cantidadRedondeada = Math.round(nuevaCantidad * 2) / 2;
       
-      const valorValido = Math.max(0.5, Math.min(stockDisponible, cantidadRedondeada)); // ← MÍNIMO 0.5
+      const valorValido = Math.max(0.5, cantidadRedondeada);
       setLocalCantidad(valorValido);
     };
 
@@ -779,14 +779,16 @@ export function ModalEditarProductoPedido({
       return;
     }
 
-    if (!stockSuficiente) {
-      toast.error(`Stock insuficiente. Disponible: ${stockDisponible}`);
-      return;
-    }
-
     if (localPrecio <= 0) {
       toast.error('El precio debe ser mayor a cero');
       return;
+    }
+
+    if (avisoFaltanteStock) {
+      toast(
+        `Atención: stock real ${stockDisponible}. Se guardará igual; al facturar se validará.`,
+        { icon: '⚠️', duration: 5000 }
+      );
     }
 
     setGuardando(true);
@@ -1038,17 +1040,16 @@ export function ModalEditarProductoPedido({
                   type="number"
                   disabled={guardando}
                   className={`border p-2 w-20 rounded text-sm text-center disabled:bg-gray-100 ${
-                    !stockSuficiente ? 'border-red-500 bg-red-50' : ''
+                    avisoFaltanteStock ? 'border-amber-500 bg-amber-50' : ''
                   }`}
                   value={localCantidad}
                   onChange={handleCantidadInput}
-                  min="0.5" // ← CAMBIAR A 0.5
-                  step="0.5" // ← AGREGAR step
-                  max={stockDisponible}
+                  min="0.5"
+                  step="0.5"
                 />
                 <button 
                   type="button"
-                  disabled={localCantidad >= stockDisponible || guardando}
+                  disabled={guardando}
                   className="bg-gray-300 hover:bg-gray-400 disabled:bg-gray-200 disabled:cursor-not-allowed text-black w-8 h-8 rounded flex items-center justify-center transition-colors"
                   onClick={() => handleCantidadBoton(1)}
                 >
@@ -1056,9 +1057,9 @@ export function ModalEditarProductoPedido({
                 </button>
               </div>
               
-              {!stockSuficiente && (
-                <p className="text-red-600 text-xs mt-1">
-                  ❌ Cantidad excede el stock disponible
+              {avisoFaltanteStock && (
+                <p className="text-amber-700 text-xs mt-1">
+                  Stock real {stockDisponible}. Se puede guardar; el control fuerte es al facturar.
                 </p>
               )}
             </div>
@@ -1157,15 +1158,14 @@ export function ModalEditarProductoPedido({
               onClick={handleGuardarClick}
               loading={guardando}
               loadingText="Guardando..."
-              disabled={!stockSuficiente || localPrecio <= 0}
+              disabled={localPrecio <= 0}
               className={`px-6 py-3 rounded-lg text-sm font-bold transition-colors w-full sm:w-auto min-w-[160px] flex items-center justify-center gap-2 ${
                 botonesDeshabilitados
                   ? 'bg-gray-400 cursor-not-allowed text-gray-700'
                   : 'bg-green-600 hover:bg-green-700 text-white shadow-lg'
               }`}
             >
-              {!stockSuficiente ? '❌ Stock Insuficiente' : 
-               localPrecio <= 0 ? '❌ Precio Inválido' : 
+              {localPrecio <= 0 ? '❌ Precio Inválido' : 
                '✅ GUARDAR CAMBIOS'}
             </LoadingButton>
 

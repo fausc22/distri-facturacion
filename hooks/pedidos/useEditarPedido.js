@@ -86,11 +86,13 @@ export function useEditarPedido() {
       return false;
     }
 
-    // 2. Verificar stock disponible
+    // 2. Aviso si no alcanza el stock físico (no bloquea: el control fuerte es al facturar)
     const stockDisponible = await verificarStock(producto.id);
     if (cantidad > stockDisponible) {
-      toast.error(`Stock insuficiente. Disponible: ${stockDisponible}, Solicitado: ${cantidad}`);
-      return false;
+      toast(
+        `Atención: stock real ${stockDisponible}. Se agregará igual; al facturar se validará.`,
+        { icon: '⚠️', duration: 5000 }
+      );
     }
 
     const precio = parseFloat(producto.precio);
@@ -195,11 +197,13 @@ export function useEditarPedido() {
     const precioIncluyeIva = Boolean(producto.precio_incluye_iva);
     const precioFinalManual = parseFloat(producto.precio_unitario_final_manual);
 
-    // Verificar stock antes de actualizar
+    // Aviso si no alcanza el stock físico (no bloquea: el control fuerte es al facturar)
     const stockDisponible = await verificarStock(producto.producto_id);
     if (cantidad > stockDisponible) {
-      toast.error(`Stock insuficiente. Disponible: ${stockDisponible}, Solicitado: ${cantidad}`);
-      return false;
+      toast(
+        `Atención: stock real ${stockDisponible}. Se guardará igual; al facturar se validará.`,
+        { icon: '⚠️', duration: 5000 }
+      );
     }
 
     // ✅ CALCULAR SUBTOTAL CON DESCUENTO (compatible con modo manual)
@@ -265,13 +269,15 @@ export function useEditarPedido() {
     }
   };
 
-  // Validar stock antes de proceder con cualquier operación
+  // Informar stock antes de proceder (no bloquea: el control fuerte es al facturar)
   const validarStockAntesDeProceder = async (productoId, cantidadSolicitada) => {
     const stockDisponible = await verificarStock(productoId);
     
     if (cantidadSolicitada > stockDisponible) {
-      toast.error(`Stock insuficiente. Disponible: ${stockDisponible}, Solicitado: ${cantidadSolicitada}`);
-      return false;
+      toast(
+        `Atención: stock real ${stockDisponible}. Se puede continuar; al facturar se validará.`,
+        { icon: '⚠️', duration: 5000 }
+      );
     }
     
     return true;
