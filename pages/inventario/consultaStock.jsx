@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { toast } from 'react-hot-toast';
 import Head from 'next/head';
+import { useRouter } from 'next/router';
 import useAuth from '../../hooks/useAuth';
 import { axiosAuth } from '../../utils/apiClient';
 import { useProductosListado } from '../../hooks/useProductosListado';
@@ -13,7 +14,15 @@ import { formatearCantidad } from '../../utils/formatearCantidad';
 import { getStockStatus, STOCK_THRESHOLDS } from '../../constants/stockThresholds';
 
 export default function ConsultaStock() {
-  useAuth();
+  const { user } = useAuth();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user && user.rol !== 'GERENTE') {
+      toast.error('Solo los gerentes pueden consultar y modificar el stock.');
+      router.push('/inicio');
+    }
+  }, [user, router]);
 
   const [categorias, setCategorias] = useState([]);
   const [searchTermInput, setSearchTermInput] = useState('');
@@ -193,6 +202,10 @@ export default function ConsultaStock() {
       className: 'sticky right-0 bg-gray-50 z-10 text-right min-w-[100px]',
     },
   ];
+
+  if (!user || user.rol !== 'GERENTE') {
+    return null;
+  }
 
   if (loading && productos.length === 0) {
     return (

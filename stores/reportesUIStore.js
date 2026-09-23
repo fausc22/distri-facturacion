@@ -10,7 +10,58 @@ const ultimoDiaMes = (anio, mes) => {
   return `${ultimo.getFullYear()}-${pad2(ultimo.getMonth() + 1)}-${pad2(ultimo.getDate())}`;
 };
 
-const construirRangoDesdeEstado = (modoPeriodo, seleccionMes, seleccionRango) => {
+export const fechaLocalISO = (date) => {
+  const y = date.getFullYear();
+  const m = pad2(date.getMonth() + 1);
+  const d = pad2(date.getDate());
+  return `${y}-${m}-${d}`;
+};
+
+const sumarDias = (date, dias) => {
+  const copia = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  copia.setDate(copia.getDate() + dias);
+  return copia;
+};
+
+export const rangoHoy = () => {
+  const hoy = fechaLocalISO(new Date());
+  return { desde: hoy, hasta: hoy };
+};
+
+export const rangoSemanaActual = (ref = new Date()) => {
+  const hoy = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate());
+  const dia = hoy.getDay();
+  const diffLunes = dia === 0 ? -6 : 1 - dia;
+  const lunes = sumarDias(hoy, diffLunes);
+  const domingo = sumarDias(lunes, 6);
+  return { desde: fechaLocalISO(lunes), hasta: fechaLocalISO(domingo) };
+};
+
+export const rangoSemanaPasada = () => {
+  const actual = rangoSemanaActual();
+  const [y, m, d] = actual.desde.split('-').map((n) => parseInt(n, 10));
+  const lunesPasado = sumarDias(new Date(y, m - 1, d), -7);
+  const domingoPasado = sumarDias(lunesPasado, 6);
+  return { desde: fechaLocalISO(lunesPasado), hasta: fechaLocalISO(domingoPasado) };
+};
+
+export const rangoUltimos7Dias = () => {
+  const hoy = new Date();
+  return { desde: fechaLocalISO(sumarDias(hoy, -6)), hasta: fechaLocalISO(hoy) };
+};
+
+const construirRangoDesdeEstado = (modoPeriodo, seleccionMes, seleccionRango, seleccionDias) => {
+  if (modoPeriodo === 'dias') {
+    const desdeRaw = seleccionDias?.desde || '';
+    const hastaRaw = seleccionDias?.hasta || '';
+    const fechaOk = (valor) => /^\d{4}-\d{2}-\d{2}$/.test(valor);
+    if (fechaOk(desdeRaw) && fechaOk(hastaRaw)) {
+      const desde = desdeRaw <= hastaRaw ? desdeRaw : hastaRaw;
+      const hasta = desdeRaw <= hastaRaw ? hastaRaw : desdeRaw;
+      return { desde, hasta };
+    }
+    return rangoSemanaActual();
+  }
   if (modoPeriodo === 'rango') {
     const ini = new Date(seleccionRango.desdeAnio, seleccionRango.desdeMes - 1, 1);
     const fin = new Date(seleccionRango.hastaAnio, seleccionRango.hastaMes - 1, 1);
@@ -42,6 +93,7 @@ function getDefaultPeriodo() {
       hastaAnio: hoy.getFullYear(),
       hastaMes: hoy.getMonth() + 1,
     },
+    seleccionDias: rangoSemanaActual(hoy),
   };
 }
 
@@ -50,7 +102,8 @@ function getDefaultFiltros() {
   const rango = construirRangoDesdeEstado(
     periodo.modoPeriodo,
     periodo.seleccionMes,
-    periodo.seleccionRango
+    periodo.seleccionRango,
+    periodo.seleccionDias
   );
   return {
     ...rango,
@@ -68,7 +121,8 @@ const sincronizarFiltrosConRango = (state) => {
   const rango = construirRangoDesdeEstado(
     state.modoPeriodo,
     state.seleccionMes,
-    state.seleccionRango
+    state.seleccionRango,
+    state.seleccionDias
   );
   return {
     ...state,
@@ -116,7 +170,8 @@ const periodoInicial = getDefaultPeriodo();
 const rangoInicial = construirRangoDesdeEstado(
   periodoInicial.modoPeriodo,
   periodoInicial.seleccionMes,
-  periodoInicial.seleccionRango
+  periodoInicial.seleccionRango,
+  periodoInicial.seleccionDias
 );
 
 export const useReportesUIStore = create((set, get) => ({
@@ -136,6 +191,9 @@ export const useReportesUIStore = create((set, get) => ({
   setSeleccionRango: (seleccionRango) =>
     set((s) => sincronizarFiltrosConRango({ ...s, seleccionRango })),
 
+  setSeleccionDias: (seleccionDias) =>
+    set((s) => sincronizarFiltrosConRango({ ...s, modoPeriodo: 'dias', seleccionDias })),
+
   updateFiltros: (partial) =>
     set((s) => ({ filtros: { ...s.filtros, ...partial } })),
 
@@ -144,7 +202,8 @@ export const useReportesUIStore = create((set, get) => ({
     const rango = construirRangoDesdeEstado(
       periodo.modoPeriodo,
       periodo.seleccionMes,
-      periodo.seleccionRango
+      periodo.seleccionRango,
+      periodo.seleccionDias
     );
     set({
       ...periodo,

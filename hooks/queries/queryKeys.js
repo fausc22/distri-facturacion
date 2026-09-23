@@ -37,6 +37,7 @@ export const queryKeys = {
     all: ['reportes'],
     dashboard: (params) => ['reportes', 'dashboard', params],
     gerencial: (params) => ['reportes', 'gerencial', params],
+    consultaComercial: (params) => ['reportes', 'consulta-comercial', params],
     ventas: (params) => ['reportes', 'ventas', params],
     balance: (params) => ['reportes', 'balance', params],
     productos: (params) => ['reportes', 'productos', params],

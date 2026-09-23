@@ -6,6 +6,7 @@ import { ReportesProvider } from '../../context/ReportesContext';
 import { VentasAnalytics } from '../../components/reportes/VentasAnalytics';
 import { FinancialBalance } from '../../components/reportes/FinancialBalance';
 import { ProductAnalytics } from '../../components/reportes/ProductAnalytics';
+import { ConsultaComercial } from '../../components/reportes/ConsultaComercial';
 import { GeographicAnalytics } from '../../components/reportes/GeographicAnalytics';
 import { ReporteGerencial } from '../../components/reportes/ReporteGerencial';
 import { ResultadoNeto } from '../../components/reportes/ResultadoNeto';
@@ -29,6 +30,7 @@ import {
   Package,
   MapPin,
   Scale,
+  Search,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +40,7 @@ const TABS = [
   { id: 'resultado', name: 'Resultado Neto', icon: Scale, component: ResultadoNeto },
   { id: 'financiero', name: 'Balance Financiero', icon: DollarSign, component: FinancialBalance },
   { id: 'productos', name: 'Análisis de Productos', icon: Package, component: ProductAnalytics },
+  { id: 'consulta', name: 'Consulta comercial', icon: Search, component: ConsultaComercial },
   { id: 'geografico', name: 'Análisis Geográfico', icon: MapPin, component: GeographicAnalytics },
 ];
 

@@ -1,6 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import {
+  rangoHoy,
+  rangoSemanaActual,
+  rangoSemanaPasada,
+  rangoUltimos7Dias,
+} from '@/stores/reportesUIStore';
 import {
   Select,
   SelectContent,
@@ -16,6 +23,8 @@ export function SelectorPeriodoReportes({
   setSeleccionMes,
   seleccionRango,
   setSeleccionRango,
+  seleccionDias,
+  setSeleccionDias,
   meses,
   aniosDisponibles,
   etiquetaPeriodo,
@@ -36,6 +45,9 @@ export function SelectorPeriodoReportes({
           <Button type="button" variant={modo === 'rango' ? 'default' : 'outline'} size="sm" onClick={() => setModo('rango')}>
             Rango de meses
           </Button>
+          <Button type="button" variant={modo === 'dias' ? 'default' : 'outline'} size="sm" onClick={() => setModo('dias')}>
+            Por días
+          </Button>
           {onRecargar && (
             <Button type="button" variant="outline" size="sm" onClick={onRecargar} disabled={loading}>
               {loading ? 'Cargando...' : 'Recargar'}
@@ -45,7 +57,50 @@ export function SelectorPeriodoReportes({
       </CardHeader>
 
       <CardContent className="pt-4">
-        {modo === 'mes' ? (
+        {modo === 'dias' ? (
+          <div className="space-y-3">
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setSeleccionDias(rangoHoy())}>
+                Hoy
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setSeleccionDias(rangoSemanaActual())}>
+                Esta semana
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setSeleccionDias(rangoSemanaPasada())}>
+                Semana pasada
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => setSeleccionDias(rangoUltimos7Dias())}>
+                Últimos 7 días
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label htmlFor="reporte-desde">Desde</Label>
+                <Input
+                  id="reporte-desde"
+                  type="date"
+                  value={seleccionDias?.desde || ''}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    setSeleccionDias({ ...seleccionDias, desde: e.target.value });
+                  }}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor="reporte-hasta">Hasta</Label>
+                <Input
+                  id="reporte-hasta"
+                  type="date"
+                  value={seleccionDias?.hasta || ''}
+                  onChange={(e) => {
+                    if (!e.target.value) return;
+                    setSeleccionDias({ ...seleccionDias, hasta: e.target.value });
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        ) : modo === 'mes' ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1">
               <Label>Mes</Label>

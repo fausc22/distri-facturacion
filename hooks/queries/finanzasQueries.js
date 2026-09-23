@@ -426,6 +426,20 @@ export async function fetchReporteGerencial(filtros = {}) {
   return response.data.data;
 }
 
+export async function fetchConsultaComercial(filtros = {}) {
+  const params = new URLSearchParams();
+  if (filtros.desde) params.append('desde', filtros.desde);
+  if (filtros.hasta) params.append('hasta', filtros.hasta);
+  if (filtros.producto_id) params.append('producto_id', filtros.producto_id);
+  if (filtros.cliente_id) params.append('cliente_id', filtros.cliente_id);
+  if (filtros.vendedor) params.append('vendedor', filtros.vendedor);
+  if (filtros.pagina) params.append('pagina', String(filtros.pagina));
+  if (filtros.porPagina) params.append('porPagina', String(filtros.porPagina));
+  const response = await axiosAuth.get(`/finanzas/consulta-comercial?${params.toString()}`);
+  if (!response.data?.success) throw new Error(response.data?.message || 'Error al cargar la consulta comercial');
+  return response.data.data;
+}
+
 export async function fetchBalanceGeneral(filtros = {}) {
   const params = buildReportesParams(filtros);
   if (filtros.anio) params.append('anio', filtros.anio);
@@ -495,6 +509,14 @@ export function useReportesGerencialQuery(filtros, enabled = true) {
     queryKey: queryKeys.reportes.gerencial(filtros),
     enabled: enabled && Boolean(filtros?.desde && filtros?.hasta),
     queryFn: () => fetchReporteGerencial(filtros),
+  });
+}
+
+export function useConsultaComercialQuery(filtros, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.reportes.consultaComercial(filtros),
+    enabled: enabled && Boolean(filtros?.desde && filtros?.hasta),
+    queryFn: () => fetchConsultaComercial(filtros),
   });
 }
 

@@ -451,19 +451,21 @@ export default function Inicio() {
             </div>
             <div className="p-3 md:p-4 space-y-1">
               {empleado?.rol === 'GERENTE' && (
-                <LinkGuard href="/inventario/Productos" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${inventarioTheme.link}`}>
-                  <span className={`font-medium text-gray-800 ${inventarioTheme.linkText}`}>Gestión de Productos</span>
-                  <svg className={`w-5 h-5 text-gray-400 ${inventarioTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </LinkGuard>
+                <>
+                  <LinkGuard href="/inventario/Productos" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${inventarioTheme.link}`}>
+                    <span className={`font-medium text-gray-800 ${inventarioTheme.linkText}`}>Gestión de Productos</span>
+                    <svg className={`w-5 h-5 text-gray-400 ${inventarioTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </LinkGuard>
+                  <LinkGuard href="/inventario/consultaStock" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${inventarioTheme.link}`}>
+                    <span className={`font-medium text-gray-800 ${inventarioTheme.linkText}`}>Consulta de Stock</span>
+                    <svg className={`w-5 h-5 text-gray-400 ${inventarioTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </LinkGuard>
+                </>
               )}
-              <LinkGuard href="/inventario/consultaStock" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${inventarioTheme.link}`}>
-                <span className={`font-medium text-gray-800 ${inventarioTheme.linkText}`}>Consulta de Stock</span>
-                <svg className={`w-5 h-5 text-gray-400 ${inventarioTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                </svg>
-              </LinkGuard>
               <LinkGuard href="/inventario/Remitos" className={`flex items-center justify-between p-3 md:p-4 rounded-lg ${inventarioTheme.link}`}>
                 <span className={`font-medium text-gray-800 ${inventarioTheme.linkText}`}>Remitos</span>
                 <svg className={`w-5 h-5 text-gray-400 ${inventarioTheme.icon}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">

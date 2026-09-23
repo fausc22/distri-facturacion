@@ -1,4 +1,4 @@
-// Período compartido para todas las pestañas de reportes (mes o rango de meses).
+// Período compartido para todas las pestañas de reportes (mes, rango de meses o días).
 import { useMemo } from 'react';
 import { useReportesUIStore } from '@/stores/reportesUIStore';
 
@@ -34,6 +34,8 @@ export function usePeriodoReportes() {
     setSeleccionMes,
     seleccionRango,
     setSeleccionRango,
+    seleccionDias,
+    setSeleccionDias,
     rango,
     filtros,
   } = useReportesUIStore();
@@ -48,13 +50,23 @@ export function usePeriodoReportes() {
 
   const etiquetaPeriodo = useMemo(() => {
     const labelMes = (m) => MESES_REPORTES.find((x) => x.value === m)?.label || '';
+    const formatearDia = (iso) => {
+      if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso || '';
+      const [anio, mes, dia] = iso.split('-');
+      return `${dia}/${mes}/${anio}`;
+    };
+    if (modoPeriodo === 'dias') {
+      const ini = formatearDia(rango.desde);
+      const fin = formatearDia(rango.hasta);
+      return ini === fin ? ini : `${ini} - ${fin}`;
+    }
     if (modoPeriodo === 'rango') {
       const ini = `${labelMes(seleccionRango.desdeMes)} ${seleccionRango.desdeAnio}`;
       const fin = `${labelMes(seleccionRango.hastaMes)} ${seleccionRango.hastaAnio}`;
       return ini === fin ? ini : `${ini} - ${fin}`;
     }
     return `${labelMes(seleccionMes.mes)} ${seleccionMes.anio}`;
-  }, [modoPeriodo, seleccionMes, seleccionRango]);
+  }, [modoPeriodo, seleccionMes, seleccionRango, rango.desde, rango.hasta]);
 
   return {
     modo: modoPeriodo,
@@ -63,6 +75,8 @@ export function usePeriodoReportes() {
     setSeleccionMes,
     seleccionRango,
     setSeleccionRango,
+    seleccionDias,
+    setSeleccionDias,
     rango,
     filtros,
     meses: MESES_REPORTES,
