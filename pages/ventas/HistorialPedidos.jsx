@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Head from 'next/head';
 import toast from '@/components/shared/toast';
@@ -63,9 +63,17 @@ const ModalConfirmacionAnularPedidoIndividual = dynamic(
     })),
   { ssr: false }
 );
+const ModalCrearNota = dynamic(
+  () =>
+    import('../../components/notas/ModalCrearNota').then((m) => ({
+      default: m.ModalCrearNota,
+    })),
+  { ssr: false }
+);
 
 function HistorialPedidosContent() {
   const accionesRef = useRef(null);
+  const [mostrarModalNotaCredito, setMostrarModalNotaCredito] = useState(false);
 
   const {
     modales,
@@ -448,8 +456,22 @@ function HistorialPedidosContent() {
 
       <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pb-8">
         <Card className="mx-auto w-full max-w-6xl shadow-lg">
-          <CardHeader className="text-center">
-            <CardTitle className="text-xl sm:text-2xl">{getTitulo()}</CardTitle>
+          <CardHeader className={user?.rol === 'VENDEDOR' ? '' : 'text-center'}>
+            {user?.rol === 'VENDEDOR' ? (
+              <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+                <CardTitle className="text-center text-xl sm:text-2xl">{getTitulo()}</CardTitle>
+                <button
+                  type="button"
+                  onClick={() => setMostrarModalNotaCredito(true)}
+                  className="bg-red-600 hover:bg-red-700 active:bg-red-800 text-white px-4 py-2.5 rounded-lg font-semibold transition-colors flex items-center gap-2 min-h-[44px] min-w-[44px] touch-manipulation text-sm sm:text-base"
+                  aria-label="Nueva Nota de Crédito"
+                >
+                  📝 NUEVA NOTA DE CRÉDITO
+                </button>
+              </div>
+            ) : (
+              <CardTitle className="text-xl sm:text-2xl">{getTitulo()}</CardTitle>
+            )}
           </CardHeader>
           <CardContent>
             <FiltrosHistorialPedidos
@@ -592,6 +614,16 @@ function HistorialPedidosContent() {
             setPedidoParaAnular(null);
           }}
           loading={loadingAnular}
+        />
+      )}
+
+      {mostrarModalNotaCredito && (
+        <ModalCrearNota
+          tipoNota="NOTA_CREDITO"
+          mostrar
+          empleadoId={user?.id}
+          onClose={() => setMostrarModalNotaCredito(false)}
+          onNotaCreada={() => setMostrarModalNotaCredito(false)}
         />
       )}
     </div>

@@ -23,9 +23,13 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import { Z_INDEX } from '../../constants/zIndex';
 import { formatearMoneda } from '../../utils/formatearMoneda';
 
-function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
+function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada, empleadoId }) {
   const { user } = useAuth();
   const { buscarVentas, crearNota, loading } = useNotas();
+  const buscarVentasFiltrada = useCallback(
+    (q) => buscarVentas(q, empleadoId ?? null),
+    [buscarVentas, empleadoId]
+  );
   const {
     cliente,
     ventaReferencia,
@@ -623,7 +627,7 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
         mostrar={mostrarModalVenta}
         onClose={() => setMostrarModalVenta(false)}
         onSeleccionarVenta={handleSeleccionarVenta}
-        buscarVentas={buscarVentas}
+        buscarVentas={buscarVentasFiltrada}
       />
 
       {/* Modal de facturación */}
@@ -648,7 +652,7 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada }) {
   );
 }
 
-export function ModalCrearNota({ tipoNota, mostrar, onClose, onNotaCreada }) {
+export function ModalCrearNota({ tipoNota, mostrar, onClose, onNotaCreada, empleadoId }) {
   return (
     <NotasProvider>
       <ModalCrearNotaContent
@@ -656,6 +660,7 @@ export function ModalCrearNota({ tipoNota, mostrar, onClose, onNotaCreada }) {
         mostrar={mostrar}
         onClose={onClose}
         onNotaCreada={onNotaCreada}
+        empleadoId={empleadoId}
       />
     </NotasProvider>
   );

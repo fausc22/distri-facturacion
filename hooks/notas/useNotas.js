@@ -7,14 +7,16 @@ import { resolvePorcentajeIva } from '../../utils/rounding';
 export function useNotas() {
   const [loading, setLoading] = useState(false);
 
-  // Buscar ventas para referencia
-  const buscarVentas = async (query) => {
+  // Buscar ventas para referencia (empleadoId opcional: si se pasa, solo ventas de ese empleado)
+  const buscarVentas = async (query, empleadoId) => {
     if (!query || query.trim().length < 2) {
       return [];
     }
 
     try {
-      const response = await axiosAuth.get(`/notas/buscar-ventas?q=${encodeURIComponent(query)}`);
+      const params = new URLSearchParams({ q: query });
+      if (empleadoId) params.set('empleado_id', empleadoId);
+      const response = await axiosAuth.get(`/notas/buscar-ventas?${params}`);
       return response.data.success ? response.data.data : [];
     } catch (error) {
       console.error('Error buscando ventas:', error);

@@ -311,16 +311,25 @@ export function usePedidosHybrid() {
           }
           
         } catch (error) {
-          // Si falla online (timeout, error de red, etc.), guardar offline
-          if (error.name === 'AbortError' || error.message.includes('Timeout')) {
-            console.log(`📱 [usePedidosHybrid] Petición cancelada por timeout, guardando offline...`);
-          } else {
-            console.log(`📱 [usePedidosHybrid] Fallo online (${error.message}), guardando offline...`);
+          const isNetworkOrTimeout =
+            error.name === 'AbortError' ||
+            error.message?.includes('Timeout') ||
+            !error.response;
+
+          if (isNetworkOrTimeout) {
+            // Sin respuesta del servidor: no se sabe si persistió. Se conserva offline.
+            console.log(`📱 [usePedidosHybrid] Sin respuesta del servidor (${error.message}), guardando offline...`);
+            const resultado = await guardarPedidoOffline(pedidoData);
+            registrandoRef.current = false;
+            return resultado;
           }
-          
-          const resultado = await guardarPedidoOffline(pedidoData);
+
+          // El servidor respondió 4xx/5xx: el rechazo es definitivo y reintentarlo no lo arregla.
+          const serverMsg = error.response?.data?.message || error.message || 'Error del servidor';
+          console.error(`❌ [usePedidosHybrid] Servidor rechazó el pedido (${error.response?.status}): ${serverMsg}`);
+          toast.error(serverMsg);
           registrandoRef.current = false;
-          return resultado;
+          return { success: false, error: serverMsg };
         }
       }
 
