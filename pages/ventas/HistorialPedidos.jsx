@@ -621,7 +621,6 @@ function HistorialPedidosContent() {
         <ModalCrearNota
           tipoNota="NOTA_CREDITO"
           mostrar
-          empleadoId={user?.id}
           onClose={() => setMostrarModalNotaCredito(false)}
           onNotaCreada={() => setMostrarModalNotaCredito(false)}
         />

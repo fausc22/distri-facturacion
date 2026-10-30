@@ -394,19 +394,21 @@ function ModalCrearNotaContent({ tipoNota, mostrar, onClose, onNotaCreada, emple
             {!modoCreacion && !ventaReferencia && (
               <div className="mb-6 p-4 bg-gray-50 rounded-lg">
                 <h3 className="font-semibold mb-4 text-gray-800">Seleccione el modo de creación:</h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className={`grid grid-cols-1 gap-4 ${user?.rol !== 'VENDEDOR' ? 'sm:grid-cols-2' : ''}`}>
                   <button
                     onClick={() => setMostrarModalVenta(true)}
                     className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-4 rounded-lg font-semibold transition-colors"
                   >
                     📋 Seleccionar Venta de Referencia
                   </button>
-                  <button
-                    onClick={handleCrearSinReferencia}
-                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg font-semibold transition-colors"
-                  >
-                    ➕ Crear sin Referencia
-                  </button>
+                  {user?.rol !== 'VENDEDOR' && (
+                    <button
+                      onClick={handleCrearSinReferencia}
+                      className="bg-green-600 hover:bg-green-700 text-white px-6 py-4 rounded-lg font-semibold transition-colors"
+                    >
+                      ➕ Crear sin Referencia
+                    </button>
+                  )}
                 </div>
               </div>
             )}
