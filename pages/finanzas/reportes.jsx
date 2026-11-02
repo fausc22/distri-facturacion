@@ -1,3 +1,4 @@
+import FinancialReportsV2 from '../../components/reportes/FinancialReportsV2';
 import { useEffect, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -193,10 +194,17 @@ function ReportesContent() {
   );
 }
 
-export default function ReportesFinancieros() {
+function ReportesFinancierosLegacy() {
   return (
     <ReportesProvider>
       <ReportesContent />
     </ReportesProvider>
   );
+}
+
+// Reversión exclusiva de esta interfaz: requiere reconstruir el frontend.
+export default function ReportesFinancieros() {
+  return process.env.NEXT_PUBLIC_REPORTES_V2 === 'false'
+    ? <ReportesFinancierosLegacy />
+    : <FinancialReportsV2 />;
 }
