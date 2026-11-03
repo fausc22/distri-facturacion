@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import { useQuery } from '@tanstack/react-query';
-import { FileDown, RefreshCw, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { FileDown, RefreshCw } from 'lucide-react';
 import useAuth from '../../hooks/useAuth';
 import { axiosAuth } from '../../utils/apiClient';
-import { usePeriodoReportes } from '../../hooks/usePeriodoReportes';
+import { usePeriodoReportes, MESES_REPORTES } from '../../hooks/usePeriodoReportes';
 import { SelectorPeriodoReportes } from './SelectorPeriodoReportes';
 import { Button } from '@/components/ui/button';
 import { PanelCard } from '@/components/shared/PanelCard';
@@ -17,6 +17,23 @@ export const formatReportMoney = (value) => {
   if (value == null) return 'No disponible';
   const [whole, fraction = '00'] = String(value).split('.');
   return `$ ${whole.replace(/\B(?=(\d{3})+(?!\d))/g, '.')},${fraction.padEnd(2, '0')}`;
+};
+
+/** Absorbe pendiente en normales solo para mostrar al gerente. */
+export const displayResumen = (resumen) => {
+  if (!resumen) return resumen;
+  const toCents = (v) => BigInt(String(v ?? '0.00').replace('.', ''));
+  const fromCents = (c) => {
+    const neg = c < 0n;
+    const abs = neg ? -c : c;
+    return `${neg ? '-' : ''}${abs / 100n}.${String(abs % 100n).padStart(2, '0')}`;
+  };
+  return {
+    ...resumen,
+    normal: fromCents(toCents(resumen.normal) + toCents(resumen.pendiente)),
+    pendiente: '0.00',
+    documentos_pendientes: 0,
+  };
 };
 const moneySort = (a, b, key) => {
   const parse = (v) => BigInt(String(v ?? '0.00').replace('.', ''));
@@ -44,7 +61,6 @@ const totalsColumns = [
   column('total', 'Total', true),
   column('normal', 'Normales', true),
   column('flete', 'Con flete', true),
-  column('pendiente', 'Pendientes', true),
   {
     accessorKey: 'porcentaje_total',
     header: '% del total neto',
@@ -54,6 +70,8 @@ const totalsColumns = [
         : `${row.original.porcentaje_total}%`,
   },
 ];
+const pad2 = (n) => String(n).padStart(2, '0');
+const monthKey = (anio, mes) => `${anio}-${pad2(mes)}`;
 const documentColumns = [
   column('numero', 'Comprobante'),
   column('fecha', 'Fecha fiscal'),
@@ -142,11 +160,79 @@ function ReportTable({ title, data, columns, onRowClick, note }) {
     </PanelCard>
   );
 }
+
+function ComparacionView({ periodos }) {
+  const labels = (periodos || []).map((p) => {
+    const key = p.periodo?.mes || p.periodo?.desde?.slice(0, 7) || '';
+    const [y, m] = key.split('-');
+    const mes = MESES_REPORTES.find((x) => x.value === Number(m));
+    return mes ? `${mes.label} ${y}` : key;
+  });
+  const resumenes = (periodos || []).map((p) => displayResumen(p.resumen));
+  const sellerNames = [
+    ...new Set(
+      (periodos || []).flatMap((p) => (p.vendedores || []).map((v) => v.nombre))
+    ),
+  ].sort((a, b) => a.localeCompare(b, 'es'));
+  const sellerRows = sellerNames.map((nombre) => {
+    const row = { nombre };
+    periodos.forEach((p, i) => {
+      const hit = (p.vendedores || []).find((v) => v.nombre === nombre);
+      row[`m${i}`] = hit?.total || '0.00';
+    });
+    return row;
+  });
+  const sellerCols = [
+    column('nombre', 'Vendedor'),
+    ...labels.map((label, i) => column(`m${i}`, label, true)),
+  ];
+  return (
+    <div className="space-y-5">
+      <PanelCard title="Comparación de tres meses">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b text-left">
+                <th className="p-2">Indicador</th>
+                {labels.map((l) => (
+                  <th key={l} className="p-2">
+                    {l}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                ['Facturación total', (s) => formatReportMoney(s.total)],
+                ['A/B', (s) => formatReportMoney(s.ab)],
+                ['X', (s) => formatReportMoney(s.x)],
+                ['Notas de crédito', (s) => String(s.notas_credito)],
+                ['Ticket de factura', (s) => formatReportMoney(s.ticket_factura)],
+                ['Documentos', (s) => String(s.documentos)],
+              ].map(([label, pick]) => (
+                <tr key={label} className="border-b">
+                  <td className="p-2 font-medium">{label}</td>
+                  {resumenes.map((s, i) => (
+                    <td key={i} className="p-2 tabular-nums">
+                      {pick(s)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </PanelCard>
+      <ReportTable title="Vendedores" data={sellerRows} columns={sellerCols} />
+    </div>
+  );
+}
+
 export default function FinancialReportsV2() {
   const { user } = useAuth();
   const router = useRouter();
   const period = usePeriodoReportes();
-  const { rango } = period;
+  const { rango, aniosDisponibles } = period;
   const { tabActiva, setTabActiva } = useReportesUIStore();
   const [detail, setDetail] = useState(null);
   const detailRef = useRef(null);
@@ -155,8 +241,26 @@ export default function FinancialReportsV2() {
   const [search, setSearch] = useState('');
   const [segment, setSegment] = useState('todos');
   const [selectedDocument, setSelectedDocument] = useState(null);
+  const [tipoReporte, setTipoReporte] = useState('mensual');
+  const now = new Date();
+  const [anioAnual, setAnioAnual] = useState(now.getFullYear());
+  const [mesesComparacion, setMesesComparacion] = useState(() => {
+    const base = new Date(now.getFullYear(), now.getMonth(), 1);
+    return [0, 1, 2].map((offset) => {
+      const d = new Date(base.getFullYear(), base.getMonth() - offset, 1);
+      return { anio: d.getFullYear(), mes: d.getMonth() + 1 };
+    });
+  });
+  const queryParams = useMemo(() => {
+    if (tipoReporte === 'anual') return { tipo: 'anual', anio: String(anioAnual) };
+    if (tipoReporte === 'comparacion') {
+      const meses = mesesComparacion.map((m) => monthKey(m.anio, m.mes)).join(',');
+      return { tipo: 'comparacion', meses };
+    }
+    return { tipo: 'mensual', desde: rango.desde, hasta: rango.hasta };
+  }, [tipoReporte, anioAnual, mesesComparacion, rango.desde, rango.hasta]);
   const query = useQuery({
-    queryKey: ['reportes-v2', user?.id, rango.desde, rango.hasta],
+    queryKey: ['reportes-v2', user?.id, queryParams],
     enabled: user?.rol === 'GERENTE',
     staleTime: Infinity,
     refetchOnWindowFocus: false,
@@ -164,7 +268,7 @@ export default function FinancialReportsV2() {
     retry: false,
     queryFn: async () => {
       const response = await axiosAuth.get('/finanzas/reportes-v2', {
-        params: { desde: rango.desde, hasta: rango.hasta },
+        params: queryParams,
       });
       if (!response.data?.success)
         throw new Error(
@@ -182,13 +286,16 @@ export default function FinancialReportsV2() {
     setPdfError('');
     setSearch('');
     setSegment('todos');
-  }, [rango.desde, rango.hasta]);
+  }, [queryParams]);
   useEffect(() => {
     setSelectedDocument(null);
     if (detail)
       detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, [detail]);
   const data = query.data;
+  const isComparacion = data?.tipo === 'comparacion';
+  const reportView = isComparacion ? null : data;
+  const s = displayResumen(reportView?.resumen);
   const reload = async () => {
     setPdfError('');
     setSelectedDocument(null);
@@ -210,7 +317,13 @@ export default function FinancialReportsV2() {
       );
       const link = document.createElement('a');
       link.href = url;
-      link.download = `reporte_gerencial_${data.periodo.desde}_${data.periodo.hasta}.pdf`;
+      const name =
+        data.tipo === 'comparacion'
+          ? `reporte_comparacion_${String(queryParams.meses).replace(/,/g, '_')}.pdf`
+          : data.tipo === 'anual'
+            ? `reporte_anual_${data.anio}.pdf`
+            : `reporte_gerencial_${data.periodo.desde}_${data.periodo.hasta}.pdf`;
+      link.download = name;
       link.click();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
@@ -225,8 +338,8 @@ export default function FinancialReportsV2() {
     }
   };
   const documents = useMemo(() => {
-    if (!data) return [];
-    return data.documentos.filter(
+    if (!reportView) return [];
+    return reportView.documentos.filter(
       (r) =>
         !detail ||
         (detail.segmento
@@ -243,17 +356,17 @@ export default function FinancialReportsV2() {
                     : r.fiscal === detail.fiscal
                   : true)
     );
-  }, [data, detail]);
+  }, [reportView, detail]);
   const filteredLines = useMemo(
     () =>
-      (data?.lineas || []).filter(
+      (reportView?.lineas || []).filter(
         (r) =>
           (segment === 'todos' || r.segmento === segment) &&
           [r.producto, r.numero, r.cliente, r.vendedor].some((v) =>
             v.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es'))
           )
       ),
-    [data, segment, search]
+    [reportView, segment, search]
   );
   const filteredLineTotal = useMemo(() => {
     const cents = filteredLines.reduce(
@@ -266,8 +379,14 @@ export default function FinancialReportsV2() {
   if (!user || user.rol !== 'GERENTE')
     return <LoadingState message="Verificando acceso de gerente..." />;
   const tab = tabs.some(([key]) => key === tabActiva) ? tabActiva : 'gerencial';
-  const s = data?.resumen;
   const openAll = () => setDetail({ label: 'Todos los comprobantes' });
+  const etiquetaCorte = isComparacion
+    ? (data.periodos || [])
+        .map((p) => p.periodo?.mes || p.periodo?.desde?.slice(0, 7))
+        .join(' · ')
+    : data?.periodo
+      ? `${data.periodo.desde} al ${data.periodo.hasta}`
+      : '';
   return (
     <main className="mx-auto max-w-7xl space-y-5 p-3 sm:p-6">
       <Head>
@@ -280,7 +399,7 @@ export default function FinancialReportsV2() {
           </p>
           <h1 className="mt-1 text-3xl font-bold">Reportes financieros</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Facturación trazable, compras y movimientos de fondos.
+            Facturación, compras y movimientos de fondos.
           </p>
         </div>
         <Button
@@ -288,14 +407,102 @@ export default function FinancialReportsV2() {
           disabled={!data || query.isFetching || pdfBusy || query.isError}
         >
           <FileDown className="mr-2 h-4 w-4" />
-          {pdfBusy ? 'Generando PDF…' : 'Descargar PDF gerencial'}
+          {pdfBusy ? 'Generando PDF…' : 'Descargar PDF'}
         </Button>
       </header>
-      <SelectorPeriodoReportes
-        {...period}
-        onRecargar={reload}
-        loading={query.isFetching}
-      />
+      <div className="flex flex-wrap gap-2">
+        {[
+          ['mensual', 'Mensual'],
+          ['comparacion', 'Comparación 3 meses'],
+          ['anual', 'Anual'],
+        ].map(([key, label]) => (
+          <Button
+            key={key}
+            type="button"
+            size="sm"
+            variant={tipoReporte === key ? 'default' : 'outline'}
+            onClick={() => setTipoReporte(key)}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+      {tipoReporte === 'mensual' && (
+        <SelectorPeriodoReportes
+          {...period}
+          onRecargar={reload}
+          loading={query.isFetching}
+        />
+      )}
+      {tipoReporte === 'anual' && (
+        <div className="flex flex-wrap items-end gap-3 rounded-lg border p-4">
+          <label className="space-y-1 text-sm">
+            <span className="text-muted-foreground">Año calendario</span>
+            <select
+              className={filterClass}
+              value={anioAnual}
+              onChange={(e) => setAnioAnual(Number(e.target.value))}
+            >
+              {(aniosDisponibles || [now.getFullYear()]).map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button type="button" variant="outline" size="sm" onClick={reload} disabled={query.isFetching}>
+            {query.isFetching ? 'Cargando…' : 'Recargar'}
+          </Button>
+        </div>
+      )}
+      {tipoReporte === 'comparacion' && (
+        <div className="space-y-3 rounded-lg border p-4">
+          <p className="text-sm text-muted-foreground">
+            Elija tres meses distintos para comparar montos, vendedores, productos y clientes.
+          </p>
+          <div className="grid gap-3 sm:grid-cols-3">
+            {mesesComparacion.map((item, idx) => (
+              <div key={idx} className="flex flex-wrap gap-2">
+                <select
+                  className={filterClass}
+                  aria-label={`Mes ${idx + 1}`}
+                  value={item.mes}
+                  onChange={(e) => {
+                    const next = [...mesesComparacion];
+                    next[idx] = { ...next[idx], mes: Number(e.target.value) };
+                    setMesesComparacion(next);
+                  }}
+                >
+                  {MESES_REPORTES.map((m) => (
+                    <option key={m.value} value={m.value}>
+                      {m.label}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className={filterClass}
+                  aria-label={`Año ${idx + 1}`}
+                  value={item.anio}
+                  onChange={(e) => {
+                    const next = [...mesesComparacion];
+                    next[idx] = { ...next[idx], anio: Number(e.target.value) };
+                    setMesesComparacion(next);
+                  }}
+                >
+                  {(aniosDisponibles || [now.getFullYear()]).map((y) => (
+                    <option key={y} value={y}>
+                      {y}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
+          <Button type="button" variant="outline" size="sm" onClick={reload} disabled={query.isFetching}>
+            {query.isFetching ? 'Cargando…' : 'Recargar'}
+          </Button>
+        </div>
+      )}
       {query.isError && (
         <ErrorState
           message={`${query.error?.response?.data?.message || query.error?.message}. ${data ? 'Se conserva la lectura anterior; actualice antes de usarla.' : ''}`}
@@ -311,9 +518,12 @@ export default function FinancialReportsV2() {
         </div>
       )}
       {query.isFetching && !data && (
-        <LoadingState message="Leyendo y conciliando los comprobantes…" />
+        <LoadingState message="Leyendo comprobantes…" />
       )}
-      {data && (
+      {data && isComparacion && (
+        <ComparacionView periodos={data.periodos || []} />
+      )}
+      {data && !isComparacion && s && (
         <>
           <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
             <span>
@@ -321,34 +531,8 @@ export default function FinancialReportsV2() {
               {new Date(data.generado_en).toLocaleString('es-AR', {
                 timeZone: 'America/Argentina/Cordoba',
               })}{' '}
-              · {data.periodo.desde} al {data.periodo.hasta} · ARS
+              · {etiquetaCorte} · ARS
             </span>
-            <span title={data.snapshot_id}>
-              Versión {data.version} · {data.snapshot_id.slice(0, 8)}
-            </span>
-          </div>
-          <div
-            className={`flex items-start gap-3 rounded-lg border p-4 ${data.conciliacion.clasificacion_completa ? 'border-emerald-300 bg-emerald-50 text-emerald-950' : 'border-amber-300 bg-amber-50 text-amber-950'}`}
-          >
-            {data.conciliacion.clasificacion_completa ? (
-              <CheckCircle2 className="h-5 w-5 shrink-0" />
-            ) : (
-              <AlertTriangle className="h-5 w-5 shrink-0" />
-            )}
-            <div>
-              <p className="font-semibold">
-                {data.conciliacion.clasificacion_completa
-                  ? 'Facturación conciliada aritméticamente'
-                  : `${s.documentos_pendientes} comprobantes pendientes de clasificación`}
-              </p>
-              <p className="text-sm">
-                Total = normales + con flete + pendientes. Los documentos
-                pendientes permanecen incluidos.{' '}
-                {data.alertas.length > 0
-                  ? `${data.alertas.length} alertas disponibles al pie del reporte.`
-                  : 'Sin alertas de integridad detectadas.'}
-              </p>
-            </div>
           </div>
           <nav
             aria-label="Pestañas del reporte"
@@ -377,7 +561,7 @@ export default function FinancialReportsV2() {
                     label: 'Facturación total',
                     value: s.total,
                     onClick: openAll,
-                    note: 'Importe final de documentos; NC restan',
+                    note: 'NC restan del total',
                   },
                   {
                     label: 'Documentos normales',
@@ -387,7 +571,6 @@ export default function FinancialReportsV2() {
                         segmento: 'normal',
                         label: 'Documentos normales',
                       }),
-                    note: 'Sin fletes',
                   },
                   {
                     label: 'Documentos con flete',
@@ -397,17 +580,6 @@ export default function FinancialReportsV2() {
                         segmento: 'flete',
                         label: 'Documentos con flete',
                       }),
-                    note: 'Incluye toda la factura mixta',
-                  },
-                  {
-                    label: 'Pendiente de clasificación',
-                    value: s.pendiente,
-                    onClick: () =>
-                      setDetail({
-                        segmento: 'pendiente',
-                        label: 'Pendientes de clasificación',
-                      }),
-                    note: `${s.documentos_pendientes} comprobantes`,
                   },
                 ]}
               />
@@ -427,7 +599,6 @@ export default function FinancialReportsV2() {
                   {
                     label: 'Ticket de factura',
                     value: s.ticket_factura,
-                    note: 'Promedio solo de FACTURAS; excluye ND/NC',
                   },
                 ]}
               />
@@ -445,68 +616,60 @@ export default function FinancialReportsV2() {
                     onClick: () =>
                       setDetail({ fiscal: 'X', label: 'Comprobantes X' }),
                   },
-                  { label: 'Neto guardado', value: s.neto },
-                  { label: 'IVA guardado', value: s.iva },
+                  { label: 'Neto', value: s.neto },
+                  { label: 'IVA', value: s.iva },
                 ]}
               />
               {s.otros !== '0.00' && (
                 <p className="text-sm">
-                  Otros tipos fiscales: {formatReportMoney(s.otros)}. Incluidos
-                  en la facturación total.
+                  Otros tipos fiscales: {formatReportMoney(s.otros)}.
                 </p>
               )}
-              {tab === 'gerencial' && (
-                <PanelCard title="Lectura del período">
-                  <ul className="list-disc space-y-2 pl-5 text-sm">
-                    {data.comentarios.length ? (
-                      data.comentarios.map((v, i) => <li key={i}>{v}</li>)
-                    ) : (
-                      <li>
-                        Sin excepciones detectadas por los controles
-                        disponibles.
-                      </li>
-                    )}
-                  </ul>
-                  <div className="mt-4 rounded-lg bg-muted/40 p-4 text-sm">
-                    <p>
-                      Anterior ({data.comparacion.periodo.desde} al{' '}
-                      {data.comparacion.periodo.hasta}):{' '}
-                      <strong>
-                        {formatReportMoney(data.comparacion.resumen.total)}
-                      </strong>
-                    </p>
-                    <p>
-                      Diferencia:{' '}
-                      <strong>
-                        {formatReportMoney(data.comparacion.diferencia)}
-                      </strong>{' '}
-                      · Variación:{' '}
+              {tab === 'gerencial' && data.comparacion && (
+                <div className="rounded-lg border bg-muted/40 p-4 text-sm">
+                  <p>
+                    Anterior ({data.comparacion.periodo.desde} al{' '}
+                    {data.comparacion.periodo.hasta}):{' '}
+                    <strong>
+                      {formatReportMoney(data.comparacion.resumen.total)}
+                    </strong>
+                    {' · '}
+                    Diferencia:{' '}
+                    <strong>
+                      {formatReportMoney(data.comparacion.diferencia)}
+                    </strong>
+                    {' · '}
+                    Variación:{' '}
+                    <strong>
                       {data.comparacion.porcentaje == null
-                        ? data.comparacion.comparable
-                          ? 'No calculable con base no positiva'
-                          : 'No disponible en período abierto'
+                        ? '—'
                         : `${data.comparacion.porcentaje}%`}
-                    </p>
-                    <p className="mt-2 text-muted-foreground">
-                      {data.comparacion.criterio}
-                    </p>
-                  </div>
-                </PanelCard>
+                    </strong>
+                  </p>
+                </div>
               )}
               <ReportTable
                 title="Evolución mensual"
-                data={data.meses}
+                data={(data.meses || []).map((row) => ({
+                  ...row,
+                  ...displayResumen(row),
+                }))}
                 columns={totalsColumns}
-                note="Seleccione un mes para ver sus comprobantes."
                 onRowClick={(r) =>
                   setDetail({ mes: r.id, label: `Comprobantes de ${r.nombre}` })
                 }
               />
               <ReportTable
-                title="Vendedores · facturación final"
-                data={data.vendedores}
-                columns={totalsColumns}
-                note="Todos los vendedores. Las notas se imputan al vendedor de la factura original cuando existe referencia. Seleccione una fila para ver el detalle."
+                title="Vendedores"
+                data={(data.vendedores || []).map((row) => ({
+                  ...row,
+                  ...displayResumen(row),
+                }))}
+                columns={[
+                  column('nombre', 'Vendedor'),
+                  column('documentos', 'Documentos'),
+                  column('total', 'Total', true),
+                ]}
                 onRowClick={(r) =>
                   setDetail({
                     vendedor: r.id,
@@ -521,27 +684,21 @@ export default function FinancialReportsV2() {
               <Metrics
                 items={[
                   {
-                    label: 'Neto de todas las líneas',
+                    label: 'Neto de líneas',
                     value: data.productos_totales.neto,
                   },
                   {
-                    label: 'IVA de todas las líneas',
+                    label: 'IVA de líneas',
                     value: data.productos_totales.iva,
                   },
                   {
                     label: 'Total de líneas',
                     value: data.productos_totales.total_lineas,
                   },
-                  {
-                    label: 'Ajustes contra cabeceras',
-                    value: data.productos_totales.ajuste_cabeceras,
-                    note: 'No se distribuyen artificialmente entre productos',
-                  },
                 ]}
               />
               <ReportTable
-                title="Todos los productos y servicios"
-                note="Incluye fletes, devoluciones y cantidades cero/negativas. Cantidades por unidad; no se suman kilos y unidades. Neto e IVA guardados, con descuentos de línea."
+                title="Productos y servicios"
                 data={data.productos}
                 columns={[
                   column('nombre', 'Producto/servicio'),
@@ -562,18 +719,19 @@ export default function FinancialReportsV2() {
                   { label: 'Facturación global', value: s.total },
                   { label: 'Ciudades', value: data.ciudades.length, raw: true },
                   {
-                    label: 'Clientes únicos con ID',
+                    label: 'Clientes únicos',
                     value: s.clientes,
                     raw: true,
-                    note: 'Distintos sobre todo el período; no suma por ciudad',
                   },
                   { label: 'Documentos', value: s.documentos, raw: true },
                 ]}
               />
               <ReportTable
-                title="Todas las ciudades"
-                note="Sin recortar a un ranking. Seleccione una fila para consultar los documentos."
-                data={data.ciudades}
+                title="Ciudades"
+                data={(data.ciudades || []).map((row) => ({
+                  ...row,
+                  ...displayResumen(row),
+                }))}
                 columns={totalsColumns}
                 onRowClick={(r) =>
                   setDetail({
@@ -585,12 +743,7 @@ export default function FinancialReportsV2() {
             </>
           )}
           {tab === 'consulta' && (
-            <PanelCard title="Consulta de líneas comerciales">
-              <p className="mb-4 text-sm text-muted-foreground">
-                Importes guardados por línea, no precio × cantidad. Fecha
-                fiscal. Incluye fletes y devoluciones; ajustes globales se
-                consultan en Productos.
-              </p>
+            <PanelCard title="Consulta de líneas">
               <div className="mb-4 flex flex-wrap gap-3">
                 <input
                   className={filterClass}
@@ -605,14 +758,13 @@ export default function FinancialReportsV2() {
                   value={segment}
                   onChange={(e) => setSegment(e.target.value)}
                 >
-                  <option value="todos">Todos los segmentos</option>
+                  <option value="todos">Todos</option>
                   <option value="normal">Normal</option>
                   <option value="flete">Con flete</option>
-                  <option value="pendiente">Pendiente</option>
                 </select>
               </div>
               <p className="mb-3 text-sm">
-                {filteredLines.length} líneas · Importe de líneas filtradas:{' '}
+                {filteredLines.length} líneas ·{' '}
                 <strong>{formatReportMoney(filteredLineTotal)}</strong>
               </p>
               <DataTable
@@ -627,29 +779,23 @@ export default function FinancialReportsV2() {
               <Metrics
                 items={[
                   {
-                    label: 'Facturación final',
+                    label: 'Facturación',
                     value: s.total,
                     onClick: openAll,
                   },
                   {
                     label: 'Compras',
                     value: data.resultado.compras,
-                    note: 'Registradas y confirmadas; excluye anuladas',
                   },
                   { label: 'Gastos', value: data.resultado.gastos },
                   {
                     label: 'Diferencia',
                     value: data.resultado.diferencia,
-                    note: 'Facturación menos compras y gastos',
                   },
                 ]}
               />
-              <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-950">
-                <strong>Ganancia histórica: no disponible.</strong>{' '}
-                {data.resultado.motivo}
-              </div>
               <ReportTable
-                title="Compras del período · incluye anuladas para control"
+                title="Compras del período"
                 data={data.compras}
                 columns={[
                   column('id', 'ID'),
@@ -684,13 +830,11 @@ export default function FinancialReportsV2() {
                   {
                     label: 'Variación de fondos',
                     value: data.caja.variacion,
-                    note: 'No representa saldo final ni rentabilidad',
                   },
                 ]}
               />
               <ReportTable
                 title="Movimientos por cuenta"
-                note="Día final completo. Transferencias separadas. Saldo inicial y final no certificados; se informa variación del período."
                 data={data.caja.cuentas}
                 columns={[
                   column('nombre', 'Cuenta'),
@@ -735,25 +879,13 @@ export default function FinancialReportsV2() {
                 pageSize={15}
                 onRowClick={(r) => setSelectedDocument(r)}
               />
-              <p className="text-xs text-muted-foreground">
-                Seleccione un comprobante para revisar sus líneas y alertas.
-              </p>
               {selectedDocument && (
                 <PanelCard
                   title={`${selectedDocument.numero} · ID ${selectedDocument.id}`}
                 >
                   <p className="mb-3 text-sm">
-                    Fecha comercial: {selectedDocument.fecha_comercial} ·
-                    Emisor: {selectedDocument.vendedor_emisor} · Diferencia
-                    cabecera/líneas:{' '}
-                    {formatReportMoney(selectedDocument.ajuste_lineas)}
-                  </p>
-                  <p className="mb-3 text-sm">
-                    Controles:{' '}
-                    {data.alertas
-                      .filter((r) => r.documento_id === selectedDocument.id)
-                      .map((r) => r.descripcion)
-                      .join('; ') || 'Sin alertas detectadas'}
+                    Fecha: {selectedDocument.fecha_comercial} · Vendedor:{' '}
+                    {selectedDocument.vendedor_emisor}
                   </p>
                   <DataTable
                     data={data.lineas.filter(
@@ -766,88 +898,6 @@ export default function FinancialReportsV2() {
               )}
             </div>
           )}
-          <details className="rounded-lg border bg-card p-4">
-            <summary className="cursor-pointer font-semibold">
-              Conciliación, alertas y reglas de cálculo
-            </summary>
-            <div className="mt-4 space-y-5">
-              <Metrics
-                items={[
-                  { label: 'A/B en reporte', value: s.ab },
-                  {
-                    label: 'Libro IVA A/B',
-                    value: data.conciliacion.libro_iva,
-                  },
-                  {
-                    label: 'Diferencia con libro',
-                    value: data.conciliacion.diferencia_iva,
-                  },
-                  {
-                    label: 'Listado comercial',
-                    value: data.conciliacion.comercial,
-                    note: 'Otra base: subtotal A/B; total otras letras; fecha comercial',
-                  },
-                ]}
-              />
-              <ReportTable
-                title="Vendedores según listado comercial"
-                data={data.conciliacion.vendedores_comerciales}
-                columns={[
-                  column('nombre', 'Vendedor'),
-                  column('documentos', 'Documentos'),
-                  column('total', 'Importe comercial', true),
-                ]}
-              />
-              <ReportTable
-                title="Conciliación por comprobante"
-                note="Los importes no son intercambiables: revise alcance, fecha y base. Un cero puede significar exclusión; las columnas de inclusión lo identifican."
-                data={data.conciliacion.documentos}
-                columns={[
-                  column('numero', 'Comprobante'),
-                  column('fecha', 'Fiscal'),
-                  column('fecha_comercial', 'Comercial'),
-                  ...['en_reporte', 'en_libro', 'en_listado'].map((key, i) => ({
-                    accessorKey: key,
-                    header: ['En reporte', 'En libro', 'En listado'][i],
-                    cell: ({ row }) => (row.original[key] ? 'Sí' : 'No'),
-                  })),
-                  column('reporte', 'Reporte', true),
-                  column('libro', 'Libro', true),
-                  column('comercial', 'Comercial', true),
-                  {
-                    accessorKey: 'razones',
-                    header: 'Motivos',
-                    cell: ({ row }) => row.original.razones.join('; '),
-                  },
-                ]}
-              />
-              <ReportTable
-                title="Resumen de controles"
-                data={data.alertas_resumen}
-                columns={[
-                  column('descripcion', 'Control'),
-                  column('cantidad', 'Cantidad'),
-                ]}
-              />
-              <ReportTable
-                title={`Alertas (${data.alertas.length})`}
-                data={data.alertas}
-                columns={[
-                  column('documento_id', 'ID'),
-                  column('numero', 'Comprobante'),
-                  column('descripcion', 'Control'),
-                  column('nivel', 'Prioridad'),
-                  column('importe', 'Importe final', true),
-                  column('diferencia', 'Ajuste líneas', true),
-                ]}
-              />
-              <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-                {data.metodologia.map((v, i) => (
-                  <li key={i}>{v}</li>
-                ))}
-              </ol>
-            </div>
-          </details>
         </>
       )}
       <div className="flex justify-between">
@@ -856,7 +906,7 @@ export default function FinancialReportsV2() {
         </Button>
         <Button variant="outline" onClick={reload} disabled={query.isFetching}>
           <RefreshCw className="mr-2 h-4 w-4" />
-          Actualizar lectura
+          Actualizar
         </Button>
       </div>
     </main>
