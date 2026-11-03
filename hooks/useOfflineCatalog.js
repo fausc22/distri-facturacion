@@ -430,7 +430,11 @@ async function verificarConexionSimple(timeout = 5000) {
   return isBackendReachable(timeout);
 }
 
-export function useOfflinePedidos() {
+/**
+ * Contención E1: auto-sync solo en AppInitializer (enableAutoSync=true).
+ * inicio.jsx monta con enableAutoSync=false para UI/manual sync sin doble sincronización.
+ */
+export function useOfflinePedidos({ enableAutoSync = true } = {}) {
   const [pedidosPendientes, setPedidosPendientes] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ actual: 0, total: 0 });
@@ -453,6 +457,9 @@ export function useOfflinePedidos() {
       } catch (_) {
         // No bloquear inicialización por errores de cleanup
       }
+    }
+    if (!enableAutoSync) {
+      return undefined;
     }
     const handleOnlineAutoSync = () => {
       if (!isPWA) return;
@@ -480,7 +487,7 @@ export function useOfflinePedidos() {
       window.removeEventListener('online', handleOnlineAutoSync);
       if (autoSyncTimerRef.current) clearTimeout(autoSyncTimerRef.current);
     };
-  }, [isPWA]);
+  }, [isPWA, enableAutoSync]);
 
   const loadPedidosPendientes = () => {
     const pedidos = offlineManager.getPedidosPendientes();

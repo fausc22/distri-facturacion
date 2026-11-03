@@ -149,6 +149,11 @@ class ApiClient {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+        // Versión de cliente para REQUIRE_CLIENT_UUID / middleware de versión
+        config.headers['X-App-Version'] =
+          process.env.NEXT_PUBLIC_APP_VERSION ||
+          process.env.npm_package_version ||
+          '2.0.0';
         return config;
       },
       (error) => Promise.reject(error)

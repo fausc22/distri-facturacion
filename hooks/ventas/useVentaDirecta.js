@@ -3,6 +3,9 @@ import { useState, useRef } from 'react';
 import toast from '@/components/shared/toast';
 import { axiosAuth } from '../../utils/apiClient';
 import { generarHashVenta } from '../../utils/pedidoHash';
+import { obtenerOperacionId, liberarOperacionId } from '../../utils/operacionId';
+
+const INTENCION_VENTA_DIRECTA = 'venta_directa';
 
 export function useVentaDirecta() {
   const [loading, setLoading] = useState(false);
@@ -11,6 +14,8 @@ export function useVentaDirecta() {
   
   // ✅ REF PARA PROTECCIÓN CONTRA DOBLE CLIC
   const registrandoRef = useRef(false);
+  // UUID de intención: se conserva en reintentos; no regenerar tras timeout
+  const operacionIdRef = useRef(null);
 
   // Cargar cuentas de fondos
   const cargarCuentasFondos = async () => {
@@ -48,6 +53,13 @@ export function useVentaDirecta() {
     datosVenta.hash_venta = hashVenta;
     console.log(`🔐 Hash de venta generado: ${hashVenta}`);
 
+    // UUID de intención: conservar en reintentos/recargas; liberar solo tras éxito
+    if (!operacionIdRef.current) {
+      operacionIdRef.current = obtenerOperacionId(INTENCION_VENTA_DIRECTA);
+    }
+    datosVenta.operacion_id = operacionIdRef.current;
+    console.log(`🔑 operacion_id: ${datosVenta.operacion_id}`);
+
     registrandoRef.current = true;
     setLoading(true);
     
@@ -61,6 +73,8 @@ export function useVentaDirecta() {
         if (response.data.existing) {
           console.log('⚠️ Venta duplicada detectada por backend');
           toast.info('Esta venta ya fue registrada anteriormente');
+          liberarOperacionId(INTENCION_VENTA_DIRECTA);
+          operacionIdRef.current = null;
           registrandoRef.current = false;
           return {
             success: true,
@@ -73,6 +87,8 @@ export function useVentaDirecta() {
           duration: 4000,
           icon: '🎉'
         });
+        liberarOperacionId(INTENCION_VENTA_DIRECTA);
+        operacionIdRef.current = null;
         registrandoRef.current = false;
         return {
           success: true,
@@ -89,13 +105,25 @@ export function useVentaDirecta() {
     } catch (error) {
       console.error('Error en venta directa:', error);
 
-      const serverMsg = error.response?.data?.message;
+      const serverMsg = error.response?.data?.message || error.response?.data?.motivo;
       const faltantes = error.response?.data?.faltantes;
+      const code = error.response?.data?.code || error.response?.data?.error;
+
+      // Conflicto de contenido bajo misma clave
+      if (error.response?.status === 409 && code === 'OPERACION_CONFLICTO') {
+        toast.error('Conflicto: la misma operación se reutilizó con datos distintos. Inicie una nueva venta.');
+        liberarOperacionId(INTENCION_VENTA_DIRECTA);
+        operacionIdRef.current = null;
+        registrandoRef.current = false;
+        return { success: false, error: serverMsg, code };
+      }
 
       // ✅ VERIFICAR SI ES ERROR DE DUPLICADO
-      if (error.response?.status === 409 || error.response?.data?.code === 'DUPLICATE') {
+      if (error.response?.status === 409 || code === 'DUPLICATE') {
         console.log('⚠️ Venta duplicada detectada');
         toast.info('Esta venta ya fue registrada anteriormente');
+        liberarOperacionId(INTENCION_VENTA_DIRECTA);
+        operacionIdRef.current = null;
         registrandoRef.current = false;
         return {
           success: true,

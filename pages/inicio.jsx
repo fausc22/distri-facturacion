@@ -16,6 +16,7 @@ export default function Inicio() {
   const [loading, setLoading] = useState(true);
   const [catalogStats, setCatalogStats] = useState(null);
   const [alertasStock, setAlertasStock] = useState(null);
+  const [alertasFiscales, setAlertasFiscales] = useState(null);
 
   // ✅ CONEXIÓN CENTRALIZADA - Única fuente de verdad
   const { modoOffline, reconectando, reconectar, isPWA } = useConnectionContext();
@@ -29,12 +30,13 @@ export default function Inicio() {
     getCatalogInfo
   } = useOfflineCatalog();
 
+  // Solo UI/manual: sin auto-sync (AppInitializer es la única instancia con auto-sync)
   const {
     hasPendientes,
     cantidadPendientes,
     syncPedidosPendientes,
     syncing
-  } = useOfflinePedidos();
+  } = useOfflinePedidos({ enableAutoSync: false });
 
   // ✅ CONDICIONES PARA MOSTRAR PANELES PWA (solo en modo online)
   const shouldShowCatalogPanel = isPWA && needsUpdate && !modoOffline;
@@ -104,6 +106,28 @@ export default function Inicio() {
     };
 
     cargarAlertas();
+    return () => {
+      cancelled = true;
+    };
+  }, [empleado, modoOffline]);
+
+  // Alertas fiscales gerenciales: se consultan al abrir inicio, sin emitir comprobantes.
+  useEffect(() => {
+    if (!empleado || empleado.rol !== 'GERENTE' || modoOffline) return undefined;
+
+    let cancelled = false;
+    const cargarAlertasFiscales = async () => {
+      try {
+        const response = await axiosAuth.get('/alertas/fiscales-pendientes');
+        if (!cancelled && response.data.success) {
+          setAlertasFiscales(response.data.data || null);
+        }
+      } catch (error) {
+        console.error('Error cargando alertas fiscales:', error);
+      }
+    };
+
+    cargarAlertasFiscales();
     return () => {
       cancelled = true;
     };
@@ -360,6 +384,33 @@ export default function Inicio() {
             </div>
           </div>
         )
+      )}
+
+      {/* Alertas fiscales — solo gerentes */}
+      {!estaEnModoOffline && empleado?.rol === 'GERENTE' && alertasFiscales?.resumen?.total_abiertas > 0 && (
+        <div className="mb-6 bg-white rounded-xl shadow-md border-l-4 border-amber-500 p-5">
+          <div className="flex flex-col gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900">Alertas fiscales pendientes</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                Hay <span className="font-bold text-amber-700">{alertasFiscales.resumen.total_abiertas}</span> comprobantes que requieren revisión fiscal.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 text-sm">
+              {['SIN_SOLICITUD', 'EN_CURSO', 'DESCONOCIDO', 'RECHAZADO', 'DISCREPANTE', 'SIN_FECHA'].map((grupo) => (
+                <div key={grupo} className="bg-amber-50 border border-amber-100 rounded-lg p-3">
+                  <p className="text-xs text-gray-600">{grupo.replace(/_/g, ' ')}</p>
+                  <p className="text-xl font-bold text-amber-700">{alertasFiscales.resumen[grupo] || 0}</p>
+                </div>
+              ))}
+            </div>
+            {alertasFiscales.resumen.historicos_previos > 0 && (
+              <p className="text-xs text-gray-500">
+                Históricos previos a activación: {alertasFiscales.resumen.historicos_previos}
+              </p>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ✅ MÓDULOS PRINCIPALES - Modo offline: solo VENTAS con Registrar Pedido */}

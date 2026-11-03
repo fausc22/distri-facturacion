@@ -26,7 +26,8 @@ export default function AppInitializer({ children }) {
     isPWA,
     stats
   } = useOfflineCatalog();
-  useOfflinePedidos();
+  // Única instancia con auto-sync (contención E1)
+  useOfflinePedidos({ enableAutoSync: true });
 
   useEffect(() => {
     initializeApp();

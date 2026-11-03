@@ -4,7 +4,9 @@ import { toast } from 'react-hot-toast';
 import ModalBase from '../common/ModalBase';
 import LoadingButton from '../common/LoadingButton';
 import { Z_INDEX } from '../../constants/zIndex';
-import { roundFacturacion } from '../../utils/rounding';
+import { roundFacturacion as roundLegacy } from '../../utils/rounding';
+import { motorV1, previewImportes } from '../../utils/calculo/preview';
+const roundFacturacion = (v) => motorV1 ? Math.round(Number(v) * 100) / 100 : roundLegacy(v);
 import { formatearMoneda } from '../../utils/formatearMoneda';
 
 // ✅ MODAL DE DESCUENTOS (sin cambios)
@@ -32,7 +34,7 @@ export function ModalDescuentos({
       setDescuentoCalculado(Math.min(valor, totalConIva || 0));
     } else {
       const porcentaje = Math.min(Math.max(valor, 0), 100);
-      setDescuentoCalculado(((subtotalSinIva || 0) * porcentaje) / 100);
+      setDescuentoCalculado(((motorV1 ? totalConIva : subtotalSinIva) || 0) * porcentaje / 100);
     }
   }, [valorDescuento, tipoDescuento, subtotalSinIva, totalConIva]);
 
@@ -231,9 +233,13 @@ export function ModalFacturacion({
   // ✅ Inicializar valores cuando se abre el modal (con redondeo ,01–,59 mantienen; ,60–,99 suben)
   useEffect(() => {
     if (mostrar && productos && productos.length > 0 && pedido?.cliente_condicion !== undefined) {
-      const subtotal = productos.reduce((acc, prod) => acc + (Number(prod.subtotal) || 0), 0);
-      const iva = productos.reduce((acc, prod) => acc + (Number(prod.iva) || 0), 0);
-      const total = subtotal + iva;
+      let subtotal = productos.reduce((acc, prod) => acc + (Number(prod.subtotal) || 0), 0);
+      let iva = productos.reduce((acc, prod) => acc + (Number(prod.iva) || 0), 0);
+      let total = subtotal + iva;
+      if (motorV1) {
+        const preview = previewImportes(productos);
+        if (!preview.error) { subtotal = preview.subtotal; iva = preview.iva; total = preview.total; }
+      }
 
       setSubtotalSinIva(roundFacturacion(subtotal));
       setIvaTotal(roundFacturacion(iva));
@@ -272,7 +278,9 @@ export function ModalFacturacion({
 
       const totalOriginal = subtotalSinIva + ivaTotal;
       const descuentoMonto = descuentoAplicado?.descuentoCalculado || 0;
-      const totalFinalCalculado = roundFacturacion(totalOriginal - descuentoMonto);
+      const calculado = motorV1 ? previewImportes(productos, descuentoAplicado) : null;
+      if (calculado?.error) throw new Error(`Cálculo rechazado: ${calculado.error}`);
+      const totalFinalCalculado = calculado?.total ?? roundFacturacion(totalOriginal - descuentoMonto);
       const totalAEnviar = totalEditadoManual !== null ? totalEditadoManual : totalFinalCalculado;
 
       const datosFacturacion = {
@@ -281,7 +289,9 @@ export function ModalFacturacion({
         subtotalSinIva,
         ivaTotal,
         totalConIva: totalAEnviar,
-        descuentoAplicado
+        descuentoAplicado: motorV1 && totalEditadoManual !== null
+          ? { tipo: 'numerico', valor: totalOriginal - totalEditadoManual, descuentoCalculado: totalOriginal - totalEditadoManual }
+          : descuentoAplicado
       };
 
       await onConfirmarFacturacion(datosFacturacion);
@@ -328,7 +338,8 @@ export function ModalFacturacion({
 
   const totalOriginal = subtotalSinIva + ivaTotal;
   const descuentoMonto = descuentoAplicado?.descuentoCalculado || 0;
-  const totalFinalConDescuento = roundFacturacion(totalOriginal - descuentoMonto);
+  const vistaCalculo = motorV1 ? previewImportes(productos, descuentoAplicado) : null;
+  const totalFinalConDescuento = vistaCalculo?.total ?? roundFacturacion(totalOriginal - descuentoMonto);
   const totalFinalDisplay = totalEditadoManual !== null ? totalEditadoManual : totalFinalConDescuento;
 
   const guardarTotalEditado = () => {
@@ -452,7 +463,7 @@ export function ModalFacturacion({
                       <p className="text-sm text-yellow-700">
                         {descuentoAplicado.tipo === 'numerico' 
                           ? `Descuento fijo: ${formatearMoneda(descuentoAplicado.descuentoCalculado)}`
-                          : `${descuentoAplicado.valor}% sobre subtotal: ${formatearMoneda(descuentoAplicado.descuentoCalculado)}`
+                          : `${descuentoAplicado.valor}% de descuento: ${formatearMoneda(descuentoAplicado.descuentoCalculado)}`
                         }
                       </p>
                     </div>

@@ -4,7 +4,9 @@ import ModalBase from '../common/ModalBase';
 import LoadingButton from '../common/LoadingButton';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Z_INDEX } from '../../constants/zIndex';
-import { roundFacturacion } from '../../utils/rounding';
+import { roundFacturacion as roundLegacy } from '../../utils/rounding';
+import { motorV1, previewImportes } from '../../utils/calculo/preview';
+const roundFacturacion = (v) => motorV1 ? Math.round(Number(v) * 100) / 100 : roundLegacy(v);
 import { useZodForm } from '@/hooks/forms/useZodForm';
 import { descuentoVentaSchema, facturacionVentaSchema } from '@/lib/formSchemas';
 import FormFieldError from '@/components/shared/FormFieldError';
@@ -41,7 +43,7 @@ export function ModalDescuentosVentaDirecta({
       setDescuentoCalculado(Math.min(valor, totalConIva || 0));
     } else {
       const porcentaje = Math.min(Math.max(valor, 0), 100);
-      setDescuentoCalculado(((subtotalSinIva || 0) * porcentaje) / 100);
+      setDescuentoCalculado(((motorV1 ? totalConIva : subtotalSinIva) || 0) * porcentaje / 100);
     }
   }, [valorDescuento, tipoDescuento, subtotalSinIva, totalConIva]);
 
@@ -256,9 +258,13 @@ export function ModalFacturacionVentaDirecta({
 
   useEffect(() => {
     if (mostrar && productos && productos.length > 0 && cliente?.condicion_iva !== undefined) {
-      const subtotal = productos.reduce((acc, prod) => acc + (Number(prod.subtotal) || 0), 0);
-      const iva = productos.reduce((acc, prod) => acc + (Number(prod.iva_calculado) || 0), 0);
-      const total = subtotal + iva;
+      let subtotal = productos.reduce((acc, prod) => acc + (Number(prod.subtotal) || 0), 0);
+      let iva = productos.reduce((acc, prod) => acc + (Number(prod.iva_calculado) || 0), 0);
+      let total = subtotal + iva;
+      if (motorV1) {
+        const preview = previewImportes(productos);
+        if (!preview.error) { subtotal = preview.subtotal; iva = preview.iva; total = preview.total; }
+      }
       
       // ✅ Calcular monto exento: si el cliente es exento, calcular el IVA que debería haberse cobrado
       const esClienteExento = cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
@@ -300,7 +306,9 @@ export function ModalFacturacionVentaDirecta({
 
     const totalOriginal = subtotalSinIva + ivaTotal;
     const descuentoMonto = descuentoAplicado?.descuentoCalculado || 0;
-    const totalFinal = roundFacturacion(totalOriginal - descuentoMonto);
+    const calculado = motorV1 ? previewImportes(productos, descuentoAplicado) : null;
+    if (calculado?.error) { alert(`Cálculo rechazado: ${calculado.error}`); return; }
+    const totalFinal = calculado?.total ?? roundFacturacion(totalOriginal - descuentoMonto);
 
     const datosFacturacion = {
       cuentaId: cuentaId, // ✅ Se determina automáticamente
@@ -333,7 +341,8 @@ export function ModalFacturacionVentaDirecta({
 
   const totalOriginal = subtotalSinIva + ivaTotal;
   const descuentoMonto = descuentoAplicado?.descuentoCalculado || 0;
-  const totalFinalConDescuento = totalOriginal - descuentoMonto;
+  const vistaCalculo = motorV1 ? previewImportes(productos, descuentoAplicado) : null;
+  const totalFinalConDescuento = vistaCalculo?.total ?? totalOriginal - descuentoMonto;
 
   return (
     <>
@@ -445,7 +454,7 @@ export function ModalFacturacionVentaDirecta({
                       <p className="text-sm text-yellow-700">
                         {descuentoAplicado.tipo === 'numerico' 
                           ? `Descuento fijo: $${descuentoAplicado.descuentoCalculado.toFixed(2)}`
-                          : `${descuentoAplicado.valor}% sobre subtotal: $${descuentoAplicado.descuentoCalculado.toFixed(2)}`
+                          : `${descuentoAplicado.valor}% de descuento: $${descuentoAplicado.descuentoCalculado.toFixed(2)}`
                         }
                       </p>
                     </div>

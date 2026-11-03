@@ -1,11 +1,14 @@
+import { motorV1, previewImportes } from '../../utils/calculo/preview';
 // hooks/notas/useNotas.js
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 import { resolvePorcentajeIva } from '../../utils/rounding';
+import { obtenerOperacionId, liberarOperacionId } from '../../utils/operacionId';
 
 export function useNotas() {
   const [loading, setLoading] = useState(false);
+  const operacionIdRef = useRef(null);
 
   // Buscar ventas para referencia (empleadoId opcional: si se pasa, solo ventas de ese empleado)
   const buscarVentas = async (query, empleadoId) => {
@@ -67,13 +70,23 @@ export function useNotas() {
     }
 
     // Calcular totales
-    const subtotal = productos.reduce((acc, prod) => acc + prod.subtotal, 0);
-    const totalIva = productos.reduce((acc, prod) => acc + prod.iva_calculado, 0);
-    const total = subtotal + totalIva;
+    let subtotal = productos.reduce((acc, prod) => acc + prod.subtotal, 0);
+    let totalIva = productos.reduce((acc, prod) => acc + prod.iva_calculado, 0);
+    let total = subtotal + totalIva;
+    if (motorV1) {
+      const vista = previewImportes(productos);
+      if (vista.error) { toast.error(`Cálculo rechazado: ${vista.error}`); return { success: false }; }
+      subtotal = vista.subtotal; totalIva = vista.iva; total = vista.total;
+    }
     
     // Calcular monto exento fiscal (no afecta el precio final comercial)
     const esClienteExento = cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
     const montoExento = esClienteExento ? totalIva : 0;
+
+    const intencionKey = `nota_${tipoNota}`;
+    if (!operacionIdRef.current) {
+      operacionIdRef.current = obtenerOperacionId(intencionKey);
+    }
 
     // Preparar datos de la nota
     const notaData = {
@@ -96,6 +109,9 @@ export function useNotas() {
       observaciones: observaciones || 'sin observaciones',
       empleado_id: empleado.id,
       empleado_nombre: empleado.nombre || '',
+      operacion_id: operacionIdRef.current,
+      tipo_nc: datosNota.tipo_nc || (tipoNota === 'NOTA_CREDITO' ? 'DEVOLUCION' : undefined),
+      vendedor_atribuible_id: datosNota.vendedor_atribuible_id || undefined,
       productos: productos.map(p => {
         const esManual = p.esManual === true || p.esManual === 'true';
         const productoId = esManual ? null : (p.id ?? p.producto_id ?? null);
@@ -109,6 +125,7 @@ export function useNotas() {
           iva: parseFloat(p.iva_calculado),
           subtotal: parseFloat(p.subtotal),
           porcentaje_iva: resolvePorcentajeIva(p.porcentaje_iva),
+          es_flete: Boolean(p.es_flete || p.es_servicio_flete),
           esManual
         };
       })
@@ -123,19 +140,35 @@ export function useNotas() {
       
       if (response.data.success) {
         toast.success(`${tipoNota === 'NOTA_DEBITO' ? 'Nota de Débito' : 'Nota de Crédito'} creada exitosamente`);
-        return { success: true, notaId: response.data.data.notaId };
+        liberarOperacionId(intencionKey);
+        operacionIdRef.current = null;
+        return { success: true, notaId: response.data.data.notaId, existing: response.data.existing };
       } else {
         toast.error(response.data.message || `Error al crear ${tipoNota}`);
         return { success: false, error: response.data.message };
       }
     } catch (error) {
       console.error(`Error al crear ${tipoNota}:`, error);
+      const code = error?.response?.data?.code || error?.response?.data?.error;
+      if (error?.response?.status === 409 && code === 'OPERACION_CONFLICTO') {
+        toast.error('Conflicto: la misma operación se reutilizó con datos distintos.');
+        liberarOperacionId(intencionKey);
+        operacionIdRef.current = null;
+        return { success: false, error: error.response.data.message, code };
+      }
+      if (error?.response?.status === 409 && error?.response?.data?.existing) {
+        liberarOperacionId(intencionKey);
+        operacionIdRef.current = null;
+        toast.info('Esta nota ya fue registrada anteriormente');
+        return { success: true, notaId: error.response.data.data?.notaId, existing: true };
+      }
       const msgBackend =
         error?.response?.data?.message ||
         error?.message ||
         `Error al crear ${tipoNota === 'NOTA_DEBITO' ? 'la nota de débito' : 'la nota de crédito'}`;
       toast.error(msgBackend);
-      return { success: false, error: msgBackend };
+      // Conservar operacion_id en timeout/errores de red para reintento
+      return { success: false, error: msgBackend, code };
     } finally {
       setLoading(false);
     }
