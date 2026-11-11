@@ -117,12 +117,26 @@ export const useClientes = () => {
       const response = await axiosAuth.put(`/personas/actualizar-cliente/${id}`, clienteData);
       
       if (response.data.success) {
-        toast.success('Cliente actualizado correctamente');
+        const propagacion = response.data.propagacion || {};
+        const pedidosN = Number(propagacion.pedidos) || 0;
+        const ventasN = Number(propagacion.ventas) || 0;
+        let mensaje = 'Cliente actualizado correctamente';
+        if (pedidosN > 0 || ventasN > 0) {
+          const partes = [];
+          if (pedidosN > 0) {
+            partes.push(`${pedidosN} pedido${pedidosN === 1 ? '' : 's'} sin facturar`);
+          }
+          if (ventasN > 0) {
+            partes.push(`${ventasN} comprobante${ventasN === 1 ? '' : 's'} sin CAE`);
+          }
+          mensaje = `Cliente actualizado. Se actualizaron ${partes.join(' y ')}.`;
+        }
+        toast.success(mensaje);
         const data = response.data.data || response.data;
         const dataConId = data && (data.id != null || data.ID != null)
           ? { ...data, id: data.id ?? data.ID }
           : (data ? { ...data, id: Number(id) } : { id: Number(id), ...response.data });
-        return { success: true, data: dataConId };
+        return { success: true, data: dataConId, propagacion: { pedidos: pedidosN, ventas: ventasN } };
       }
     } catch (error) {
       console.error('Error al actualizar cliente:', error);
