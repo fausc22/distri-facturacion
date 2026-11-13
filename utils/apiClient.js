@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { toast } from '@/components/shared/toast';
+// Marca de deploy: el front de test y el de producción se publican por ramas distintas.
 
 // ✅ CONFIGURACIÓN DE API URL CON VALIDACIÓN
 const getApiUrl = () => {
