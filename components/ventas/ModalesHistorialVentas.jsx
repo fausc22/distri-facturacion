@@ -4,7 +4,6 @@ import { MdDeleteForever, MdExpandMore, MdExpandLess, MdRemoveRedEye } from "rea
 import { ModalPDFUniversal, BotonGenerarPDFUniversal } from '../shared/ModalPDFUniversal';
 import { ModalDetalleCAE } from './ModalDetalleCAE';
 import { formatearMoneda } from '../../utils/formatearMoneda';
-import { resolvePorcentajeIva } from '../../utils/rounding';
 
 // Función helper para formatear fechas
 const formatearFecha = (fecha) => {
@@ -463,20 +462,6 @@ function ResumenTotales({ productos, venta }) {
   
   const totalFinal = subtotalNeto + ivaTotal;
 
-  // ✅ Obtener monto exento de la venta si está disponible, o calcularlo si el cliente es exento
-  const esClienteExento = venta?.cliente_condicion?.toUpperCase() === 'EXENTO';
-  let montoExento = venta?.exento ? Number(venta.exento) : 0;
-  
-  // Si el cliente es exento pero no hay monto exento guardado, calcularlo
-  if (esClienteExento && montoExento === 0 && productos.length > 0) {
-    montoExento = productos.reduce((acc, prod) => {
-      const subtotal = Number(prod.subtotal) || 0;
-      const porcentajeIva = resolvePorcentajeIva(prod.porcentaje_iva);
-      const ivaQueDeberiaCobrarse = parseFloat((subtotal * (porcentajeIva / 100)).toFixed(2));
-      return acc + ivaQueDeberiaCobrarse;
-    }, 0);
-  }
-
   if (productos.length === 0) return null;
 
   return (
@@ -491,14 +476,6 @@ function ResumenTotales({ productos, venta }) {
           <span className="text-gray-700 font-medium">IVA TOTAL:</span>
           <span className="font-semibold text-red-600">{formatearMoneda(ivaTotal)}</span>
         </div>
-        
-        {/* ✅ Mostrar monto exento si el cliente es exento */}
-        {esClienteExento && (
-          <div className="flex justify-between items-center py-1 border-b border-gray-300 text-sm">
-            <span className="text-gray-700 font-medium italic">MONTO EXENTO (IVA no cobrado):</span>
-            <span className="font-semibold text-orange-600">{formatearMoneda(montoExento)}</span>
-          </div>
-        )}
         
         <div className="flex justify-between items-center py-2 bg-green-300 rounded-lg px-3 border-2 border-green-400">
           <span className="text-black font-bold">TOTAL FACTURADO:</span>

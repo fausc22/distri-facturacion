@@ -217,7 +217,6 @@ export function ModalFacturacionVentaDirecta({
   const [tipoFiscal, setTipoFiscal] = useState('A');
   const [subtotalSinIva, setSubtotalSinIva] = useState(0);
   const [ivaTotal, setIvaTotal] = useState(0);
-  const [montoExento, setMontoExento] = useState(0);  // ✅ Monto exento
   const [totalConIva, setTotalConIva] = useState(0);
   const [mostrarModalDescuentos, setMostrarModalDescuentos] = useState(false);
   const [descuentoAplicado, setDescuentoAplicado] = useState(null);
@@ -266,19 +265,8 @@ export function ModalFacturacionVentaDirecta({
         if (!preview.error) { subtotal = preview.subtotal; iva = preview.iva; total = preview.total; }
       }
       
-      // ✅ Calcular monto exento: si el cliente es exento, calcular el IVA que debería haberse cobrado
-      const esClienteExento = cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
-      const montoExento = esClienteExento 
-        ? productos.reduce((acc, prod) => {
-            // Calcular el IVA que debería haberse cobrado si no fuera exento
-            const ivaQueDeberiaCobrarse = parseFloat((prod.subtotal * (prod.porcentaje_iva / 100)).toFixed(2));
-            return acc + ivaQueDeberiaCobrarse;
-          }, 0)
-        : 0;
-
       setSubtotalSinIva(roundFacturacion(subtotal));
       setIvaTotal(roundFacturacion(iva));
-      setMontoExento(roundFacturacion(montoExento));
       setTotalConIva(roundFacturacion(total));
       setDescuentoAplicado(null);
       
@@ -315,7 +303,7 @@ export function ModalFacturacionVentaDirecta({
       tipoFiscal,
       subtotalSinIva,
       ivaTotal,
-      exento: montoExento,  // ✅ Monto exento
+      exento: 0,
       totalConIva: totalFinal,
       descuentoAplicado
     };
@@ -327,7 +315,6 @@ export function ModalFacturacionVentaDirecta({
     setTipoFiscal('A');
     setSubtotalSinIva(0);
     setIvaTotal(0);
-    setMontoExento(0);  // ✅ Limpiar monto exento
     setTotalConIva(0);
     setDescuentoAplicado(null);
   };
@@ -485,12 +472,6 @@ export function ModalFacturacionVentaDirecta({
                   <span>IVA:</span>
                   <span>${ivaTotal.toFixed(2)}</span>
                 </div>
-                {(montoExento > 0 || cliente?.condicion_iva?.toUpperCase() === 'EXENTO') && (
-                  <div className="flex justify-between text-blue-600">
-                    <span>Monto Exento (IVA no cobrado):</span>
-                    <span>${montoExento.toFixed(2)}</span>
-                  </div>
-                )}
                 <div className="flex justify-between">
                   <span>Total original:</span>
                   <span>${totalOriginal.toFixed(2)}</span>

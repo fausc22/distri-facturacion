@@ -1473,24 +1473,8 @@ export function ResumenTotales({ productos, pedido }) {
     return acc + montoDescuento;
   }, 0);
   
-  // ✅ Obtener monto exento del pedido si está disponible, o calcularlo si el cliente es exento
-  const esClienteExento = pedido?.cliente_condicion?.toUpperCase() === 'EXENTO';
-  let montoExentoRaw = pedido?.exento ? Number(pedido.exento) : 0;
-  
-  // Si el cliente es exento pero no hay monto exento guardado, calcularlo
-  if (esClienteExento && montoExentoRaw === 0 && productos.length > 0) {
-    montoExentoRaw = productos.reduce((acc, prod) => {
-      const subtotal = Number(prod.subtotal) || 0;
-      const porcentajeIva = resolvePorcentajeIva(prod.porcentaje_iva);
-      const ivaQueDeberiaCobrarse = parseFloat((subtotal * (porcentajeIva / 100)).toFixed(2));
-      return acc + ivaQueDeberiaCobrarse;
-    }, 0);
-  }
-
-  // ✅ Redondeo para facturación: ,01–,59 mantienen; ,60–,99 suben
   const subtotalNeto = roundFacturacion(subtotalNetoRaw);
   const ivaTotal = roundFacturacion(ivaTotalRaw);
-  const montoExento = roundFacturacion(montoExentoRaw);
   const totalDescuentos = roundFacturacion(totalDescuentosRaw);
   const totalFinal = roundFacturacion(subtotalNetoRaw + ivaTotalRaw);
 
@@ -1533,15 +1517,7 @@ export function ResumenTotales({ productos, pedido }) {
           <span className="text-gray-700 font-medium">IVA TOTAL:</span>
           <span className="font-semibold text-red-600">${ivaTotal.toFixed(2)}</span>
         </div>
-        
-        {/* ✅ Mostrar monto exento si el cliente es exento */}
-        {esClienteExento && (
-          <div className="flex justify-between items-center py-1 border-b border-gray-300 text-sm">
-            <span className="text-gray-700 font-medium italic">MONTO EXENTO (IVA no cobrado):</span>
-            <span className="font-semibold text-orange-600">${montoExento.toFixed(2)}</span>
-          </div>
-        )}
-        
+         
         <div className="flex justify-between items-center py-2 bg-yellow-300 rounded-lg px-3 border-2 border-yellow-400">
           <span className="text-black font-bold">TOTAL FINAL:</span>
           <span className="text-black text-lg font-bold">${totalFinal.toFixed(2)}</span>

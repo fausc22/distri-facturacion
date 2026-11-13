@@ -79,10 +79,6 @@ export function useNotas() {
       subtotal = vista.subtotal; totalIva = vista.iva; total = vista.total;
     }
     
-    // Calcular monto exento fiscal (no afecta el precio final comercial)
-    const esClienteExento = cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
-    const montoExento = esClienteExento ? totalIva : 0;
-
     const intencionKey = `nota_${tipoNota}`;
     if (!operacionIdRef.current) {
       operacionIdRef.current = obtenerOperacionId(intencionKey);
@@ -104,7 +100,7 @@ export function useNotas() {
       tipoFiscal: datosNota.tipoFiscal || 'B',
       subtotalSinIva: subtotal.toFixed(2),
       ivaTotal: totalIva.toFixed(2),
-      exento: montoExento > 0 ? montoExento.toFixed(2) : '0.00',
+      exento: '0.00',
       totalConIva: total.toFixed(2),
       observaciones: observaciones || 'sin observaciones',
       empleado_id: empleado.id,

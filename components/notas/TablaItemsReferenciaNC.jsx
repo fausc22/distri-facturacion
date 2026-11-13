@@ -62,7 +62,7 @@ export function TablaItemsReferenciaNC({
   onCantidadAAnularChange,
   onAnularTodo,
   onLimpiar,
-  esClienteExento = false
+  esClienteExento: _esClienteExento = false
 }) {
   const { lineasConTotales, subtotalNC, totalIvaNC, totalNC } = useMemo(() => {
     let st = 0;
@@ -96,7 +96,7 @@ export function TablaItemsReferenciaNC({
       totalIvaNC: roundFacturacion(iva),
       totalNC: total
     };
-  }, [items, cantidadAAnular, esClienteExento]);
+  }, [items, cantidadAAnular]);
 
   const hayAlgunConCantidad = lineasConTotales.some((l) => (l.cantAAnular ?? 0) > 0);
 
@@ -165,9 +165,7 @@ export function TablaItemsReferenciaNC({
         <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
           <div className="flex flex-wrap gap-4 justify-end text-sm">
             <span className="text-gray-600">Subtotal NC: <strong className="text-gray-800">{formatearMoneda(subtotalNC)}</strong></span>
-            {!esClienteExento && (
-              <span className="text-gray-600">IVA: <strong className="text-gray-800">{formatearMoneda(totalIvaNC)}</strong></span>
-            )}
+            <span className="text-gray-600">IVA: <strong className="text-gray-800">{formatearMoneda(totalIvaNC)}</strong></span>
             <span className="text-gray-800 font-semibold">Total NC: {formatearMoneda(totalNC)}</span>
           </div>
         </div>

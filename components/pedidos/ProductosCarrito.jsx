@@ -397,29 +397,6 @@ export default function ProductosCarrito({ mostrarResumen = true }) {
                 <span className="text-gray-600">IVA Total:</span>
                 <span className="font-medium">{formatearMoneda(totalIva)}</span>
               </div>
-              {/* ✅ Mostrar monto exento si el cliente es exento */}
-              {(() => {
-                const esClienteExento = cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
-                if (!esClienteExento) return null;
-                
-                const montoExento = productos.reduce((acc, prod) => {
-                  const porcentajeIva = resolvePorcentajeIva(prod.porcentaje_iva);
-                  const ivaQueDeberiaCobrarse = parseFloat((prod.subtotal * (porcentajeIva / 100)).toFixed(2));
-                  return acc + ivaQueDeberiaCobrarse;
-                }, 0);
-                
-                if (montoExento > 0) {
-                  return (
-                    <div className="flex justify-between items-center bg-blue-50 p-2 rounded border border-blue-200 mt-1">
-                      <span className="text-blue-700 font-medium">Monto Exento (IVA no cobrado):</span>
-                      <span className="font-bold text-blue-600">
-                        {formatearMoneda(montoExento)}
-                      </span>
-                    </div>
-                  );
-                }
-                return null;
-              })()}
               <hr className="my-2" />
               <div className="flex justify-between items-center text-lg">
                 <span className="font-semibold">Total final a cobrar (con IVA):</span>

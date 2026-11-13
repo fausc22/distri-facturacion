@@ -4,7 +4,7 @@ import { toast } from 'react-hot-toast';
 import { axiosAuth } from '../../utils/apiClient';
 import ModalBase from '../common/ModalBase';
 import { Z_INDEX } from '../../constants/zIndex';
-import { roundFacturacion, resolvePorcentajeIva } from '../../utils/rounding';
+import { roundFacturacion } from '../../utils/rounding';
 
 export function ModalFacturacionNota({ 
   mostrar, 
@@ -17,7 +17,6 @@ export function ModalFacturacionNota({
   const [tipoFiscal, setTipoFiscal] = useState('A');
   const [subtotalSinIva, setSubtotalSinIva] = useState(0);
   const [ivaTotal, setIvaTotal] = useState(0);
-  const [montoExento, setMontoExento] = useState(0);
   const [totalConIva, setTotalConIva] = useState(0);
   const [cuentas, setCuentas] = useState([]);
   const [cargandoCuentas, setCargandoCuentas] = useState(false);
@@ -76,20 +75,9 @@ export function ModalFacturacionNota({
       const subtotal = productos.reduce((acc, prod) => acc + (Number(prod.subtotal) || 0), 0);
       const iva = productos.reduce((acc, prod) => acc + (Number(prod.iva_calculado) || 0), 0);
       const total = subtotal + iva;
-      
-      // Calcular monto exento
-      const esClienteExento = cliente?.condicion_iva?.toUpperCase() === 'EXENTO';
-      const montoExento = esClienteExento 
-        ? productos.reduce((acc, prod) => {
-            const porcentajeIva = resolvePorcentajeIva(prod.porcentaje_iva);
-            const ivaQueDeberiaCobrarse = parseFloat((prod.subtotal * (porcentajeIva / 100)).toFixed(2));
-            return acc + ivaQueDeberiaCobrarse;
-          }, 0)
-        : 0;
 
       setSubtotalSinIva(roundFacturacion(subtotal));
       setIvaTotal(roundFacturacion(iva));
-      setMontoExento(roundFacturacion(montoExento));
       setTotalConIva(roundFacturacion(total));
       
       setTimeout(() => {
@@ -108,7 +96,7 @@ export function ModalFacturacionNota({
       tipoFiscal,
       subtotalSinIva,
       ivaTotal,
-      exento: montoExento,
+      exento: 0,
       totalConIva: totalConIva
     };
 
@@ -119,7 +107,6 @@ export function ModalFacturacionNota({
     setTipoFiscal('A');
     setSubtotalSinIva(0);
     setIvaTotal(0);
-    setMontoExento(0);
     setTotalConIva(0);
   };
 
@@ -219,18 +206,10 @@ export function ModalFacturacionNota({
                 <span>Subtotal:</span>
                 <span>${subtotalSinIva.toFixed(2)}</span>
               </div>
-              {tipoFiscal !== 'B' && (
-                <div className="flex justify-between">
-                  <span>IVA:</span>
-                  <span>${ivaTotal.toFixed(2)}</span>
-                </div>
-              )}
-              {(montoExento > 0 || cliente?.condicion_iva?.toUpperCase() === 'EXENTO') && (
-                <div className="flex justify-between text-blue-600">
-                  <span>Monto Exento (IVA no cobrado):</span>
-                  <span>${montoExento.toFixed(2)}</span>
-                </div>
-              )}
+              <div className="flex justify-between">
+                <span>IVA:</span>
+                <span>${ivaTotal.toFixed(2)}</span>
+              </div>
               <div className="flex justify-between font-bold text-lg border-t pt-1">
                 <span>Total Final:</span>
                 <span className="text-green-600">${totalConIva.toFixed(2)}</span>
